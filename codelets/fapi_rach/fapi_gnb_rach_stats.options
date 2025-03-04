@@ -1,0 +1,2 @@
+rach_stats.l1_rach_ta_hist    max_count:64
+rach_stats.l1_rach_pwr_hist   max_count:32
