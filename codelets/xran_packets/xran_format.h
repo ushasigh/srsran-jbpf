@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT license.
+
 #ifndef XRAN_FORMAT_H_
 #define XRAN_FORMAT_H_
 

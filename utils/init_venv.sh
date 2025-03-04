@@ -1,5 +1,8 @@
 #!/bin/bash
-## Copyright (c) Microsoft Corporation. All rights reserved.
+
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT license.
+
 # shellcheck disable=SC1091
 
 deactivate

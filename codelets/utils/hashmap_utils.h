@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT license.
+
 #ifndef HASHMAP_UTILS_H
 #define HASHMAP_UTILS_H
 

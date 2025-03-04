@@ -1,5 +1,7 @@
-syntax = "proto2";
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT license.
 
+syntax = "proto2";
 
 message packet_inter_arrival_info_item {
     repeated uint32 hist = 1;

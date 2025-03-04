@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT license.
+
 /*
 *
 * This codelet is used to collect data related to XRAN messages.
