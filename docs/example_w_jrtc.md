@@ -55,7 +55,7 @@ In each of these, you need to set the following environment variables:
 ```sh
 export JRTC_PATH=~/jrt-controller/
 export SRSRAN_DIR=~/srsRAN_Project/
-export SRSRANAPP_DIR=~/srsRAN_apps/
+export SRSRANAPP_DIR=~/jrtc-apps/
 source $SRSRANAPP_DIR/set_vars.sh
 ```
 The example uses sample path values. 
