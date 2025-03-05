@@ -1,0 +1,3 @@
+[submodule "jbpf_protobuf"]
+	path = jbpf_protobuf
+	url = https://github.com/microsoft/jbpf-protobuf

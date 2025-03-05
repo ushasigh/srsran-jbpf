@@ -1,33 +1,43 @@
-# Project
+# Introduction
 
-> This repo has been populated by an initial template to help get you started. Please
-> make sure to update the content to build a great experience for community-building.
+This project provides a number of sample applications for instrumenting srsRAN through 
+[jbpf](https://github.com/microsoft/jbpf) and [jrt-controller](https://github.com/microsoft/jrt-controller) frameworks.
 
-As the maintainer of this project, please make a few updates:
 
-- Improving this README.MD file to provide a great experience
-- Updating SUPPORT.MD with content about this project's support experience
-- Understanding the security reporting process in SECURITY.MD
-- Remove this section from the README
 
-## Contributing
+# Getting started
 
-This project welcomes contributions and suggestions.  Most contributions require you to agree to a
-Contributor License Agreement (CLA) declaring that you have the right to, and actually do, grant us
-the rights to use your contribution. For details, visit https://cla.opensource.microsoft.com.
+## Set up the environment
 
-When you submit a pull request, a CLA bot will automatically determine whether you need to provide
-a CLA and decorate the PR appropriately (e.g., status check, comment). Simply follow the instructions
-provided by the bot. You will only need to do this once across all repos using our CLA.
+You need to use and build a version of srsRAN_platform with jbpf enabled. 
+Please follow the instructions from the [repo](https://github.com/xfoukas/srsRAN_Project_jbpf). 
 
-This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/).
-For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or
-contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
+Start by initializing the submodules:
+```sh
+./init_submodules.sh
+```
+Then go to the folder `jbpf-protobuf` and build the submodule using the instructions in the [repo](https://github.com/microsoft/jbpf-protobuf). 
+You should do this only once after cloning the repo.
 
-## Trademarks
 
-This project may contain trademarks or logos for projects, products, or services. Authorized use of Microsoft 
-trademarks or logos is subject to and must follow 
-[Microsoft's Trademark & Brand Guidelines](https://www.microsoft.com/en-us/legal/intellectualproperty/trademarks/usage/general).
-Use of Microsoft trademarks or logos in modified versions of this project must not cause confusion or imply Microsoft sponsorship.
-Any use of third-party trademarks or logos are subject to those third-party's policies.
+Then set up the environment variables:
+```sh
+export SRSRAN_DIR=<path_to_your_srsRAN_with_jbpf>
+source set_vars.sh
+```
+You should do this in every terminal window where you run the commands. 
+
+
+
+## Run the examples
+
+We provide two example. 
+* The [first example](./docs/example_no_jrtc.md) does not use *jrt-controller* and only streams data collected by *jbpf* to a local decoder that prints it on a screen. 
+* The [second example](./docs/example_w_jrtc.md) shows how to use both *jbpf* and *jrt-controller*. 
+
+
+
+# License
+
+This framework is licensed under the [MIT license](LICENSE.md).
+
