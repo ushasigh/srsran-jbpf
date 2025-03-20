@@ -11,9 +11,8 @@ decoder:
       
 app:
   - name: app1
-    app: ${JRTC_PATH}/out/lib/libjrtc_pythonapp_loader.so
-    app_params:
-      - ${JRTC_APPS}/xran_packets/xran_packets
+    path: ${JRTC_APPS}/xran_packets/xran_packets.py
+    type: python
     port: 3001
 
 jbpf:
