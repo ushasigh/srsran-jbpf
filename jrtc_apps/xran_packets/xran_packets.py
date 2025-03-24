@@ -15,18 +15,9 @@ sys.path.append(f"{JRTC_APP_PATH}")
 import jrtc_app
 from jrtc_app import *
 
-JRTC_PATH = f'{os.environ.get("JRTC_PATH")}'
-if JRTC_PATH is None:
-    raise ValueError("JRTC_PATH not set")
-
-
-JBPF_CODELETS = os.environ.get("JBPF_CODELETS")
-if JBPF_CODELETS is None:
-    raise ValueError("JBPF_CODELETS not set")
-PROTO_PATH = f'{JBPF_CODELETS}/xran_packets'
-sys.path.append(PROTO_PATH)
+# Import the xran_packet_info module
+xran_packet_info = sys.modules.get('xran_packet_info')
 from xran_packet_info import struct__packet_stats
-
 
 
 ##########################################################################
