@@ -7,7 +7,7 @@ ARG LIB=dpdk
 ARG LIB_VERSION=23.11
 
 ARG BASE_IMAGE_TAG=latest
-FROM ghcr.io/microsoft/jrtc-apps/srs:${BASE_IMAGE_TAG}
+FROM ghcr.io/microsoft/jrtc-apps/base/srs:${BASE_IMAGE_TAG}
 
 ADD srsRAN_Project /src 
 

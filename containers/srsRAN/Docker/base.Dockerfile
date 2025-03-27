@@ -10,7 +10,6 @@ RUN tdnf makecache
 
 
 RUN tdnf install -y libdwarf
-#RUN tdnf install -y fftw3f
 RUN tdnf install -y fftw
 RUN tdnf install -y fftw-devel
 RUN tdnf install -y gtest
@@ -36,6 +35,10 @@ RUN tdnf install -y rdma-core rdma-core-devel libxdp libbpf libxdp-devel libbpf-
 RUN tdnf install -y nano jq procps-ng
 
 # Init submodules: git submodule update --init --recursive
+# Note: There were some issues with cmake so we just build with make. 
+# However, later commits changed the default options and broke the build. 
+# We are now locked to a specific commit to avoid this issue.
+# In future, we should update to use CMake to configure accordingly. 
 ADD mbedtls /opt/mbedtls
 
 WORKDIR /opt/mbedtls
