@@ -1,3 +1,9 @@
 [submodule "jbpf_protobuf"]
 	path = jbpf_protobuf
 	url = https://github.com/microsoft/jbpf-protobuf
+[submodule "Docker/mbedtls"]
+	path = Docker/mbedtls
+	url = https://github.com/Mbed-TLS/mbedtls.git
+[submodule "Docker/srsRAN_Project"]
+	path = Docker/srsRAN_Project
+	url = https://github.com/xfoukas/srsRAN_Project_jbpf.git
