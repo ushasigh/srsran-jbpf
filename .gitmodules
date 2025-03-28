@@ -2,8 +2,8 @@
 	path = jbpf_protobuf
 	url = https://github.com/microsoft/jbpf-protobuf
 [submodule "containers/srsRAN/Docker/mbedtls"]
-	path = containers/srsRAN/Docker/mbedtls
+	path = containers/Docker/mbedtls
 	url = https://github.com/Mbed-TLS/mbedtls.git
 [submodule "containers/srsRAN/Docker/srsRAN_Project"]
-	path = containers/srsRAN/Docker/srsRAN_Project
+	path = containers/Docker/srsRAN_Project
 	url = https://github.com/xfoukas/srsRAN_Project_jbpf.git
