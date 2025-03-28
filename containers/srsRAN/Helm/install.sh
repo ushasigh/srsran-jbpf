@@ -67,14 +67,16 @@ fi
 
 
 EXTRA_VALUES=""
+EXTRA_VALUES_SUMMARY=""
 for values_file in $VALUES_FILES; do
     if [ ! -f "$values_file" ]; then
         echo "Values file does not exist: $values_file"
         exit 1
     fi
     EXTRA_VALUES="$EXTRA_VALUES -f $values_file"
+    EXTRA_VALUES_SUMMARY="$EXTRA_VALUES_SUMMARY $values_file"
 done
-
+echo "Extra values files: $EXTRA_VALUES_SUMMARY"
 
 
 
@@ -85,14 +87,11 @@ if [ ! -z "$DEBUG" ]; then
 fi
 
 # Add codelets mount point
-
-if [ ! -z "$JBPF_OPTIONS" ]; then
-    JBPF_OPTIONS=" --set-string  jbpf.codelets_vol_mount=$JBPF_CODELETS "
-    echo "Codelet mount point: ${JBPF_CODELETS}"
-else
-    JBPF_OPTIONS=" --set-string  jbpf.codelets_vol_mount=$CURRENT_DIR "
-    echo "Codelet mount point: ${CURRENT_DIR}"
+if [ -z "$JBPF_CODELETS" ]; then
+    JBPF_CODELETS="${CURRENT_DIR}../../../codelets/"
 fi
+JBPF_OPTIONS=" --set-string  jbpf.codelets_vol_mount=$JBPF_CODELETS "
+echo "Codelet mount point: ${JBPF_CODELETS}"
 
 
 kubectl create namespace ran || true
