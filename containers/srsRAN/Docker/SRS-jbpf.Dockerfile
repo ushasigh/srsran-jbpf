@@ -2,31 +2,31 @@
 # docker build -t ghcr.io/microsoft/jrtc-apps/srs-jbpf:latest -f SRS-jbpf.Dockerfile .
 # docker push ghcr.io/microsoft/jrtc-apps/srs-jbpf:latest
 
-ARG IMAGE_TAG=latest
 
-FROM ghcr.io/microsoft/jrtc-apps/srs:${IMAGE_TAG} AS srsran
+ARG LIB=dpdk
+ARG LIB_VERSION=23.11
 
-FROM mcr.microsoft.com/azurelinux/base/core:3.0
+ARG BASE_IMAGE_TAG=latest
+FROM ghcr.io/microsoft/jrtc-apps/base/srs:${BASE_IMAGE_TAG}
 
-RUN echo "*** Installing packages"
-RUN tdnf -y install yaml-cpp-static boost-devel clang
+ADD srsRAN_Project /src 
 
-COPY --from=srsran /src/out /src/out
-COPY --from=srsran /src/include /src/include
-COPY --from=srsran /src/external /src/external
-COPY --from=srsran /usr/lib /usr/lib
-COPY --from=srsran /usr/local/lib /usr/local/lib
+ENV PKG_CONFIG_PATH=/opt/dpdk-23.11/build/meson-private:/usr/lib/pkgconfig:/usr/local/lib/pkgconfig:/usr/local/lib64/pkgconfig:$PKG_CONFIG_PATH
 
-RUN rm -f /usr/local/lib/librte*
+# extra modules required when ENABLE_JBPF=ON
+RUN tdnf -y install yaml-cpp-static boost-devel clang doxygen
 
-ENV LD_LIBRARY_PATH=/usr/local/lib/:/usr/lib
+WORKDIR /src
+RUN mkdir build
+WORKDIR /src/build
+RUN cmake .. -DENABLE_DPDK=True -DENABLE_JBPF=ON -DINITIALIZE_SUBMODULES=OFF
+RUN make -j
+RUN make install
 
-ENV JBPF_OUT_DIR=/src/out
-ENV SRSRAN_INC_DIR=/src/include
-ENV SRSRAN_EXTERNAL_DIR=/src/external
-ENV CPP_INC=/usr/include/c++/13.2.0
-ENV VERIFIER_BIN=/src/out/bin/srsran_verifier_cli
+ADD Scripts /opt/Scripts
+WORKDIR /opt/Scripts
+RUN pip3 install -r requirements.txt
 
-WORKDIR /out
+ENTRYPOINT [ "run.sh" ]
 
-ENTRYPOINT ["/bin/bash"]
+
