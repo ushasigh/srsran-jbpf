@@ -8,6 +8,11 @@ FROM ghcr.io/microsoft/jrtc-apps/srs-jbpf:${IMAGE_TAG} AS srsran
 
 FROM mcr.microsoft.com/azurelinux/base/core:3.0
 
+LABEL org.opencontainers.image.source="https://github.com/microsoft/jrtc-apps"
+LABEL org.opencontainers.image.authors="Microsoft Corporation"
+LABEL org.opencontainers.image.licenses="MIT"
+LABEL org.opencontainers.image.description="SDK for SRSRAN with JBPF"
+
 RUN echo "*** Installing packages"
 RUN tdnf -y install yaml-cpp-static boost-devel clang
 

@@ -4,7 +4,7 @@
 
 image:
   srs_jbpf: ghcr.io/microsoft/jrtc-apps/srs-jbpf:latest
-  srs_jbpf_proxy: ghcr.io/microsoft/jrtc-apps/srs-jbpf-proxy:latest
+  srs_jbpf_proxy: ghcr.io/microsoft/jrtc-apps/srs-jbpf-sdk:latest
   pullPolicy: Always
 
 

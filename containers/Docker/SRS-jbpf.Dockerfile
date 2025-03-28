@@ -9,6 +9,11 @@ ARG LIB_VERSION=23.11
 ARG BASE_IMAGE_TAG=latest
 FROM ghcr.io/microsoft/jrtc-apps/base/srs:${BASE_IMAGE_TAG}
 
+LABEL org.opencontainers.image.source="https://github.com/microsoft/jrtc-apps"
+LABEL org.opencontainers.image.authors="Microsoft Corporation"
+LABEL org.opencontainers.image.licenses="MIT"
+LABEL org.opencontainers.image.description="SRSRAN with JBPF support"
+
 ADD srsRAN_Project /src 
 
 ENV PKG_CONFIG_PATH=/opt/dpdk-23.11/build/meson-private:/usr/lib/pkgconfig:/usr/local/lib/pkgconfig:/usr/local/lib64/pkgconfig:$PKG_CONFIG_PATH

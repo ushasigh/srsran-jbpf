@@ -12,6 +12,6 @@ popd > /dev/null
 
 # patch jbpf
 pushd . > /dev/null
-cd containers/srsRAN/Docker/srsRAN_Project/external/jbpf
+cd containers/Docker/srsRAN_Project/external/jbpf
 ./init_and_patch_submodules.sh
 popd > /dev/null

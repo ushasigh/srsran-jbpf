@@ -27,6 +27,6 @@ echo IMAGE_TAG $IMAGE_TAG
 
 docker build \
     --build-arg IMAGE_TAG=${IMAGE_TAG} \
-    -t ghcr.io/microsoft/jrtc-apps/srs-jbpf-proxy:${IMAGE_TAG} -f SRS-jbpf-proxy.Dockerfile .
+    -t ghcr.io/microsoft/jrtc-apps/srs-jbpf-sdk:${IMAGE_TAG} -f SRS-jbpf-sdk.Dockerfile .
 
 exit 0
