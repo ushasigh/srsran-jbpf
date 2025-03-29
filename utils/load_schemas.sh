@@ -3,7 +3,7 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
 
-SRSRAN_IMAGE_TAG=latest
+SDK_IMAGE_TAG=latest
 CURRENT_DIR=$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )
 source $CURRENT_DIR/../set_vars.sh
 
@@ -54,7 +54,7 @@ if [ "$SRS_JBPF_DOCKER" -eq 1 ]; then
         -v $JBPF_CODELETS:/codelets \
         -e "JBPF_CODELETS=/codelets" \
         --entrypoint /usr/local/bin/jbpf_protobuf_cli \
-        ghcr.io/microsoft/jrtc-apps/srs-jbpf-sdk:$SRSRAN_IMAGE_TAG \
+        ghcr.io/microsoft/jrtc-apps/srs-jbpf-sdk:$SDK_IMAGE_TAG \
         decoder load -c $tmp_yaml_short
 
     rm -f $tmp_yaml

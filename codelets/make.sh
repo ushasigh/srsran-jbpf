@@ -3,6 +3,7 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
 
+SDK_IMAGE_TAG=latest
 CURRENT_DIR=$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )
 source $(dirname $CURRENT_DIR)/set_vars.sh
 
@@ -62,9 +63,18 @@ echo $codelet_folder_list
 for folder in "${codelet_folder_list[@]}"; do
     echo "Building $folder"
 
-	DIRECTORY=$(pwd)
-
-	make -C $DIRECTORY/$folder $OPTIONS 
+	if [ "$SRS_JBPF_DOCKER" -eq 1 ]; then
+		DIRECTORY="/codelet"
+		$DOCKER_CMD run --rm \
+			-v $CURRENT_DIR:/codelet \
+			--entrypoint /usr/bin/make \
+			--env "USE_JRTC=$USE_JRTC" \
+			ghcr.io/microsoft/jrtc-apps/srs-jbpf-sdk:$SDK_IMAGE_TAG \
+			-C $DIRECTORY/$folder $OPTIONS 
+	else
+		DIRECTORY=$(pwd)
+		make -C $DIRECTORY/$folder $OPTIONS 
+	fi
 
 done
 
