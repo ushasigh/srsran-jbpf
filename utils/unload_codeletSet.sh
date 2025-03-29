@@ -49,7 +49,7 @@ if [ ! -e "$codeletSet_yaml" ]; then
 fi
 
 
-if [ -n "$SRS_JBPF_DOCKER" ]; then
+if [ "$SRS_JBPF_DOCKER" -eq 1 ]; then
     echo "Loading codeletSet yaml file: $codeletSet_yaml"
 
     # install yq

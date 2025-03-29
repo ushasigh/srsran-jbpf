@@ -43,7 +43,7 @@ if [ ! -e "$codeletSet_yaml" ]; then
 fi
 
 echo "Loading schemas from codeletSet yaml file: $codeletSet_yaml"
-if [ -n "$SRS_JBPF_DOCKER" ]; then
+if [ "$SRS_JBPF_DOCKER" -eq 1 ]; then
     yaml_file_path=$(dirname "$codeletSet_yaml")
     tmp_yaml=$yaml_file_path/tmp.yaml 
     $CURRENT_DIR/add_stream_ids.sh $codeletSet_yaml $tmp_yaml

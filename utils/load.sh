@@ -49,7 +49,7 @@ fi
 
 # generate stream Ids to tmp file and load that
 
-if [ -n "$SRS_JBPF_DOCKER" ]; then
+if [ "$SRS_JBPF_DOCKER" -eq 1 ]; then
     # Load into a container through reverse proxy
     echo "Loading codeletSet yaml file: $codeletSet_yaml using reverse proxy"
     ./load_schemas.sh -c $codeletSet_yaml

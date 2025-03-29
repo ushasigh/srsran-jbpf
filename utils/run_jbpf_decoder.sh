@@ -6,7 +6,7 @@
 CURRENT_DIR=$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )
 source $CURRENT_DIR/../set_vars.sh
 
-if [ -z "$SRS_JBPF_DOCKER" ]; then
+if [ "$SRS_JBPF_DOCKER" -ne 1 ]; then
     $JBPF_PROTOBUF_CLI_BIN decoder run # --log-level trace
 else
     # Run the decoder in a container
