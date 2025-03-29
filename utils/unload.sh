@@ -47,21 +47,35 @@ if [ ! -e "$codeletSet_yaml" ]; then
     exit 1
 fi
 
-# generate stream Ids to tmp file and load that
 
-echo "Unloading codeletSet yaml file: $codeletSet_yaml, LCM address: $lcm_addr"
+if [ -n "$SRS_JBPF_DOCKER" ]; then
+    # Unload into a container through reverse proxy
+    echo "Unloading codeletSet yaml file: $codeletSet_yaml using reverse proxy"
+    ./unload_codeletSet.sh -c $codeletSet_yaml
+    ret=$?
+    ./unload_schemas.sh -c $codeletSet_yaml
+else
+    # Unload from bare metal using local socket
+    echo "Unloading codeletSet yaml file: $codeletSet_yaml using local socket, LCM address: $lcm_addr"
 
-tmp_yaml=$CURRENT_DIR/tmp.yaml 
+    # generate stream Ids to tmp file and load that
+    tmp_yaml=$CURRENT_DIR/tmp.yaml 
+    $CURRENT_DIR/add_stream_ids.sh $codeletSet_yaml $CURRENT_DIR/tmp.yaml
 
-$CURRENT_DIR/add_stream_ids.sh $codeletSet_yaml $CURRENT_DIR/tmp.yaml
+    # unload codeletSet
+    ./unload_codeletSet.sh -c $tmp_yaml -a $lcm_addr
+    ret=$?
 
-# load codeletSet
-./unload_codeletSet.sh -c $tmp_yaml -a $lcm_addr
-ret=$?
+    # unload the schemas
+    ./unload_schemas.sh -c $tmp_yaml
 
-# load the schemas
-./unload_schemas.sh -c $tmp_yaml
+    rm -f $tmp_yaml
+fi
 
-rm -f $tmp_yaml
+if [ "$ret" -eq 0 ]; then
+    echo "CodeletSet and schemas unloaded successfully."
+else
+    echo "Error: CodeletSet and schemas unloading failed."
+fi
 
 exit $ret

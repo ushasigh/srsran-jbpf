@@ -17,8 +17,14 @@ done
 unset JRTC_APPS
 unset JRTC_CTL_BIN
 
-if [ $USE_JRTC -eq 1 ]; then
+source $SRSRAN_APPS_DIR/.env
 
+if [ -f "$SRSRAN_APPS_DIR/.env.local" ]; then
+    source $SRSRAN_APPS_DIR/.env.local
+fi
+
+
+if [ "${USE_JRTC}" == "1" ]; then
     required_env_vars="JRTC_PATH"
     for env_var in $required_env_vars; do
         if [[ -z ${!env_var} ]]; then
@@ -51,11 +57,6 @@ export JBPF_LCM_CLI_BIN=$JBPF_OUT_DIR/bin/jbpf_lcm_cli
 export JBPF_CODELETS=$SRSRAN_APPS_DIR/codelets
 export JBPF_PROTOBUF_CLI_BIN=$JBPFP_PATH/out/bin/jbpf_protobuf_cli
 
-source $SRSRAN_APPS_DIR/.env
-
-if [ -f "$SRSRAN_APPS_DIR/.env.local" ]; then
-    source $SRSRAN_APPS_DIR/.env.local
-fi
 
 # check various binary files exist
 if [ ! -f "$JBPF_LCM_CLI_BIN" ]; then

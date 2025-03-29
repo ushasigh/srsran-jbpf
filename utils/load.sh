@@ -49,19 +49,32 @@ fi
 
 # generate stream Ids to tmp file and load that
 
-echo "Loading codeletSet yaml file: $codeletSet_yaml, LCM address: $lcm_addr"
+if [ -n "$SRS_JBPF_DOCKER" ]; then
+    # Load into a container through reverse proxy
+    echo "Loading codeletSet yaml file: $codeletSet_yaml using reverse proxy"
+    ./load_schemas.sh -c $codeletSet_yaml
+    ./load_codeletSet.sh -c $codeletSet_yaml
+    ret=$?
+else
+    # Load from bare metal using local socket
+    echo "Loading codeletSet yaml file: $codeletSet_yaml using local socket, LCM address: $lcm_addr"
+    tmp_yaml=$CURRENT_DIR/tmp.yaml 
+    $CURRENT_DIR/add_stream_ids.sh $codeletSet_yaml $CURRENT_DIR/tmp.yaml
 
-tmp_yaml=$CURRENT_DIR/tmp.yaml 
+    # load the schemas
+    ./load_schemas.sh -c $tmp_yaml
 
-$CURRENT_DIR/add_stream_ids.sh $codeletSet_yaml $CURRENT_DIR/tmp.yaml
+    # load codeletSet
+    ./load_codeletSet.sh -c $tmp_yaml -a $lcm_addr
+    ret=$?
 
-# load the schemas
-./load_schemas.sh -c $tmp_yaml
+    rm -f $tmp_yaml
+fi
 
-# load codeletSet
-./load_codeletSet.sh -c $tmp_yaml -a $lcm_addr
-ret=$?
-
-rm -f $tmp_yaml
+if [ "$ret" -eq 0 ]; then
+    echo "CodeletSet and schemas loaded successfully."
+else
+    echo "Error: CodeletSet and schemas loading failed."
+fi
 
 exit $ret

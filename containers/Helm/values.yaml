@@ -121,7 +121,7 @@ jbpf:
     jbpf_run_path: "/tmp"
     jbpf_namespace: "jbpf"
     jbpf_enable_ipc: 0
-    jbpf_standalone_io_out_ip: "analytics-server-protobuf.analytics.svc.cluster.local"
+    jbpf_standalone_io_out_ip: "PUT_JBPF_DECODER_IP_HERE"
     jbpf_standalone_io_out_port: 20788
     jbpf_standalone_io_in_port: 30400
     jbpf_standalone_io_policy: 0

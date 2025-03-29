@@ -3,6 +3,7 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
 
+REVERSE_PROXY_PORT=30450
 CURRENT_DIR=$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )
 source $CURRENT_DIR/../set_vars.sh
 
@@ -47,8 +48,33 @@ if [ ! -e "$codeletSet_yaml" ]; then
     exit 1
 fi
 
-echo "Loading codeletSet yaml file: $codeletSet_yaml, LCM address: $lcm_addr"
 
-$JBPF_LCM_CLI_BIN -a $lcm_addr -l -c $codeletSet_yaml
+if [ -n "$SRS_JBPF_DOCKER" ]; then
+    echo "Loading codeletSet yaml file: $codeletSet_yaml using reverse proxy"
+    $CURRENT_DIR/add_stream_ids.sh $codeletSet_yaml tmp.yaml
+
+    # install yq
+    # sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/local/bin/yq
+    # sudo chmod a+x /usr/local/bin/yq
+    yq '.' tmp.yaml -o json > tmp.json
+
+    # download to reverse-proxy
+    echo "Sending CURL for $codeletSet_yaml..."
+    curl -X POST -H "Content-Type: application/json" \
+        http://localhost:$REVERSE_PROXY_PORT \
+        --data @"$CURRENT_DIR/tmp.json"
+    ret=$?
+    if [ "$ret" -ne 0 ]; then
+        echo "ERROR: CURL response received: $ret"
+    fi
+
+    rm -f tmp.yaml
+    rm -f tmp.json
+
+    exit $ret
+else
+    echo "Loading codeletSet yaml file: $codeletSet_yaml using local socket, LCM address: $lcm_addr"
+    $JBPF_LCM_CLI_BIN -a $lcm_addr -l -c $codeletSet_yaml
+fi
 
 exit 0

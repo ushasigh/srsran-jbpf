@@ -3,6 +3,7 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
 
+REVERSE_PROXY_PORT=30450
 CURRENT_DIR=$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )
 source $CURRENT_DIR/../set_vars.sh
 
@@ -47,8 +48,33 @@ if [ ! -e "$codeletSet_yaml" ]; then
     exit 1
 fi
 
-echo "Unloading codeletSet yaml file: $codeletSet_yaml, LCM address: $lcm_addr"
 
-$JBPF_LCM_CLI_BIN -a $lcm_addr -u -c $codeletSet_yaml
+if [ -n "$SRS_JBPF_DOCKER" ]; then
+    echo "Loading codeletSet yaml file: $codeletSet_yaml"
+
+    # install yq
+    # sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/local/bin/yq
+    # sudo chmod a+x /usr/local/bin/yq
+
+    # Extract the codeletset_id value
+    codeletSetId=$(yq '.codeletset_id' "$codeletSet_yaml")
+    if [[ -z "$codeletSetId" ]]; then
+        echo "codeletset_id not found in $codeletSet_yaml."
+        exit 1
+    fi
+
+    # unload the codeletSet
+    echo "Sending CURL DELETE for $codeletSetId .. "
+    curl --request DELETE http://localhost:$REVERSE_PROXY_PORT/$codeletSetId
+    ret=$?
+    if [ "$ret" -ne 0 ]; then
+        echo "ERROR: CURL response received: $ret"
+    fi
+
+    exit $ret
+else
+    echo "Loading codeletSet yaml file: $codeletSet_yaml using local socket, LCM address: $lcm_addr"
+    $JBPF_LCM_CLI_BIN -a $lcm_addr -u -c $codeletSet_yaml
+fi
 
 exit 0

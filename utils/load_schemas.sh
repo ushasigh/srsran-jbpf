@@ -3,6 +3,7 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
 
+SRSRAN_IMAGE_TAG=latest
 CURRENT_DIR=$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )
 source $CURRENT_DIR/../set_vars.sh
 
@@ -41,9 +42,24 @@ if [ ! -e "$codeletSet_yaml" ]; then
     exit 1
 fi
 
-
 echo "Loading schemas from codeletSet yaml file: $codeletSet_yaml"
+if [ -n "$SRS_JBPF_DOCKER" ]; then
+    yaml_file_path=$(dirname "$codeletSet_yaml")
+    tmp_yaml=$yaml_file_path/tmp.yaml 
+    $CURRENT_DIR/add_stream_ids.sh $codeletSet_yaml $tmp_yaml
 
-$JBPF_PROTOBUF_CLI_BIN decoder load -c $codeletSet_yaml
+    tmp_yaml_short="${tmp_yaml/#$JBPF_CODELETS/\/codelets}"
+
+    sudo docker run --network=host \
+        -v $JBPF_CODELETS:/codelets \
+        -e "JBPF_CODELETS=/codelets" \
+        --entrypoint /usr/local/bin/jbpf_protobuf_cli \
+        ghcr.io/microsoft/jrtc-apps/srs-jrtc-sdk:$SRSRAN_IMAGE_TAG \
+        decoder load -c $tmp_yaml_short
+
+    rm -f $tmp_yaml
+else
+    $JBPF_PROTOBUF_CLI_BIN decoder load -c $codeletSet_yaml
+fi
 
 exit 0
