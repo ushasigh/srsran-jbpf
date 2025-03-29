@@ -88,7 +88,7 @@ fi
 
 # Add codelets mount point
 if [ -z "$JBPF_CODELETS" ]; then
-    JBPF_CODELETS=$(realpath "${CURRENT_DIR}/../../../codelets/")
+    JBPF_CODELETS=$(realpath "${CURRENT_DIR}/../../codelets/")
 fi
 JBPF_OPTIONS=" --set-string  jbpf.codelets_vol_mount=$JBPF_CODELETS "
 echo "Codelet mount point: ${JBPF_CODELETS}"
