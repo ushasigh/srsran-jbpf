@@ -50,11 +50,11 @@ if [ -n "$SRS_JBPF_DOCKER" ]; then
 
     tmp_yaml_short="${tmp_yaml/#$JBPF_CODELETS/\/codelets}"
 
-    sudo docker run --network=host \
+    $DOCKER_CMD run --network=host \
         -v $JBPF_CODELETS:/codelets \
         -e "JBPF_CODELETS=/codelets" \
         --entrypoint /usr/local/bin/jbpf_protobuf_cli \
-        ghcr.io/microsoft/jrtc-apps/srs-jrtc-sdk:$SRSRAN_IMAGE_TAG \
+        ghcr.io/microsoft/jrtc-apps/srs-jbpf-sdk:$SRSRAN_IMAGE_TAG \
         decoder load -c $tmp_yaml_short
 
     rm -f $tmp_yaml

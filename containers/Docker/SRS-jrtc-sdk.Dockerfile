@@ -11,17 +11,4 @@ LABEL org.opencontainers.image.authors="Microsoft Corporation"
 LABEL org.opencontainers.image.licenses="MIT"
 LABEL org.opencontainers.image.description="SDK for SRSRAN with JBPF and JRTC"
 
-COPY --from=jbpf_protobuf_builder /jbpf-protobuf/3p/nanopb /nanopb
-COPY --from=jbpf_protobuf_builder jbpf-protobuf/out/bin/jbpf_protobuf_cli /usr/local/bin/jbpf_protobuf_cli
-
-RUN tdnf upgrade tdnf --refresh -y && tdnf -y update
-RUN tdnf install -y build-essential make python3-pip
-
-RUN pip install ctypesgen
-
-RUN python3 -m pip install -r /nanopb/requirements.txt
-
-RUN tdnf -y install  clang
-
-ENV JBPF_PROTOBUF_CLI_BIN=/usr/local/bin/jbpf_protobuf_cli
-ENV NANO_PB=/nanopb
+# TBD
