@@ -27,7 +27,7 @@ struct jbpf_load_map_def SEC("maps") output_map_tmp = {
 };
 
 
-#define DEBUG_PRINT
+//#define DEBUG_PRINT
 
 extern "C" SEC("jbpf_srsran_generic")
 uint64_t jbpf_main(void* state)
@@ -36,8 +36,6 @@ uint64_t jbpf_main(void* state)
     struct jbpf_ran_generic_ctx *ctx = (jbpf_ran_generic_ctx *)state;
     
     const jbpf_pdcp_ctx_info& pdcp_ctx = *reinterpret_cast<const jbpf_pdcp_ctx_info*>(ctx->data);
-
-    jbpf_printf_debug("pdcp_dl_new_sdu\n");
 
     // Ensure the object is within valid bounds
     if (reinterpret_cast<const uint8_t*>(&pdcp_ctx) + sizeof(jbpf_pdcp_ctx_info) > reinterpret_cast<const uint8_t*>(ctx->data_end)) {

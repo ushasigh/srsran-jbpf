@@ -2,3 +2,4 @@
 *.so
 *.pb
 *.pb.h
+tmp.yaml
