@@ -1,0 +1,33 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT license.
+
+codeletset_id: mac_detailed
+
+codelet_descriptor:
+
+  - codelet_name: mac_sched_ul_bsr_indication
+    codelet_path: ${JBPF_CODELETS}/mac/mac_sched_ul_bsr_indication.o
+    hook_name: mac_sched_ul_bsr_indication
+    priority: 1
+    out_io_channel:
+      - name: mac_sched_ul_bsr_indication_output_map
+        forward_destination: DestinationUDP
+        serde:
+          file_path: ${JBPF_CODELETS}/mac/mac_sched_ul_bsr_indication:mac_sched_ul_bsr_indication_serializer.so
+          protobuf:
+            package_path: ${JBPF_CODELETS}/mac/mac_sched_ul_bsr_indication.pb
+            msg_name: mac_sched_ul_bsr_indication
+
+  - codelet_name: mac_sched_crc_indication
+    codelet_path: ${JBPF_CODELETS}/mac/mac_sched_crc_indication.o
+    hook_name: mac_sched_crc_indication
+    priority: 1
+    out_io_channel:
+      - name: mac_sched_crc_indication_output_map
+        forward_destination: DestinationUDP
+        serde:
+          file_path: ${JBPF_CODELETS}/mac/mac_sched_crc_indication:mac_sched_crc_indication_serializer.so
+          protobuf:
+            package_path: ${JBPF_CODELETS}/mac/mac_sched_crc_indication.pb
+            msg_name: mac_sched_crc_indication
+
