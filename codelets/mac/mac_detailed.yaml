@@ -31,3 +31,16 @@ codelet_descriptor:
             package_path: ${JBPF_CODELETS}/mac/mac_sched_crc_indication.pb
             msg_name: mac_sched_crc_indication
 
+  - codelet_name: mac_sched_ul_phr_indication
+    codelet_path: ${JBPF_CODELETS}/mac/mac_sched_ul_phr_indication.o
+    hook_name: mac_sched_ul_phr_indication
+    priority: 1
+    out_io_channel:
+      - name: mac_sched_ul_phr_indication_output_map
+        forward_destination: DestinationUDP
+        serde:
+          file_path: ${JBPF_CODELETS}/mac/mac_sched_ul_phr_indication:mac_sched_ul_phr_indication_serializer.so
+          protobuf:
+            package_path: ${JBPF_CODELETS}/mac/mac_sched_ul_phr_indication.pb
+            msg_name: mac_sched_ul_phr_indication
+
