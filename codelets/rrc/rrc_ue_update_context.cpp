@@ -29,7 +29,7 @@ struct jbpf_load_map_def SEC("maps") output_map_tmp = {
 
 #define DEBUG_PRINT
 
-extern "C" SEC("jbpf_ran_generic")
+extern "C" SEC("jbpf_srsran_generic")
 uint64_t jbpf_main(void* state)
 {
     int zero_index=0;
@@ -38,7 +38,7 @@ uint64_t jbpf_main(void* state)
     const jbpf_rrc_ctx_info& rrc_ctx = *reinterpret_cast<const jbpf_rrc_ctx_info*>(ctx->data);
 
     // Ensure the object is within valid bounds
-    if (reinterpret_cast<const uint8_t*>(&rrc_ctx) + sizeof(uint8_t) + sizeof(jbpf_rrc_ctx_info) > reinterpret_cast<const uint8_t*>(ctx->data_end)) {
+    if (reinterpret_cast<const uint8_t*>(&rrc_ctx) + sizeof(jbpf_rrc_ctx_info) > reinterpret_cast<const uint8_t*>(ctx->data_end)) {
         return JBPF_CODELET_FAILURE;  // Out-of-bounds access
     }
 

@@ -17,7 +17,7 @@
 
 #define MAX_NUM_UE (32)
 
-jbpf_ringbuf_map(output_map, rrc_ue_procedure, 256);
+jbpf_ringbuf_map(rrc_ue_procedure_output_map, rrc_ue_procedure, 256);
 
 struct jbpf_load_map_def SEC("maps") output_map_tmp = {
   .type = JBPF_MAP_TYPE_ARRAY,
@@ -29,7 +29,7 @@ struct jbpf_load_map_def SEC("maps") output_map_tmp = {
 
 //#define DEBUG_PRINT
 
-extern "C" SEC("jbpf_ran_generic")
+extern "C" SEC("jbpf_srsran_generic")
 uint64_t jbpf_main(void* state)
 {
     int zero_index=0;
@@ -38,7 +38,7 @@ uint64_t jbpf_main(void* state)
     const jbpf_rrc_ctx_info& rrc_ctx = *reinterpret_cast<const jbpf_rrc_ctx_info*>(ctx->data);
 
     // Ensure the object is within valid bounds
-    if (reinterpret_cast<const uint8_t*>(&rrc_ctx) + sizeof(uint8_t) + sizeof(jbpf_rrc_ctx_info) > reinterpret_cast<const uint8_t*>(ctx->data_end)) {
+    if (reinterpret_cast<const uint8_t*>(&rrc_ctx) + sizeof(jbpf_rrc_ctx_info) > reinterpret_cast<const uint8_t*>(ctx->data_end)) {
         return JBPF_CODELET_FAILURE;  // Out-of-bounds access
     }
 
@@ -57,7 +57,7 @@ uint64_t jbpf_main(void* state)
     out->success = 0;
     out->meta = 0;
 
-    int ret = jbpf_ringbuf_output(&output_map, (void *)out, sizeof(rrc_ue_procedure));
+    int ret = jbpf_ringbuf_output(&rrc_ue_procedure_output_map, (void *)out, sizeof(rrc_ue_procedure));
     jbpf_map_clear(&output_map_tmp);
     if (ret < 0) {
 #ifdef DEBUG_PRINT
