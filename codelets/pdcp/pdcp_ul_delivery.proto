@@ -1,0 +1,14 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT license.
+
+syntax = "proto2";
+
+message pdcp_ul_delivery {
+    required uint64 timestamp = 1;
+    required uint32 ue_index = 2;
+    required uint32 is_srb = 3;
+    required uint32 rb_id = 4;
+    required uint32 rlc_mode = 5;
+    required uint32 sdu_length = 6;
+    required uint32 window_size = 7;
+}
