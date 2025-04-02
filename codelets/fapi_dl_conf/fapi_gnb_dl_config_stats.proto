@@ -21,8 +21,7 @@ message t_rnti_stats {
 
 message dl_config_stats {
     required uint64 timestamp = 1;
-    required uint32 janus_msg_id = 2;
-    repeated t_rnti_stats stats = 3;
+    repeated t_rnti_stats stats = 2;
 }
 
 

@@ -49,7 +49,6 @@ uint64_t jbpf_main(void* state)
         return JBPF_CODELET_FAILURE;
     
     out->timestamp = jbpf_time_get_ns();
-    out->janus_msg_id = 2;
     out->stats_count = 0;
 
     for (const auto& fapi_pdu : msg.pdus) {
