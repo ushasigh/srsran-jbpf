@@ -35,7 +35,7 @@ jbpf:
   jbpf_standalone_io_policy: 0
   jbpf_standalone_io_priority: 0
   jbpf_io_mem_size_mb: 1024
-  jbpf_ipc_mem_name: "jrtc_controller"
+  jbpf_ipc_mem_name: "jrt_controller"
   jbpf_enable_lcm_ipc: 1
   jbpf_lcm_ipc_name: "jbpf_lcm_ipc"
   jbpf_agent_cpu: 0
