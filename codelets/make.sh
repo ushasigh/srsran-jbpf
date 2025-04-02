@@ -12,7 +12,7 @@ Help()
    # Display Help
    echo "Make janus codelets ."
    echo
-   echo "Syntax: make [-d <directory>|-p|-u|-t <image_tag>|-o <extra_option>]"
+   echo "Syntax: make [-d <directory>|-i <image_tag>|-o <extra_option>]"
    echo "options:"
    echo "[-d]   Run make in <directory> subfolder."
    echo "-o     Add extra options to make (can be repeated multiple times)."
@@ -23,8 +23,10 @@ OPTIONS=""
 USE_DIRECTORY_FLAG=false
 
 # Get the options
-while getopts "d:i:o:" option; do
+while getopts "t:d:i:o:" option; do
 	case $option in
+		i) # Set image tag
+            SDK_IMAGE_TAG="$OPTARG";;
 		d) # Run make in a specific directory
 			USE_DIRECTORY_FLAG=true
 			USE_DIRECTORY=$OPTARG;;
