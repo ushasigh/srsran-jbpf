@@ -107,8 +107,8 @@ spec:
         command:
         - "/bin/bash"
         - "-c"
-        - "until nc -z jrtc-service.ran.svc.cluster.local {{ $.Values.jrtc_controller.tcp_port }} > /dev/null; do
-          echo Waiting for jrtc-service.ran.svc.cluster.local:{{ $.Values.jrtc_controller.tcp_port }};
+        - "until nc -z jrtc-service.ran.svc.cluster.local 3001 > /dev/null; do
+          echo Waiting for jrtc-service.ran.svc.cluster.local:3001;
           sleep 2;
           done;"
       {{- end }}

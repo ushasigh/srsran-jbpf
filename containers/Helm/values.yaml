@@ -25,6 +25,15 @@ resources:
     requests:
       cpu: 50m
       memory: 500Mi
+  jrtc:
+    limits:
+      cpu: 1
+      memory: 1Gi
+      hugepages2Gi: 2Gi
+    requests:
+      cpu: 1
+      memory: 1Gi
+      hugepages2Gi: 2Gi
   das:
     limits:
       cpu: 1
@@ -115,6 +124,7 @@ troubleshooter:
 
 
 jbpf:
+  # Currently, codelets can only be loaded from a local directory
   codelets_vol_mount: ""
   port: 30450
   cfg:  # the following is passed directly to srsRAN as it's Jbpf config
@@ -138,7 +148,13 @@ jbpf:
     jbpf_maint_priority: 0
 
 jrtc_controller:
-  tcp_port: 3001
+  # Currently, jrtc applications can only be loaded from a local directory
+  apps_vol_mount: ""
+  image: ghcr.io/microsoft/jrt-controller/jrt-controller-azurelinux:latest
+  port: 30500
+  # Start local decoder as a part of the jrtc controller pod for debugging
+  local_decoder: false
+  local_decoder_port: 30501
 
 
 
