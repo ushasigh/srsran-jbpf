@@ -38,7 +38,7 @@ VERSION=$CHART_VERSION
 LOCAL_PATH=
 DEBUG=
 
-while getopts "n:f:v:h:d:b" option; do
+while getopts "n:f:v:h:db" option; do
     case $option in
         f) # Add extra config file
             VALUES_FILES="$VALUES_FILES $OPTARG";;
