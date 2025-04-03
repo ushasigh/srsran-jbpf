@@ -96,7 +96,7 @@ spec:
               echo "*** Das middlebox is ready"
       {{- end }}
 
-      {{- if eq (int $.Values.jbpf.cfg.jbpf_enable_ipc) 1 }}
+      {{- if (and (not $.Values.debug_mode.enabled) (eq (int $.Values.jbpf.cfg.jbpf_enable_ipc) 1)) }}
       - name: wait-for-jrtc
         image: {{ $.Values.troubleshooter.image }}
         env:
@@ -107,7 +107,10 @@ spec:
         command:
         - "/bin/bash"
         - "-c"
-        - "until nc -z $NODE_IP {{ $.Values.jrtc_controller.tcp_port }} > /dev/null; do echo Waiting for $NODE_IP:{{ $.Values.jrtc_controller.tcp_port }}; sleep 2; done;"
+        - "until nc -z jrtc-service.ran.svc.cluster.local {{ $.Values.jrtc_controller.tcp_port }} > /dev/null; do
+          echo Waiting for jrtc-service.ran.svc.cluster.local:{{ $.Values.jrtc_controller.tcp_port }};
+          sleep 2;
+          done;"
       {{- end }}
 
       {{- if $.Values.vlan_isolation.enabled }}
