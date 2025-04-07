@@ -3,6 +3,9 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
 
+# This is script called to unload a codeletSet's codelets.
+# It has the options to using a Docker container or bare metal.
+
 REVERSE_PROXY_PORT=30450
 CURRENT_DIR=$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )
 source $CURRENT_DIR/../set_vars.sh
@@ -50,13 +53,14 @@ fi
 
 
 if [ "$SRS_JBPF_DOCKER" -eq 1 ]; then
+
     echo "Loading codeletSet yaml file: $codeletSet_yaml"
 
     # install yq
     # sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/local/bin/yq
     # sudo chmod a+x /usr/local/bin/yq
 
-    # Extract the codeletset_id value
+    # The REST DELETE command just needs the codeletSet_id, so extract it from the yaml file
     codeletSetId=$(yq '.codeletset_id' "$codeletSet_yaml")
     if [[ -z "$codeletSetId" ]]; then
         echo "codeletset_id not found in $codeletSet_yaml."
@@ -73,8 +77,10 @@ if [ "$SRS_JBPF_DOCKER" -eq 1 ]; then
 
     exit $ret
 else
+
     echo "Loading codeletSet yaml file: $codeletSet_yaml using local socket, LCM address: $lcm_addr"
     $JBPF_LCM_CLI_BIN -a $lcm_addr -u -c $codeletSet_yaml
+
 fi
 
 exit 0

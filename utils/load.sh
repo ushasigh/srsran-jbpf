@@ -9,6 +9,7 @@ source $CURRENT_DIR/../set_vars.sh
 set -e
 
 # default args
+# lcm_addr is needed for bare metal
 lcm_addr=/tmp/jbpf/jbpf_lcm_ipc
 
 Usage()
@@ -47,19 +48,27 @@ if [ ! -e "$codeletSet_yaml" ]; then
     exit 1
 fi
 
-# generate stream Ids to tmp file and load that
-
 if [ "$SRS_JBPF_DOCKER" -eq 1 ]; then
-    # Load into a container through reverse proxy
+
+    # If the environment variable SRS_JBPF_DOCKER is set to 1, we are using a Docker container
+    # In this mode the RAN will be running with a reverse proxy
     echo "Loading codeletSet yaml file: $codeletSet_yaml using reverse proxy"
+
+    # load the schemas    
     ./load_schemas.sh -c $codeletSet_yaml
+
+    # load codeletSet
     ./load_codeletSet.sh -c $codeletSet_yaml
     ret=$?
+
 else
-    # Load from bare metal using local socket
+
+    # Load for bare metal using local socket
     echo "Loading codeletSet yaml file: $codeletSet_yaml using local socket, LCM address: $lcm_addr"
     tmp_yaml=$CURRENT_DIR/tmp.yaml 
-    $CURRENT_DIR/add_stream_ids.sh $codeletSet_yaml $CURRENT_DIR/tmp.yaml
+
+    # For all input and output maps defined in the yaml, generate a stream id
+    $CURRENT_DIR/add_stream_ids.sh $codeletSet_yaml $tmp_yaml
 
     # load the schemas
     ./load_schemas.sh -c $tmp_yaml
@@ -69,6 +78,7 @@ else
     ret=$?
 
     rm -f $tmp_yaml
+
 fi
 
 if [ "$ret" -eq 0 ]; then
