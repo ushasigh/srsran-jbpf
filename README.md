@@ -67,13 +67,13 @@ This guide assumes **srsRAN** will be deployed using **Helm**.
 
       ```
       cd ~/jrtc-apps/containers/Helm
-      ./install.sh -h -f config.yaml -f jrtc.yaml
+      ./install.sh -h . -f config.yaml -f jrtc.yaml
       ```
 
   `Deploy RAN without jrtc:`
 
       ```
-      ./install.sh -h -f config.yaml
+      ./install.sh -h . -f config.yaml
       ```
 
   
