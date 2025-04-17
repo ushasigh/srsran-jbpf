@@ -1,5 +1,146 @@
 # Run the second example (with *jrt-controller*)
 
+This example can be run either via container setup or on baremetal. 
+
+### Run with Containers: 
+It is assumed now that srsRAN is deployed with jrt-controller. 
+
+To use this example, first build the xran codelets:
+
+```
+cd ~/jrtc_apps/codelets
+./make.sh -d xran_packets/
+```
+
+Please note that the Errors shown in below example output can be ignored for now. 
+
+```
+Building xran_packets/
+make: Entering directory '/codelet/xran_packets'
+/usr/local/bin/jbpf_protobuf_cli serde -s xran_packet_info:packet_stats -w /codelet/xran_packets -o /codelet/xran_packets; \
+rm -f /codelet/xran_packets/*_serializer.c /codelet/xran_packets/*.pb.c; \
+if [ "1" = "1" ]; then \
+        ctypesgen xran_packet_info.pb.h -I/nanopb -o xran_packet_info.py; \
+fi
+WARNING: No libraries specified
+INFO: Status: Preprocessing /tmp/tmpgf92lcu5.h
+INFO: Status: gcc -E -U __GNUC__ -dD -I"/nanopb" "-D__extension__=" "-D__const=const" "-D__asm__(x)=" "-D__asm(x)=" "-DCTYPESGEN=1" "/tmp/tmpgf92lcu5.h"
+INFO: Status: Parsing /tmp/tmpgf92lcu5.h
+ERROR: /nanopb/pb.h:216: Syntax error at '1'
+ERROR: /nanopb/pb.h:384: Syntax error at 'sizeof'
+ERROR: /usr/include/sys/cdefs.h:298: Syntax error at '\n'
+ERROR: /usr/include/sys/cdefs.h:325: Syntax error at '\n'
+ERROR: /usr/include/sys/cdefs.h:332: Syntax error at '\n'
+ERROR: /usr/include/sys/cdefs.h:338: Syntax error at '\n'
+ERROR: /usr/include/sys/cdefs.h:347: Syntax error at '\n'
+ERROR: /usr/include/sys/cdefs.h:348: Syntax error at '\n'
+ERROR: /usr/include/sys/cdefs.h:356: Syntax error at '\n'
+ERROR: /usr/include/sys/cdefs.h:414: Syntax error at '\n'
+ERROR: /usr/include/sys/cdefs.h:423: Syntax error at '\n'
+ERROR: /usr/include/sys/cdefs.h:450: Syntax error at '\n'
+INFO: Status: Processing description list.
+WARNING: Could not parse macro "#define packet_inter_arrival_info_item_init_default { { 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 } }"
+WARNING: Could not parse macro "#define data_packet_stats_item_init_default { 0 , 0 , packet_inter_arrival_info_item_init_default }"
+WARNING: Could not parse macro "#define ctrl_packet_stats_item_init_default { 0 , packet_inter_arrival_info_item_init_default }"
+WARNING: Could not parse macro "#define ul_packet_stats_item_init_default { data_packet_stats_item_init_default }"
+WARNING: Could not parse macro "#define dl_packet_stats_item_init_default { data_packet_stats_item_init_default , ctrl_packet_stats_item_init_default }"
+WARNING: Could not parse macro "#define packet_stats_init_default { 0 , ul_packet_stats_item_init_default , dl_packet_stats_item_init_default }"
+WARNING: Could not parse macro "#define packet_inter_arrival_info_item_init_zero { { 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 } }"
+WARNING: Could not parse macro "#define data_packet_stats_item_init_zero { 0 , 0 , packet_inter_arrival_info_item_init_zero }"
+WARNING: Could not parse macro "#define ctrl_packet_stats_item_init_zero { 0 , packet_inter_arrival_info_item_init_zero }"
+WARNING: Could not parse macro "#define ul_packet_stats_item_init_zero { data_packet_stats_item_init_zero }"
+WARNING: Could not parse macro "#define dl_packet_stats_item_init_zero { data_packet_stats_item_init_zero , ctrl_packet_stats_item_init_zero }"
+WARNING: Could not parse macro "#define packet_stats_init_zero { 0 , ul_packet_stats_item_init_zero , dl_packet_stats_item_init_zero }"
+WARNING: Could not parse macro "#define data_packet_stats_item_FIELDLIST(X,a) X ( a , STATIC , REQUIRED , UINT32 , Packet_count , 1 ) X ( a , STATIC , REQUIRED , UINT64 , Prb_count , 2 ) X ( a , STATIC , REQUIRED , MESSAGE , packet_inter_arrival_info , 3 )"
+WARNING: Could not parse macro "#define ctrl_packet_stats_item_FIELDLIST(X,a) X ( a , STATIC , REQUIRED , UINT32 , Packet_count , 1 ) X ( a , STATIC , REQUIRED , MESSAGE , packet_inter_arrival_info , 2 )"
+WARNING: Could not parse macro "#define dl_packet_stats_item_FIELDLIST(X,a) X ( a , STATIC , REQUIRED , MESSAGE , data_packet_stats , 1 ) X ( a , STATIC , REQUIRED , MESSAGE , ctrl_packet_stats , 2 )"
+WARNING: Could not parse macro "#define packet_stats_FIELDLIST(X,a) X ( a , STATIC , REQUIRED , UINT64 , timestamp , 1 ) X ( a , STATIC , REQUIRED , MESSAGE , ul_packet_stats , 2 ) X ( a , STATIC , REQUIRED , MESSAGE , dl_packet_stats , 3 )"
+ERROR: Undef "NULL" depends on an unknown identifier "NULL". Undef "NULL" will not be output
+ERROR: Undef "NULL" depends on an unknown identifier "NULL". Undef "NULL" will not be output
+ERROR: Undef "NULL" depends on an unknown identifier "NULL". Undef "NULL" will not be output
+ERROR: Macro "packet_inter_arrival_info_item_FIELDLIST" depends on an unknown identifier "STATIC". Macro "packet_inter_arrival_info_item_FIELDLIST" will not be output
+ERROR: 3 more errors for Macro "packet_inter_arrival_info_item_FIELDLIST"
+ERROR: Macro "ul_packet_stats_item_FIELDLIST" depends on an unknown identifier "STATIC". Macro "ul_packet_stats_item_FIELDLIST" will not be output
+ERROR: 3 more errors for Macro "ul_packet_stats_item_FIELDLIST"
+INFO: Status: Writing to xran_packet_info.py.
+INFO: Status: Wrapping complete.
+make: Leaving directory '/codelet/xran_packets'
+```
+
+
+Open four seperate terminals and make sure to set environment in each terminal:
+
+```
+cd ~/jrtc-apps
+source set_vars.sh
+```
+
+Now, in Terminal-1, start the srsRAN logs:
+
+```
+kubectl -n ran logs -f srs-gnb-du1-0 -c gnb
+```
+
+In Terminal-2, start the jrtc logs:
+
+```
+kubectl -n ran logs -f jrtc-0
+```
+
+
+In Terminal-3, start the jrtc-decoder logs:
+
+```
+kubectl -n ran logs -f jrtc-0 -c jrtc-decoder
+```
+
+In Terminal-4, load the codelet:
+
+```
+cd ~/jrtc_apps/jrtc_apps
+./load.sh -y xran_packets/deployment.yaml
+```
+
+Once the codelet is loaded successfully, we should see the following logs in each terminal:
+
+Terminal 1 (srsRAN logs)- 
+
+```
+[2025-04-17T11:25:24.025208Z] [JBPF_INFO]: Registered codelet collector to hook capture_xran_packet
+[2025-04-17T11:25:24.025211Z] [JBPF_INFO]: ----------------- capture_xran_packet: collector ----------------------
+[2025-04-17T11:25:24.025214Z] [JBPF_INFO]: hook_name = capture_xran_packet, priority = 1, runtime_threshold = 0
+[2025-04-17T11:25:24.025216Z] [JBPF_INFO]: Codelet created and loaded successfully: collector
+[2025-04-17T11:25:24.025221Z] [JBPF_INFO]: Registered codelet reporter to hook report_stats
+[2025-04-17T11:25:24.025224Z] [JBPF_INFO]: ----------------- report_stats: reporter ----------------------
+[2025-04-17T11:25:24.025226Z] [JBPF_INFO]: hook_name = report_stats, priority = 2, runtime_threshold = 0
+[2025-04-17T11:25:24.025229Z] [JBPF_INFO]: Codelet created and loaded successfully: reporter
+[2025-04-17T11:25:24.025239Z] [JBPF_DEBUG]: Codeletset is loaded OK 0
+```
+
+Terminal 2 (jrtc logs)-
+
+```
+Hi App 1: timestamp: 1744887825600324096
+DL Ctl: 12884 [9663, 961, 205, 94, 116, 31, 1, 0, 0, 0, 1567, 196, 50, 0, 0, 0]
+DL Data: 83672 8869232 [62672, 81, 0, 1, 0, 1, 2706, 18009, 0, 0, 0, 0, 202, 0, 0, 0]
+```
+
+Terminal 3 (jrtc-decoder logs)- 
+
+```
+INFO[1520] REC: {"timestamp":"1744889030083753984","ulPacketStats":{"dataPacketStats":{"PacketCount":10616,"PrbCount":"669584","packetInterArrivalInfo":{"hist":[0,0,619,2814,1611,3898,1519,3,0,0,0,0,0,51,51,50]}}},"dlPacketStats":{"dataPacketStats":{"PacketCount":83728,"PrbCount":"8875168","packetInterArrivalInfo":{"hist":[62701,93,0,2,0,3,3195,17533,0,0,0,0,201,0,0,0]}},"ctrlPacketStats":{"PacketCount":12896,"packetInterArrivalInfo":{"hist":[9682,927,201,110,131,31,0,0,0,0,1614,151,49,0,0,0]}}}}  streamUUID=001013d8-2e92-aa15-1cfa-732f0a2f6ec2
+recv "001013d82e92aa151cfa732f0a2f6ec20880f6ceb4c3eac59b1812220a2008a85510b0822b1a170a1500009d05c217a40dd31db60c0300000000003434311a440a2308a08d0510c0fc9c041a180a16c0e9033105020001a415ba8c0100000000c901000000121d08e46412180a16d54bb207ad01718c011c00000000d00c960131000000"(132)
+```
+
+To unload the codelet, run the following command:
+
+```
+cd ~/jrtc-apps/jrtc_apps
+./unload.sh -y xran_packets/deployment.yaml
+```
+
+### Run without Container: 
+
 In this example we will use the xRAN codelets from the [example](./example_no_jrtc.md) without *jrt-controller*, and we will feed their input into a sample *jrt-controller* app. 
 
 **Important:** There are several artifacts of the build that have to be rebuilt for different environments.   
