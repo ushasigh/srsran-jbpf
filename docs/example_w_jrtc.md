@@ -2,7 +2,7 @@
 
 This example can be run either via container setup or on baremetal. 
 
-### Run with Containers: 
+## Run with Containers: 
 It is assumed now that srsRAN is deployed with jrt-controller. 
 
 To use this example, first build the xran codelets:
@@ -11,97 +11,81 @@ To use this example, first build the xran codelets:
 cd ~/jrtc_apps/codelets
 ./make.sh -d xran_packets/
 ```
+*Note: when this is run you'll see output similar to the following* ...
 
-Please note that the Errors shown in below example output can be ignored for now. 
-
-```
-Building xran_packets/
-make: Entering directory '/codelet/xran_packets'
-/usr/local/bin/jbpf_protobuf_cli serde -s xran_packet_info:packet_stats -w /codelet/xran_packets -o /codelet/xran_packets; \
-rm -f /codelet/xran_packets/*_serializer.c /codelet/xran_packets/*.pb.c; \
-if [ "1" = "1" ]; then \
-        ctypesgen xran_packet_info.pb.h -I/nanopb -o xran_packet_info.py; \
-fi
-WARNING: No libraries specified
-INFO: Status: Preprocessing /tmp/tmpgf92lcu5.h
-INFO: Status: gcc -E -U __GNUC__ -dD -I"/nanopb" "-D__extension__=" "-D__const=const" "-D__asm__(x)=" "-D__asm(x)=" "-DCTYPESGEN=1" "/tmp/tmpgf92lcu5.h"
-INFO: Status: Parsing /tmp/tmpgf92lcu5.h
+```sh
 ERROR: /nanopb/pb.h:216: Syntax error at '1'
 ERROR: /nanopb/pb.h:384: Syntax error at 'sizeof'
 ERROR: /usr/include/sys/cdefs.h:298: Syntax error at '\n'
 ERROR: /usr/include/sys/cdefs.h:325: Syntax error at '\n'
-ERROR: /usr/include/sys/cdefs.h:332: Syntax error at '\n'
-ERROR: /usr/include/sys/cdefs.h:338: Syntax error at '\n'
-ERROR: /usr/include/sys/cdefs.h:347: Syntax error at '\n'
-ERROR: /usr/include/sys/cdefs.h:348: Syntax error at '\n'
-ERROR: /usr/include/sys/cdefs.h:356: Syntax error at '\n'
-ERROR: /usr/include/sys/cdefs.h:414: Syntax error at '\n'
-ERROR: /usr/include/sys/cdefs.h:423: Syntax error at '\n'
-ERROR: /usr/include/sys/cdefs.h:450: Syntax error at '\n'
-INFO: Status: Processing description list.
-WARNING: Could not parse macro "#define packet_inter_arrival_info_item_init_default { { 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 } }"
-WARNING: Could not parse macro "#define data_packet_stats_item_init_default { 0 , 0 , packet_inter_arrival_info_item_init_default }"
-WARNING: Could not parse macro "#define ctrl_packet_stats_item_init_default { 0 , packet_inter_arrival_info_item_init_default }"
-WARNING: Could not parse macro "#define ul_packet_stats_item_init_default { data_packet_stats_item_init_default }"
-WARNING: Could not parse macro "#define dl_packet_stats_item_init_default { data_packet_stats_item_init_default , ctrl_packet_stats_item_init_default }"
-WARNING: Could not parse macro "#define packet_stats_init_default { 0 , ul_packet_stats_item_init_default , dl_packet_stats_item_init_default }"
-WARNING: Could not parse macro "#define packet_inter_arrival_info_item_init_zero { { 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 } }"
-WARNING: Could not parse macro "#define data_packet_stats_item_init_zero { 0 , 0 , packet_inter_arrival_info_item_init_zero }"
-WARNING: Could not parse macro "#define ctrl_packet_stats_item_init_zero { 0 , packet_inter_arrival_info_item_init_zero }"
-WARNING: Could not parse macro "#define ul_packet_stats_item_init_zero { data_packet_stats_item_init_zero }"
-WARNING: Could not parse macro "#define dl_packet_stats_item_init_zero { data_packet_stats_item_init_zero , ctrl_packet_stats_item_init_zero }"
-WARNING: Could not parse macro "#define packet_stats_init_zero { 0 , ul_packet_stats_item_init_zero , dl_packet_stats_item_init_zero }"
-WARNING: Could not parse macro "#define data_packet_stats_item_FIELDLIST(X,a) X ( a , STATIC , REQUIRED , UINT32 , Packet_count , 1 ) X ( a , STATIC , REQUIRED , UINT64 , Prb_count , 2 ) X ( a , STATIC , REQUIRED , MESSAGE , packet_inter_arrival_info , 3 )"
-WARNING: Could not parse macro "#define ctrl_packet_stats_item_FIELDLIST(X,a) X ( a , STATIC , REQUIRED , UINT32 , Packet_count , 1 ) X ( a , STATIC , REQUIRED , MESSAGE , packet_inter_arrival_info , 2 )"
-WARNING: Could not parse macro "#define dl_packet_stats_item_FIELDLIST(X,a) X ( a , STATIC , REQUIRED , MESSAGE , data_packet_stats , 1 ) X ( a , STATIC , REQUIRED , MESSAGE , ctrl_packet_stats , 2 )"
-WARNING: Could not parse macro "#define packet_stats_FIELDLIST(X,a) X ( a , STATIC , REQUIRED , UINT64 , timestamp , 1 ) X ( a , STATIC , REQUIRED , MESSAGE , ul_packet_stats , 2 ) X ( a , STATIC , REQUIRED , MESSAGE , dl_packet_stats , 3 )"
+...
+...
+WARNING: Could not parse macro "#define t_ta_hist_init_default { 0 , 0 }"
+WARNING: Could not parse macro "#define t_pwr_hist_init_default { 0 , 0 }"
+...
+...
 ERROR: Undef "NULL" depends on an unknown identifier "NULL". Undef "NULL" will not be output
 ERROR: Undef "NULL" depends on an unknown identifier "NULL". Undef "NULL" will not be output
-ERROR: Undef "NULL" depends on an unknown identifier "NULL". Undef "NULL" will not be output
-ERROR: Macro "packet_inter_arrival_info_item_FIELDLIST" depends on an unknown identifier "STATIC". Macro "packet_inter_arrival_info_item_FIELDLIST" will not be output
-ERROR: 3 more errors for Macro "packet_inter_arrival_info_item_FIELDLIST"
-ERROR: Macro "ul_packet_stats_item_FIELDLIST" depends on an unknown identifier "STATIC". Macro "ul_packet_stats_item_FIELDLIST" will not be output
-ERROR: 3 more errors for Macro "ul_packet_stats_item_FIELDLIST"
-INFO: Status: Writing to xran_packet_info.py.
+INFO: Status: Writing to fapi_gnb_rach_stats.py.
 INFO: Status: Wrapping complete.
-make: Leaving directory '/codelet/xran_packets'
+--------- fapi_gnb_rach_stats_collect.cpp ----------------------------------------------
+clang++ -O2 -target bpf -Wall -std=gnu++17 -DJBPF_EXPERIMENTAL_FEATURES -DJBPF_DEBUG_ENABLED -D__x86_64__ -fpermissive -Wno-incompatible-pointer-types -Wno-pedantic  -I/src/out/inc -I/src/include -I/nanopb -I/src/external -I/src/external/fmt/include -I/usr/include/c++/13.2.0 -I/usr/include/c++/13.2.0/x86_64-pc-linux-gnu  -c fapi_gnb_rach_stats_collect.cpp -o fapi_gnb_rach_stats_collect.o
+/src/out/bin/srsran_verifier_cli fapi_gnb_rach_stats_collect.o || echo "fapi_gnb_rach_stats_collect.cpp: Failed verification"
+
+48:53: Code is unreachable after 48:53
+56:61: Code is unreachable after 56:61
+60:177: Code is unreachable after 60:177
+94:61: Code is unreachable after 94:61
+151:61: Code is unreachable after 151:61
+
+1,0.077681
+Program terminates within 2067 instructions
 ```
+These errors toward the top bcan actually be ignored.  They are output by the "ctypesgen" command, but are not issues that have any impact.  The codelet's compilation/verification result is shown in the lines ...
+```sh
+1,0.016758
+Program terminates within 333 instructions
+``` 
+When this starts with "1," it means it is successful.  In failures cases, it will start with "0,".
 
 
-Open four seperate terminals and make sure to set environment in each terminal:
+Open four seperate terminals.
+In each window, set up the environment variables as described [here](../README.md#Preparing-the-Environment).
 
-```
-cd ~/jrtc-apps
-source set_vars.sh
-```
+The srsRAN and JRTC are started as shown [here](../README.md#Start-the-srsRAN).
 
-Now, in Terminal-1, start the srsRAN logs:
+### Terminal 1
 
+Monitor the srsRAN logs:
 ```
 kubectl -n ran logs -f srs-gnb-du1-0 -c gnb
 ```
 
-In Terminal-2, start the jrtc logs:
+### Terminal 2
 
+Monitor the jrt-controllerc logs:
 ```
 kubectl -n ran logs -f jrtc-0
 ```
 
+### Terminal 3
 
-In Terminal-3, start the jrtc-decoder logs:
-
+Montor the jrt-decoder logs:
 ```
 kubectl -n ran logs -f jrtc-0 -c jrtc-decoder
 ```
 
-In Terminal-4, load the codelet:
+### Terminal 4
 
+Load the codelet:
 ```
 cd ~/jrtc_apps/jrtc_apps
 ./load.sh -y xran_packets/deployment.yaml
 ```
 
-Once the codelet is loaded successfully, we should see the following logs in each terminal:
+Expected output:
+
+Once the codeletSet is loaded successfully, one should see the following logs in each terminal:
 
 Terminal 1 (srsRAN logs)- 
 
@@ -139,7 +123,7 @@ cd ~/jrtc-apps/jrtc_apps
 ./unload.sh -y xran_packets/deployment.yaml
 ```
 
-### Run without Container: 
+## Run without Container: 
 
 In this example we will use the xRAN codelets from the [example](./example_no_jrtc.md) without *jrt-controller*, and we will feed their input into a sample *jrt-controller* app. 
 
@@ -148,7 +132,7 @@ If you switch from the example that doesn't use *jrt-controller* to the example 
 We advise you to do a clean clone of the repo in that case. 
 
 
-## Configuring the components
+### Configuring the components
 
 To use *jrt-controller* with the examples in this repo, we need to set the env variable `USE_JRTC=1`. 
 The default environment options are in file __".env"__. 
@@ -189,7 +173,7 @@ jbpf:
 
 
 
-## Running the example
+#### Running the example
 
 To run the example, we need 5 terminals. 
 In each of these, you need to set the following environment variables:
@@ -203,30 +187,41 @@ The example uses sample path values.
 Please edit for your system.
 Next, run the following in the terminals. 
 
-Terminal running *jrt-controller*:
+##### Terminal 1
+
+Run *jrt-controller*:
 ```sh
 cd $JRTC_PATH/out/bin
 ./jrtc
 ```
 
-Terminal running *srsRAN*: 
+##### Terminal 2
+
+Run *srsRAN*: 
 ```sh
 cd  $SRSRAN_DIR/build/apps/gnb
 sudo ./gnb -c modified_conf_to_include_jbpf.yml
 ```
 
-Terminal running the *jrt-controller* decoder (see [here](https://github.com/microsoft/jrt-controller/blob/main/docs/understand_advanced_app.md) for more info): 
+##### Terminal 3
+
+Run the *jrt-controller* decoder (see [here](https://github.com/microsoft/jrt-controller/blob/main/docs/understand_advanced_app.md) for more info): 
 ```sh
 cd $JRTC_PATH/sample_apps/advanced_example
 ./run_decoder.sh
 ```
 
-Terminal running the *jbpf* reverse proxy (see [here](https://github.com/microsoft/jbpf/tree/main/examples/reverse_proxy) for more info):
+##### Terminal 4
+
+Run the *jbpf* reverse proxy (see [here](https://github.com/microsoft/jbpf/tree/main/examples/reverse_proxy) for more info):
 ```sh
 sudo -E $SRSRAN_DIR/out/bin/srsran_reverse_proxy --host-port 30450 --address "/tmp/jbpf/jbpf_lcm_ipc"
 ```
 
-Terminal that loads *jbpf* codelets and *jrt-controller* apps for *srsRAN*:
+##### Terminal 5
+
+Load the *jbpf* codelets and *jrt-controller* apps for *srsRAN*:
+
 First build the codelets:
 ```sh
 cd $SRSRANAPP_DIR/codelets

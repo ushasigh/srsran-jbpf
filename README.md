@@ -18,24 +18,26 @@ This guide assumes **srsRAN** will be deployed using **Helm**.
 
 ### Preparing the Environment
 
-1. Initialize submodules:
+#### Initialize submodules:
 
     ```bash
     cd ~/jbpf_apps
     ./init_submodules.sh
     ```
 
-2. Set required environment variables:
+#### Set required environment variables:
 
     ```bash
     source set_vars.sh
     ```
 
-3. There are two ways to start the srsRAN deployment:
-   - with JRTC
-   - without JRTC - this will deploy srsRAN with jbpf
+#### There are two ways to start the srsRAN deployment:
+   - with JRTC - this will create pod, one for srsRAN, and one for JRTC.  The JRTC pod has two containers; one for the *jrt-controller* and one running the *jrt-decoder*.
+   - without JRTC - This will just create a single pod, for srsRAN.
 
-4. To start the srsRAN, move the the ***jrtc-apps/containers/Helm*** directory and make sure that parameters `related to local setup, such as Core IP, RRH, Local MAC Address, and VLAN ID are correctly configured either in the `values.yaml` or supplied via a separate YAML file. 
+#### Start the srsRAN
+
+Move to the ***jrtc-apps/containers/Helm*** directory and make sure that parameters `related to local setup, such as Core IP, RRH, Local MAC Address, and VLAN ID are correctly configured either in the `values.yaml` or supplied via a separate YAML file. 
 
     The easiest way to configure parameters related to local setup is to supply them via seperate yaml file - lets say config.yaml. Here is an example `config.yaml`. Please note that `config.yaml` will overwrite parameters in the `values.yaml` file.
 
@@ -61,23 +63,16 @@ This guide assumes **srsRAN** will be deployed using **Helm**.
     ```
 
 
-  Once the parameters are configured correctly we can deploy srsRAN
+   Once the parameters are configured correctly we can deploy srsRAN
 
   `Deploy RAN with jrtc:`
 
-      ```
-      cd ~/jrtc-apps/containers/Helm
-      ./install.sh -h -f config.yaml -f jrtc.yaml
-      ```
+    ```
+    cd ~/jrtc-apps/containers/Helm
+    ./install.sh -h -f config.yaml -f jrtc.yaml
+    ```
 
-  `Deploy RAN without jrtc:`
-
-      ```
-      ./install.sh -h -f config.yaml
-      ```
-
-  
-    Expected output:
+     Expected output:
 
     ```
     NAME            READY   STATUS    RESTARTS   AGE
@@ -85,7 +80,21 @@ This guide assumes **srsRAN** will be deployed using **Helm**.
     srs-gnb-du1-0   3/3     Running   0          11s
     ```
 
-4. Run the following command to check the status of the deployment:
+  `Deploy RAN without jrtc:`
+
+    ```
+    cd ~/jrtc-apps/containers/Helm
+    ./install.sh -h -f config.yaml
+    ```
+  
+    Expected output:
+
+    ```
+    NAME            READY   STATUS    RESTARTS   AGE
+    srs-gnb-du1-0   3/3     Running   0          11s
+    ```
+
+  Run the following command to check the status of the deployment:
 
     ```bash
     kubectl get pods -n ran
@@ -105,11 +114,11 @@ This guide assumes **srsRAN** will be deployed using **Helm**.
 This project includes two examples:
 
 - [Example 1](./docs/example_no_jrtc.md):  
-  Demonstrates data collection using *jbpf* only. Data is streamed to a local decoder and printed on-screen.
+  Demonstrates data collection without using *jrt-controller*. Data is streamed to a local decoder and printed on-screen.
 
 - [Example 2](./docs/example_w_jrtc.md):  
-  Demonstrates integrated usage of both *jbpf* and *jrt-controller*.
-
+  Demonstrates data collection using *jrt-controller*.  Data is transferred from srsRAN to *jrt-controller* via shared memory.
+   
 ---
 
 # License
