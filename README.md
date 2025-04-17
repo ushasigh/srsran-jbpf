@@ -65,38 +65,38 @@ This guide assumes **srsRAN** will be deployed using **Helm**.
 
   `Deploy RAN with jrtc:`
 
-      ```
-      cd ~/jrtc-apps/containers/Helm
-      ./install.sh -h . -f config.yaml -f jrtc.yaml
-      ```
+  ```
+  cd ~/jrtc-apps/containers/Helm
+  ./install.sh -h . -f config.yaml -f jrtc.yaml
+  ```
 
   `Deploy RAN without jrtc:`
 
-      ```
-      ./install.sh -h . -f config.yaml
-      ```
+  ```
+  ./install.sh -h . -f config.yaml
+  ```
 
   
-    Expected output:
+  Expected output:
 
-    ```
-    NAME            READY   STATUS    RESTARTS   AGE
-    jrtc-0          2/2     Running   0          11s
-    srs-gnb-du1-0   3/3     Running   0          11s
-    ```
+  ```
+  NAME            READY   STATUS    RESTARTS   AGE
+  jrtc-0          2/2     Running   0          11s
+  srs-gnb-du1-0   3/3     Running   0          11s
+  ```
 
 4. Run the following command to check the status of the deployment:
 
-    ```bash
-    kubectl get pods -n ran
-    ```
+  ```bash
+  kubectl get pods -n ran
+  ```
 
-    Expected output:
+  Expected output:
 
-    ```
-    NAME            READY   STATUS    RESTARTS   AGE
-    srs-gnb-du1-0   3/3     Running   0          11s
-    ```
+  ```
+  NAME            READY   STATUS    RESTARTS   AGE
+  srs-gnb-du1-0   3/3     Running   0          11s
+  ```
 
 ---
 
