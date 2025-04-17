@@ -67,18 +67,25 @@ Move to the ***jrtc-apps/containers/Helm*** directory and make sure that paramet
 
   `Deploy RAN with jrtc:`
 
-    ```
-    cd ~/jrtc-apps/containers/Helm
-    ./install.sh -h -f config.yaml -f jrtc.yaml
-    ```
+  ```
+  cd ~/jrtc-apps/containers/Helm
+  ./install.sh -h . -f config.yaml -f jrtc.yaml
+  ```
 
-     Expected output:
+  `Deploy RAN without jrtc:`
 
-    ```
-    NAME            READY   STATUS    RESTARTS   AGE
-    jrtc-0          2/2     Running   0          11s
-    srs-gnb-du1-0   3/3     Running   0          11s
-    ```
+  ```
+  ./install.sh -h . -f config.yaml
+  ```
+
+  
+  Expected output:
+
+  ```
+  NAME            READY   STATUS    RESTARTS   AGE
+  jrtc-0          2/2     Running   0          11s
+  srs-gnb-du1-0   3/3     Running   0          11s
+  ```
 
   `Deploy RAN without jrtc:`
 
@@ -96,16 +103,16 @@ Move to the ***jrtc-apps/containers/Helm*** directory and make sure that paramet
 
   Run the following command to check the status of the deployment:
 
-    ```bash
-    kubectl get pods -n ran
-    ```
+  ```bash
+  kubectl get pods -n ran
+  ```
 
-    Expected output:
+  Expected output:
 
-    ```
-    NAME            READY   STATUS    RESTARTS   AGE
-    srs-gnb-du1-0   3/3     Running   0          11s
-    ```
+  ```
+  NAME            READY   STATUS    RESTARTS   AGE
+  srs-gnb-du1-0   3/3     Running   0          11s
+  ```
 
 ---
 
