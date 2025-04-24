@@ -61,54 +61,41 @@ The easiest way to configure parameters related to local setup is to supply them
   ```
 
 
-   Once the parameters are configured correctly we can deploy srsRAN
+ Once the parameters are configured correctly we can deploy srsRAN
 
-  Deploy RAN with jrtc:
+  
+  `Deploy RAN without jrtc:`
+
+  ```
+  ./install.sh -h . -f config.yaml
+  ```
+
+  Expected output:
+
+  ```bash
+  kubectl get pods -n ran
+
+  NAME            READY   STATUS    RESTARTS   AGE
+  srs-gnb-du1-0   3/3     Running   0          11s
+  ```
+
+  `Deploy RAN with jrtc:`
 
   ```
   cd ~/jrtc-apps/containers/Helm
   ./install.sh -h . -f config.yaml -f jrtc.yaml
   ```
 
-  Deploy RAN without jrtc:
 
-  ```
-  ./install.sh -h . -f config.yaml
-  ```
 
   
   Expected output:
-
-  ```
-  NAME            READY   STATUS    RESTARTS   AGE
-  jrtc-0          2/2     Running   0          11s
-  srs-gnb-du1-0   3/3     Running   0          11s
-  ```
-
-  Deploy RAN without jrtc:
-
-  ```
-  cd ~/jrtc-apps/containers/Helm
-  ./install.sh -h -f config.yaml
-  ```
-  
-  Expected output:
-
-  ```
-  NAME            READY   STATUS    RESTARTS   AGE
-  srs-gnb-du1-0   3/3     Running   0          11s
-  ```
-
-  Run the following command to check the status of the deployment:
 
   ```bash
   kubectl get pods -n ran
-  ```
 
-  Expected output:
-
-  ```
   NAME            READY   STATUS    RESTARTS   AGE
+  jrtc-0          2/2     Running   0          11s
   srs-gnb-du1-0   3/3     Running   0          11s
   ```
 
