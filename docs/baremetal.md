@@ -1,4 +1,4 @@
-# Introduction
+# Baremetal Setup
 
 This project provides a collection of sample applications for instrumenting **srsRAN** using the  
 [jbpf](https://github.com/microsoft/jbpf) and [jrt-controller](https://github.com/microsoft/jrt-controller) frameworks.
