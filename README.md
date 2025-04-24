@@ -7,7 +7,7 @@ This project provides a collection of sample applications for instrumenting **sr
 
 The simplest way to get started is by using Kubernetes. This is the default installation method and helps eliminate any dependency-related issues.
 However, we also support bare-metal installations.
-For bare-metal setup instructions, please follow [baremetal](docs/baremetal.md) 
+For bare-metal setup instructions, please follow [these instructions](docs/baremetal.md) 
 
 ### Environment Setup
 
