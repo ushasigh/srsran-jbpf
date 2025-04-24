@@ -35,7 +35,7 @@ source set_vars.sh
 
 #### Start the srsRAN
 
-Move to the ***jrtc-apps/containers/Helm*** directory and make sure that parameters `related to local setup, such as Core IP, RRH, Local MAC Address, and VLAN ID are correctly configured either in the `values.yaml` or supplied via a separate YAML file. 
+Move to the ***jrtc-apps/containers/Helm*** directory and make sure that parameters `related to local setup, such as Core IP, RRH, Local MAC Address, and VLAN ID are correctly configured either in the values.yaml` or supplied via a separate YAML file. 
 
 The easiest way to configure parameters related to local setup is to supply them via seperate yaml file - lets say config.yaml. Here is an example `config.yaml`. Please note that `config.yaml` will overwrite parameters in the `values.yaml` file.
 
