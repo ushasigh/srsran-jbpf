@@ -7,7 +7,7 @@ This project provides a collection of sample applications for instrumenting **sr
 
 The simplest way to get started is by using Kubernetes. This is the default installation method and helps eliminate any dependency-related issues.
 However, we also support bare-metal installations.
-For bare-metal setup instructions, please follow [baremetal](docs/example_w_jrtc_baremetal.md) 
+For bare-metal setup instructions, please follow [baremetal](docs/baremetal.md) 
 
 ### Environment Setup
 
@@ -85,10 +85,7 @@ The easiest way to configure parameters related to local setup is to supply them
   cd ~/jrtc-apps/containers/Helm
   ./install.sh -h . -f config.yaml -f jrtc.yaml
   ```
-
-
-
-  
+ 
   Expected output:
 
   ```bash
