@@ -5,11 +5,9 @@ This project provides a collection of sample applications for instrumenting **sr
 
 # Getting Started
 
-There are two ways to start the setup - with Kubernetes or on Baremetal. 
-
-By default, everything runs as containers and there is no need to install any external dependencies. 
-
-## Running with Kubernetes Containers:
+The simplest way to get started is by using Kubernetes. This is the default installation method and helps eliminate any dependency-related issues.
+However, we also support bare-metal installations.
+For bare-metal setup instructions, please follow [baremetal](docs/example_w_jrtc_baremetal.md) 
 
 ### Environment Setup
 
@@ -20,16 +18,16 @@ This guide assumes **srsRAN** will be deployed using **Helm**.
 
 #### Initialize submodules:
 
-  ```bash
-  cd ~/jbpf_apps
-  ./init_submodules.sh
-  ```
+```bash
+cd ~/jbpf_apps
+./init_submodules.sh
+```
 
 #### Set required environment variables:
 
-  ```bash
-  source set_vars.sh
-  ```
+```bash
+source set_vars.sh
+```
 
 #### There are two ways to start the srsRAN deployment:
    - with JRTC - this will create pod, one for srsRAN, and one for JRTC.  The JRTC pod has two containers; one for the *jrt-controller* and one running the *jrt-decoder*.
