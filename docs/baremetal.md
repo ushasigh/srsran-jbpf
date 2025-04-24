@@ -37,7 +37,7 @@ You should do this in every terminal window where you run the commands.
 
 This project includes two examples:
 
-- [Example 1](./example_no_jrtc.md):  
+- [Example 1](./example_no_jrtc_baremetal.md):  
   Demonstrates data collection without using *jrt-controller*. Data is streamed to a local decoder and printed on-screen.
 
 - [Example 2](./example_w_jrtc_baremetal.md):  
