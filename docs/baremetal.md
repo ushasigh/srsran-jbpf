@@ -1,42 +1,49 @@
 # Introduction
 
-This project provides a number of sample applications for instrumenting srsRAN through 
+This project provides a collection of sample applications for instrumenting **srsRAN** using the  
 [jbpf](https://github.com/microsoft/jbpf) and [jrt-controller](https://github.com/microsoft/jrt-controller) frameworks.
-
-
 
 # Getting started
 
-## Set up the environment
+The following instructions are for the `baremetal setup`.
+For Kubernetes-based installation, please follow [these instructions](../README.md)
 
-You need to use and build a version of srsRAN_platform with jbpf enabled. 
-Please follow the instructions from the [repo](https://github.com/xfoukas/srsRAN_Project_jbpf). 
+### Preparing the Environment
 
-Start by initializing the submodules:
-```sh
+A version of srsRAN_platform with jBPF enabled must be built and used. Please follow the instructions from the [repo](https://github.com/xfoukas/srsRAN_Project_jbpf). 
+
+
+#### Initialize submodules:
+
+```bash
+cd ~/jbpf_apps
 ./init_submodules.sh
 ```
+
 Then go to the folder `jbpf-protobuf` and build the submodule using the instructions in the [repo](https://github.com/microsoft/jbpf-protobuf). 
 You should do this only once after cloning the repo.
 
 
-Then set up the environment variables:
+#### Set required environment variables:
+
 ```sh
 export SRSRAN_DIR=<path_to_your_srsRAN_with_jbpf>
 source set_vars.sh
 ```
+
 You should do this in every terminal window where you run the commands. 
 
+## Running the Examples
 
+This project includes two examples:
 
-## Run the examples
+- [Example 1](./example_no_jrtc.md):  
+  Demonstrates data collection without using *jrt-controller*. Data is streamed to a local decoder and printed on-screen.
 
-We provide two example. 
-* The [first example](./example_no_jrtc.md) does not use *jrt-controller* and only streams data collected by *jbpf* to a local decoder that prints it on a screen. 
-* The [second example](./example_w_jrtc_baremetal.md) shows how to use both *jbpf* and *jrt-controller*. 
-
-
+- [Example 2](./example_w_jrtc_baremetal.md):  
+  Demonstrates data collection using *jrt-controller*.  Data is transferred from srsRAN to *jrt-controller* via shared memory.
+   
 
 # License
 
-This framework is licensed under the [MIT license](LICENSE.md).
+This project is licensed under the [MIT License](LICENSE.md).
