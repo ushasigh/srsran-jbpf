@@ -12,10 +12,12 @@ Usage()
 }
 
 # Get the options
-while getopts "s:" option; do
+while getopts "s:c" option; do
 	case $option in
 		s) # Set image tag
 			IMAGE_TAG="$OPTARG";;
+		c) # Set image tag
+			CACHE_FLAG="--no-cache";;
 		\?) # Invalid option
 			echo "Error: Invalid option"
 			Usage
@@ -42,7 +44,7 @@ popd > /dev/null
 
 
 
-docker build \
+docker build $CACHE_FLAG \
     --build-arg SRS_JBPF_IMAGE_TAG=${IMAGE_TAG} \
     --build-arg JBPF_PROTOBUF_BUILDER_IMAGE=jbpf_protobuf_cli \
     --build-arg JBPF_PROTOBUF_BUILDER_IMAGE_TAG=latest \

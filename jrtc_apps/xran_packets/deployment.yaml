@@ -7,13 +7,14 @@ name: xran_packets_deployment
     
 decoder:
   - type: decodergrpc
-    port: 20789
+    port: 30501
+    #port: 20789
       
 app:
   - name: app1
     path: ${JRTC_APPS}/xran_packets/xran_packets.py
     type: python
-    port: 3001
+    port: 30500
     modules:
       - ${JBPF_CODELETS}/xran_packets/xran_packet_info.py
 

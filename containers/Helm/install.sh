@@ -94,11 +94,22 @@ JBPF_OPTIONS=" --set-string  jbpf.codelets_vol_mount=$JBPF_CODELETS "
 echo "Codelet mount point: ${JBPF_CODELETS}"
 
 
+if [ "$USE_JRTC" -eq 1 ]; then
+    # Add codelets mount point
+    if [ -z "$JBPF_APPS" ]; then
+        JBPF_APPS=$(realpath "${CURRENT_DIR}/../../jrtc_apps/")
+    fi
+    JRTC_OPTIONS=" --set-string  jrtc_controller.apps_vol_mount=$JBPF_APPS "
+    echo "App mount point: ${JBPF_APPS}"
+else
+    JRTC_OPTIONS=""
+fi
+
 kubectl create namespace ran || true
 
 
 helm install \
-    $EXTRA_VALUES $DEBUG_OPTIONS $JBPF_OPTIONS -n ran ran $HELM_URL
+    $EXTRA_VALUES $DEBUG_OPTIONS $JBPF_OPTIONS $JRTC_OPTIONS -n ran ran $HELM_URL
 
 
 

@@ -25,16 +25,42 @@ metadata:
   labels:
     app: jrtc
 spec:
+  type: NodePort
   ports:
     - name: http
-      port: {{ .Values.jrtc_controller.tcp_port }}
-      targetPort:  {{ .Values.jrtc_controller.tcp_port }}
+      port: 3001
+      targetPort: 3001
+      nodePort: {{ .Values.jrtc_controller.port }}
       protocol: TCP
   selector:
     app: jrtc-service
 
----
 
+{{- if $.Values.jrtc_controller.local_decoder }}
+---
+# DNS name: jrtc-decoder.{{ .Release.Namespace }}.svc.cluster.local
+apiVersion: v1
+kind: Service
+metadata:
+  name: jrtc-decoder
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: jrtc
+spec:
+  type: NodePort
+  ports:
+    - name: http
+      port: 20789
+      targetPort: 20789
+      nodePort: {{ .Values.jrtc_controller.local_decoder_port }}
+      protocol: TCP
+  selector:
+    app: jrtc-service
+{{- end }}
+
+
+
+---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -78,6 +104,12 @@ spec:
       - name: varjbpf
         hostPath:
           path: {{ printf "%s/%s" $.Values.jbpf.cfg.jbpf_run_path $.Values.jbpf.cfg.jbpf_namespace }}
+      - name: apps
+        hostPath:
+          path: {{ $.Values.jrtc_controller.apps_vol_mount }}
+      - name: codelets
+        hostPath:
+          path: {{ $.Values.jbpf.codelets_vol_mount }}
 
       {{- if $.Values.image.pullSecret }}
       imagePullSecrets:
@@ -101,6 +133,10 @@ spec:
           mountPath: /jrtc-config
         - name: varjbpf
           mountPath: {{ printf "%s/%s" $.Values.jbpf.cfg.jbpf_run_path $.Values.jbpf.cfg.jbpf_namespace }}
+        - name: apps
+          mountPath: /apps
+        - name: codelets
+          mountPath: /codelets
         command: ["/bin/sh", "-c"]
         {{- if  $.Values.debug_mode.enabled }}
         args: [ "sleep 99999999d" ]
@@ -133,7 +169,9 @@ spec:
             hugepages-1Gi: {{ $.Values.resources.jrtc.limits.hugepages2Gi }}
 
 
-      - name: jrtc-ctl
+
+    {{- if $.Values.jrtc_controller.local_decoder }}
+      - name: jrtc-decoder
         image: "{{ $.Values.jrtc_controller.image }}"
         imagePullPolicy: "{{ $.Values.image.pullPolicy }}"
         volumeMounts:
@@ -151,7 +189,7 @@ spec:
         {{- if  $.Values.debug_mode.enabled }}
         args: [ "sleep 99999999d" ]
         {{- else }}
-        args: [ "/jrtc/bin/jrtc-ctl decoder run --decoder-data-enabled" ]
+        args: [ "/jrtc/bin/jrtc-ctl decoder run --decoder-data-enabled --log-level debug" ]
         {{- end }}
         securityContext:
           privileged: true
@@ -177,5 +215,6 @@ spec:
           requests:
             memory: {{ $.Values.resources.jrtc.limits.memory }}
             hugepages-1Gi: {{ $.Values.resources.jrtc.limits.hugepages2Gi }}
-            
+    {{- end }}
+        
 {{- end }}

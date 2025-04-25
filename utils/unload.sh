@@ -3,6 +3,9 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
 
+# This is script called to unload a codeletSet's codelets and its schemas.
+# It has the options to using a Docker container or bare metal.
+
 CURRENT_DIR=$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )
 source $CURRENT_DIR/../set_vars.sh
 
@@ -49,12 +52,20 @@ fi
 
 
 if [ "$SRS_JBPF_DOCKER" -eq 1 ]; then
-    # Unload into a container through reverse proxy
+
+    # If the environment variable SRS_JBPF_DOCKER is set to 1, we are using a Docker container
+    # In this mode the RAN will be running with a reverse proxy
+
     echo "Unloading codeletSet yaml file: $codeletSet_yaml using reverse proxy"
+    
+    # unload codeletSet
     ./unload_codeletSet.sh -c $codeletSet_yaml
     ret=$?
+    
+    # unload the schemas    
     ./unload_schemas.sh -c $codeletSet_yaml
 else
+
     # Unload from bare metal using local socket
     echo "Unloading codeletSet yaml file: $codeletSet_yaml using local socket, LCM address: $lcm_addr"
 

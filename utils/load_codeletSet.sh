@@ -3,6 +3,9 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
 
+# This is script called to load a codeletSet's codelets.
+# It has the options to using a Docker container or bare metal.
+
 REVERSE_PROXY_PORT=30450
 CURRENT_DIR=$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )
 source $CURRENT_DIR/../set_vars.sh
@@ -50,12 +53,17 @@ fi
 
 
 if [ "$SRS_JBPF_DOCKER" -eq 1 ]; then
+    
     echo "Loading codeletSet yaml file: $codeletSet_yaml using reverse proxy"
+
+    # For all input and output maps defined in the yaml, generate a stream id
     $CURRENT_DIR/add_stream_ids.sh $codeletSet_yaml tmp.yaml
 
     # install yq
     # sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/local/bin/yq
     # sudo chmod a+x /usr/local/bin/yq
+
+    # convert yaml to json
     yq '.' tmp.yaml -o json > tmp.json
 
     # download to reverse-proxy
