@@ -168,7 +168,7 @@ To unload the deployment:
 ./unload.sh -y xran_packets/deployment.yaml
 ```
 
-`Load and unload of [fapi](../jrtc_apps/fapi/) examples`
+**Load and unload of [fapi](../jrtc_apps/fapi/) examples**
 
 Again, make sure that decoder port is configured correctly in in fapi deployment.yaml. 
 
