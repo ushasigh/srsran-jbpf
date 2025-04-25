@@ -118,9 +118,7 @@ cd $SRSRANAPP_DIR/codelets
 ./make.sh
 ```
 
-
-`Load the xran_packets deployment`
-Load and unload the [xran_packets](../jrtc_apps/xran_packets/) examples:
+**Load and unload the [xran_packets](../jrtc_apps/xran_packets/) examples:**
 
 Before loading the codelets, make sure that following ports are configured for decoder and app in deployment.yaml. 
 
@@ -170,9 +168,7 @@ To unload the deployment:
 ./unload.sh -y xran_packets/deployment.yaml
 ```
 
-`Load the fapi deployment`
-
-Similarly, we can also try, [fapi](../jrtc_apps/fapi/) examples:
+`Load and unload of [fapi](../jrtc_apps/fapi/) examples`
 
 Again, make sure that decoder port is configured correctly in in fapi deployment.yaml. 
 
