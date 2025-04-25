@@ -3,6 +3,9 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
 
+# This is script called to unload a codeletSet's codelets and its schemas.
+# It has the options to using a Docker container or bare metal.
+
 CURRENT_DIR=$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )
 source $CURRENT_DIR/../set_vars.sh
 
@@ -47,21 +50,43 @@ if [ ! -e "$codeletSet_yaml" ]; then
     exit 1
 fi
 
-# generate stream Ids to tmp file and load that
 
-echo "Unloading codeletSet yaml file: $codeletSet_yaml, LCM address: $lcm_addr"
+if [ "$SRS_JBPF_DOCKER" -eq 1 ]; then
 
-tmp_yaml=$CURRENT_DIR/tmp.yaml 
+    # If the environment variable SRS_JBPF_DOCKER is set to 1, we are using a Docker container
+    # In this mode the RAN will be running with a reverse proxy
 
-$CURRENT_DIR/add_stream_ids.sh $codeletSet_yaml $CURRENT_DIR/tmp.yaml
+    echo "Unloading codeletSet yaml file: $codeletSet_yaml using reverse proxy"
+    
+    # unload codeletSet
+    ./unload_codeletSet.sh -c $codeletSet_yaml
+    ret=$?
+    
+    # unload the schemas    
+    ./unload_schemas.sh -c $codeletSet_yaml
+else
 
-# load codeletSet
-./unload_codeletSet.sh -c $tmp_yaml -a $lcm_addr
-ret=$?
+    # Unload from bare metal using local socket
+    echo "Unloading codeletSet yaml file: $codeletSet_yaml using local socket, LCM address: $lcm_addr"
 
-# load the schemas
-./unload_schemas.sh -c $tmp_yaml
+    # generate stream Ids to tmp file and load that
+    tmp_yaml=$CURRENT_DIR/tmp.yaml 
+    $CURRENT_DIR/add_stream_ids.sh $codeletSet_yaml $CURRENT_DIR/tmp.yaml
 
-rm -f $tmp_yaml
+    # unload codeletSet
+    ./unload_codeletSet.sh -c $tmp_yaml -a $lcm_addr
+    ret=$?
+
+    # unload the schemas
+    ./unload_schemas.sh -c $tmp_yaml
+
+    rm -f $tmp_yaml
+fi
+
+if [ "$ret" -eq 0 ]; then
+    echo "CodeletSet and schemas unloaded successfully."
+else
+    echo "Error: CodeletSet and schemas unloading failed."
+fi
 
 exit $ret
