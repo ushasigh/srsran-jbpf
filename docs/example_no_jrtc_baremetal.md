@@ -9,9 +9,12 @@ cd codelets
 ```
 
 Next, you need to open 3 terminal windows, one for the srsRAN, one for a message decoder, and one for loading/unloading codelets. 
-In each window, set up the environment variables as described above. 
-In the srsRAN terminal, start the `gnb` binary in the usual way. 
+In each window, set up the environment variables as described [here](./baremetal.md#set-required-environment-variables)
 
+`Terminal-1`
+In the srsRAN terminal, start the `gnb` binary in the usual way 
+
+`Terminal-2`
 In the message decoder window, you need to run the decoder application. 
 This is an application to which schemas will be loaded, and it will printed the protobuf decode of messages it receives.
 ```sh
@@ -20,6 +23,7 @@ cd utils
 ```
 For more info on the message decoder, see [here](https://github.com/microsoft/jbpf-protobuf/blob/main/examples/first_example_standalone/README.md).
 
+`Terminal-3`
 Finally, in the last window, load the schemas and codelets (if you run your srsRAN with sudo, you'll need to run the above command with sudo):
 ```sh
 cd utils

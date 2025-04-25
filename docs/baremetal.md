@@ -16,15 +16,25 @@ A version of srsRAN_platform with jBPF enabled must be built and used. Please fo
 #### Initialize submodules:
 
 ```bash
-cd ~/jbpf_apps
+cd ~/jrtc_apps
 ./init_submodules.sh
 ```
 
-Then go to the folder `jbpf-protobuf` and build the submodule using the instructions in the [repo](https://github.com/microsoft/jbpf-protobuf). 
-You should do this only once after cloning the repo.
+Then go to the folder `jbpf-protobuf` and build the submodule using the instructions in the [repository](https://github.com/microsoft/jbpf-protobuf). 
+You should do this only once after cloning the repository.
 
 
 #### Set required environment variables:
+
+To run everything as baremetal, we must set env variable `SRS_JBPF_DOCKER=0`. 
+The default environment options are in file __".env"__. 
+If you wish to override any of these variables, create a separate file called __".env.local"__, with variable which should be overwritten, for example:-
+
+```
+SRS_JBPF_DOCKER=0
+```
+
+Now, set the enviormentment variables
 
 ```sh
 export SRSRAN_DIR=<path_to_your_srsRAN_with_jbpf>
