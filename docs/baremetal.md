@@ -28,7 +28,7 @@ You should do this only once after cloning the repository.
 
 To run everything as baremetal, we must set env variable `SRS_JBPF_DOCKER=0`. 
 The default environment options are in file __".env"__. 
-If you wish to override any of these variables, create a separate file called __".env.local"__, with variable which should be overwritten, for example:-
+If you wish to override any of these variables, create a separate file called __".env.local"__, with variable which should be overwritten, for example:
 
 ```
 SRS_JBPF_DOCKER=0
