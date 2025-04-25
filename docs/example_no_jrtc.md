@@ -2,7 +2,16 @@
 
 We will run the first example without *jrt-controller*. 
 
-First, build the codelets:
+To start without *jrt-controller*, we need to set the env variable `USE_JRTC=0`. 
+The default environment options are in file __".env"__. 
+If you wish to override any of these variables, create a separate file called __".env.local"__, with variable which should be overwritten, for example:-
+
+```sh
+USE_JRTC=0
+```
+
+Now, let's build the codelets first:
+
 ```sh
 cd codelets
 ./make.sh
