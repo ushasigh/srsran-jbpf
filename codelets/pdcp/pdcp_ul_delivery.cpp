@@ -51,12 +51,8 @@ uint64_t jbpf_main(void* state)
     out->is_srb = pdcp_ctx.is_srb;
     out->rb_id = pdcp_ctx.rb_id;
     out->rlc_mode = pdcp_ctx.rlc_mode;
-    /*
-    out->sdu_length = ctx->meta_data1 >> 32;
-    out->window_size = ctx->meta_data1 & 0xFFFFFFFF;
-    */
-    out->sdu_length = 0;
-    out->window_size = 0;
+    out->sdu_length = ctx->srs_meta_data1 >> 32;
+    out->window_size = ctx->srs_meta_data1 & 0xFFFFFFFF;
 
     int ret = jbpf_ringbuf_output(&pdcp_ul_delivery_output_map, (void *)out, sizeof(pdcp_ul_delivery));
     jbpf_map_clear(&output_map_tmp);

@@ -15,6 +15,7 @@
 
 #include "jbpf_defs.h"
 #include "jbpf_helper.h"
+#include "jbpf_helper_utils.h"
 
 #define MAX_NUM_UE (32)
 
@@ -51,9 +52,25 @@ uint64_t jbpf_main(void* state)
     out->ue_index = mac_ctx.ue_index;
     out->harq_id = mac_ctx.harq_id;
     out->tb_crc_success = mac_ctx.tb_crc_success;
-    //out->ul_sinr_dB = mac_ctx.ul_rsrp_dBFS.has_value() ? static_cast<uint32_t>(mac_ctx.ul_sinr_dB.value() * 1000.0 + 0.5) : 0;
+    if (mac_ctx.ul_rsrp_dBFS.has_value()) {
+        out->ul_sinr_dB = (int32_t) (fixedpt_mul(float_to_fixed(mac_ctx.ul_rsrp_dBFS.value()), float_to_fixed(1000.0)) + FIXEDPT_ONE_HALF);
+    } else {
+        out->ul_sinr_dB = 0;
+    }
+    if (mac_ctx.ul_sinr_dB.has_value()) {
+        out->ul_rsrp_dBFS = (int32_t) (fixedpt_mul(float_to_fixed(mac_ctx.ul_sinr_dB.value()), float_to_fixed(1000.0)) + FIXEDPT_ONE_HALF);
+    } else {
+        out->ul_rsrp_dBFS = 0;
+    }
+    if (mac_ctx.time_advance_offset.has_value()) {
+        // Check phy_time_unit.to_seconds() to see how to convert to seconds
+        out->time_advance_offset = (int32_t) (mac_ctx.time_advance_offset.value().to_Tc());
+    } else {
+        out->time_advance_offset = 0;
+    }
+    //out->ul_sinr_dB = mac_ctx.ul_sinr_dB.has_value() ? static_cast<uint32_t>(mac_ctx.ul_sinr_dB.value() * 1000.0 + 0.5) : 0;
     //out->ul_rsrp_dBFS = mac_ctx.ul_rsrp_dBFS.has_value() ? static_cast<uint32_t>(mac_ctx.ul_rsrp_dBFS.value() * 1000.0 + 0.5) : 0;
-    //out->time_advance_offset = mac_ctx.ul_rsrp_dBFS.has_value() ? static_cast<uint32_t>(mac_ctx.time_advance_offset.value().to_seconds() * 1000000.0 + 0.5) : 0;
+    //out->time_advance_offset = mac_ctx.time_advance_offset.has_value() ? static_cast<uint32_t>(mac_ctx.time_advance_offset.value().to_seconds() * 1000000.0 + 0.5) : 0;
 
     int ret = jbpf_ringbuf_output(&mac_sched_crc_indication_output_map, (void *)out, sizeof(mac_sched_crc_indication));
     jbpf_map_clear(&output_map_tmp);
