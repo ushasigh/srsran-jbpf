@@ -1,0 +1,30 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT license.
+
+syntax = "proto2";
+
+
+message t_stats {
+   required uint32 ue_index = 1;
+   required uint32 cons_min = 2;
+   required uint32 cons_max = 3;
+   required uint32 succ_tx = 4;
+   required uint32 cnt_tx = 5;
+   required uint32 min_sinr = 6;
+   required int32 min_rsrp = 7;
+   required uint32 max_sinr = 8;
+   required int32 max_rsrp = 9;
+   required uint32 sum_sinr = 10;
+   required int32 sum_rsrp = 11;
+   required uint32 cnt_sinr = 12;
+   required uint32 cnt_rsrp = 13;
+}
+
+message mac_stats {
+   required uint64 timestamp = 1;
+   repeated t_stats stats = 2;
+}
+
+
+
+
