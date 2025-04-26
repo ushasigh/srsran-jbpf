@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=../../tools/schemas/jrtc-ctl..schema.json
+
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT license.
+
+name: dashboard
+    
+decoder:
+  - type: decodergrpc
+    port: 30501
+    #port: 20789
+      
+app:
+  - name: dashboard
+    path: ${JRTC_APPS}/dashboard/dashboard.py
+    type: python
+    port: 30500
+    modules:
+      - ${JBPF_CODELETS}/mac/mac_sched_ul_bsr_indication.py
+      - ${JBPF_CODELETS}/mac/mac_sched_crc_indication.py
+      - ${JBPF_CODELETS}/mac/mac_sched_ul_phr_indication.py
+
+      - ${JBPF_CODELETS}/pdcp/pdcp_dl_delivery.py
+      - ${JBPF_CODELETS}/pdcp/pdcp_dl_new_sdu.py
+      - ${JBPF_CODELETS}/pdcp/pdcp_ul_delivery.py
+
+      - ${JBPF_CODELETS}/rrc/rrc_ue_add.py
+      - ${JBPF_CODELETS}/rrc/rrc_ue_procedure.py
+      - ${JBPF_CODELETS}/rrc/rrc_ue_remove.py
+      - ${JBPF_CODELETS}/rrc/rrc_ue_update_context.py
+      - ${JBPF_CODELETS}/rrc/rrc_ue_update_id.py
+
+      - ${JBPF_CODELETS}/fapi_dl_conf/fapi_gnb_dl_config_stats.py
+      - ${JBPF_CODELETS}/fapi_ul_conf/fapi_gnb_ul_config_stats.py
+      - ${JBPF_CODELETS}/fapi_ul_crc/fapi_gnb_crc_stats.py
+      - ${JBPF_CODELETS}/fapi_rach/fapi_gnb_rach_stats.py
+
+jbpf:
+  device:
+    - id: 1
+      port: 30450
+
+  codelet_set:
+    - device: 1
+      config: ${JBPF_CODELETS}/mac/mac_detailed.yaml 
+    - device: 1
+      config: ${JBPF_CODELETS}/pdcp/pdcp_detailed.yaml 
+    - device: 1
+      config: ${JBPF_CODELETS}/rrc/rrc.yaml 
+    - device: 1
+      config: ${JBPF_CODELETS}/fapi_dl_conf/fapi_gnb_dl_config_stats.yaml
+    - device: 1
+      config: ${JBPF_CODELETS}/fapi_ul_conf/fapi_gnb_ul_config_stats.yaml
+    - device: 1
+      config: ${JBPF_CODELETS}/fapi_ul_crc/fapi_gnb_crc_stats.yaml
+    - device: 1
+      config: ${JBPF_CODELETS}/fapi_rach/fapi_gnb_rach_stats.yaml
