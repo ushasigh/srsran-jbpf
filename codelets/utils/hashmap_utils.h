@@ -79,6 +79,20 @@
 })
 
 
+#define JBPF_HASHMAP_LOOKUP_UPDATE_UINT32_ELEM(hist, key, default_val) ({\
+  uint32_t *val = (uint32_t *)jbpf_map_lookup_elem(hist, key); \
+  if (!val) { \
+      uint32_t ctmp = default_val; \
+      int res = jbpf_map_update_elem(hist, key, &ctmp, 0); \
+      if (res == JBPF_MAP_SUCCESS) { \
+          val = (uint32_t *)jbpf_map_lookup_elem(hist, key); \
+          if (!val) return 1; \
+      } else return JBPF_MAP_UPDATE_ERROR; \
+  } \
+  val; \
+})
+
+
 #define JBPF_HASHMAP_CLEAR(hist) ({\
   int res = jbpf_map_try_clear(hist); \
   if (res != JBPF_MAP_SUCCESS) return 1; \
