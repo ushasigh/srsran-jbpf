@@ -1,0 +1,26 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT license.
+
+syntax = "proto2";
+
+
+message t_stats {
+   required uint32 ue_index = 1;
+   required uint32 rb_id = 2;
+   required uint32 total_sdu = 3;
+   required uint32 sdu_count = 4;
+   required uint32 min_sdu = 5;
+   required uint32 max_sdu = 6;
+   required uint32 total_win = 7;
+   required uint32 min_win = 8;
+   required uint32 max_win = 9;
+}
+
+message ul_stats {
+   required uint64 timestamp = 1;
+   repeated t_stats stats = 2;
+}
+
+
+
+

@@ -12,7 +12,6 @@
 #include "../utils/hashmap_utils.h"
 
 
-#define SEC(NAME) __attribute__((section(NAME), used))
 
 #include "jbpf_defs.h"
 #include "jbpf_helper.h"
@@ -39,7 +38,7 @@ struct jbpf_load_map_def SEC("maps") cnt_loss = {
 struct jbpf_load_map_def SEC("maps") stats_map_crc = {
     .type = JBPF_MAP_TYPE_ARRAY,
     .key_size = sizeof(int),
-    .value_size = sizeof(mac_stats),
+    .value_size = sizeof(crc_stats),
     .max_entries = 1,
 };
   
@@ -70,7 +69,7 @@ uint64_t jbpf_main(void* state)
         return JBPF_CODELET_FAILURE;
     }
 
-    mac_stats *out = (mac_stats *)jbpf_map_lookup_elem(&stats_map_crc, &zero_index);
+    crc_stats *out = (crc_stats *)jbpf_map_lookup_elem(&stats_map_crc, &zero_index);
     if (!out)
         return JBPF_CODELET_FAILURE;
 
@@ -121,6 +120,7 @@ uint64_t jbpf_main(void* state)
             out->stats[ind].cons_min, 
             out->stats[ind].cons_max);
 #endif
+        *loss_cnt = 0;
         *not_empty_stats = 1;
     } else {
         // Increase loss count

@@ -6,8 +6,9 @@
 #include "jbpf_srsran_contexts.h"
 
 #include "mac_sched_crc_stats.pb.h"
+#include "mac_sched_bsr_stats.pb.h"
+#include "mac_sched_phr_stats.pb.h"
 
-#define SEC(NAME) __attribute__((section(NAME), used))
 
 #include "jbpf_defs.h"
 #include "jbpf_helper.h"
@@ -17,18 +18,14 @@
 
 
 #define MAX_NUM_UE 32
+#define MAX_NUM_UE_CELL (128)
 
 
-jbpf_ringbuf_map(output_map, mac_stats, 1000);
+//// CRC
 
-struct jbpf_load_map_def SEC("maps") crc_not_empty = {
-    .type = JBPF_MAP_TYPE_ARRAY,
-    .key_size = sizeof(int),
-    .value_size = sizeof(uint32_t),
-    .max_entries = 1,
-};
+jbpf_ringbuf_map(output_map_crc, crc_stats, 1000);
 
-struct jbpf_load_map_def SEC("maps") last_time = {
+struct jbpf_load_map_def SEC("maps") last_time_crc = {
     .type = JBPF_MAP_TYPE_ARRAY,
     .key_size = sizeof(int),
     .value_size = sizeof(uint64_t),
@@ -39,20 +36,76 @@ struct jbpf_load_map_def SEC("maps") last_time = {
 struct jbpf_load_map_def SEC("maps") stats_map_crc = {
     .type = JBPF_MAP_TYPE_ARRAY,
     .key_size = sizeof(int),
-    .value_size = sizeof(mac_stats),
+    .value_size = sizeof(crc_stats),
+    .max_entries = 1,
+};
+
+DEFINE_PROTOHASH_32(crc_hash, MAX_NUM_UE);
+
+struct jbpf_load_map_def SEC("maps") crc_not_empty = {
+    .type = JBPF_MAP_TYPE_ARRAY,
+    .key_size = sizeof(int),
+    .value_size = sizeof(uint32_t),
     .max_entries = 1,
 };
 
 
-DEFINE_PROTOHASH_32(crc_hash, MAX_NUM_UE);
 
-// Consecutive packet losses
-struct jbpf_load_map_def SEC("maps") cnt_loss = {
+//// BSR
+
+jbpf_ringbuf_map(output_map_bsr, bsr_stats, 1000);
+
+struct jbpf_load_map_def SEC("maps") last_time_bsr = {
     .type = JBPF_MAP_TYPE_ARRAY,
-    .key_size = sizeof(uint64_t),
-    .value_size = sizeof(uint32_t),
-    .max_entries = MAX_NUM_UE,
+    .key_size = sizeof(int),
+    .value_size = sizeof(uint64_t),
+    .max_entries = 1,
 };
+
+struct jbpf_load_map_def SEC("maps") stats_map_bsr = {
+    .type = JBPF_MAP_TYPE_ARRAY,
+    .key_size = sizeof(int),
+    .value_size = sizeof(bsr_stats),
+    .max_entries = 1,
+  };
+  
+DEFINE_PROTOHASH_32(bsr_hash, MAX_NUM_UE);
+
+struct jbpf_load_map_def SEC("maps") bsr_not_empty = {
+    .type = JBPF_MAP_TYPE_ARRAY,
+    .key_size = sizeof(int),
+    .value_size = sizeof(uint32_t),
+    .max_entries = 1,
+};
+
+
+
+//// PHR
+
+jbpf_ringbuf_map(output_map_phr, phr_stats, 1000);
+
+struct jbpf_load_map_def SEC("maps") last_time_phr = {
+    .type = JBPF_MAP_TYPE_ARRAY,
+    .key_size = sizeof(int),
+    .value_size = sizeof(uint64_t),
+    .max_entries = 1,
+};
+
+struct jbpf_load_map_def SEC("maps") phr_not_empty = {
+    .type = JBPF_MAP_TYPE_ARRAY,
+    .key_size = sizeof(int),
+    .value_size = sizeof(uint32_t),
+    .max_entries = 1,
+};
+
+struct jbpf_load_map_def SEC("maps") stats_map_phr = {
+  .type = JBPF_MAP_TYPE_ARRAY,
+  .key_size = sizeof(int),
+  .value_size = sizeof(phr_stats),
+  .max_entries = 1,
+};
+
+DEFINE_PROTOHASH_64(phr_hash, MAX_NUM_UE_CELL);
 
 
 
@@ -62,44 +115,44 @@ struct jbpf_load_map_def SEC("maps") cnt_loss = {
 extern "C" SEC("jbpf_ran_layer2")
 uint64_t jbpf_main(void *state)
 {
-    struct jbpf_stats_ctx *ctx;
     uint64_t zero_index = 0;
     uint64_t timestamp;
 
-    ctx = (struct jbpf_stats_ctx *)state;
+    // Timestamp field name should not change as it is hardcoded in post processing
+    timestamp = jbpf_time_get_ns();
 
-    uint32_t *not_empty_stats = (uint32_t*)jbpf_map_lookup_elem(&crc_not_empty, &zero_index);
-    if (!not_empty_stats)
+    // Timestamp is in ns, and we want to report pprox every second, so divide by 2^30 
+    uint64_t timestamp32 = (uint64_t) (timestamp >> 30);
+    
+
+
+    ////////////////////////////////////////////////////////////////////////////////
+    ///// CRC stats
+
+    uint32_t *not_empty_crc_stats = (uint32_t*)jbpf_map_lookup_elem(&crc_not_empty, &zero_index);
+    if (!not_empty_crc_stats)
         return JBPF_CODELET_FAILURE;
 
     // Get stats map buffer to save output across invocations
     void *c = jbpf_map_lookup_elem(&stats_map_crc, &zero_index);
     if (!c)
         return JBPF_CODELET_FAILURE;
-    mac_stats *out = (mac_stats *)c;
+    crc_stats *out_crc = (crc_stats *)c;
 
-    uint64_t *last_timestamp = (uint64_t*)jbpf_map_lookup_elem(&last_time, &zero_index);
-    if (!last_timestamp)
+    uint64_t *last_timestamp_crc = (uint64_t*)jbpf_map_lookup_elem(&last_time_crc, &zero_index);
+    if (!last_timestamp_crc)
         return JBPF_CODELET_FAILURE;
 
-    // Timestamp field name should not change as it is hardcoded in post processing
-    timestamp = jbpf_time_get_ns();
-
-    uint64_t timestamp32 = (uint64_t) (timestamp >> 30);
-
-#ifdef DEBUG_PRINT
-        jbpf_printf_debug("OUTPUT CHECK: %lu %u\n", timestamp32, *last_timestamp);
-#endif
-
-    if (*not_empty_stats && *last_timestamp < timestamp32)
+        
+    if (*not_empty_crc_stats && *last_timestamp_crc < timestamp32)
     {
-        out->timestamp = timestamp;
+        out_crc->timestamp = timestamp;
 
 #ifdef DEBUG_PRINT
-        jbpf_printf_debug("OUTPUT: %lu\n", out->timestamp);
+        jbpf_printf_debug("CRC OUTPUT: %lu\n", out_crc->timestamp);
 #endif
 
-        int ret = jbpf_ringbuf_output(&output_map, (void *) out, sizeof(mac_stats));
+        int ret = jbpf_ringbuf_output(&output_map_crc, (void *) out_crc, sizeof(crc_stats));
 
         JBPF_HASHMAP_CLEAR(&crc_hash);
         
@@ -107,16 +160,107 @@ uint64_t jbpf_main(void *state)
         // NOTE: this is not thread safe, but we don't care here
         // The worst case we can overwrite someone else writing
         jbpf_map_clear(&stats_map_crc);
-        jbpf_map_clear(&cnt_loss);
 
-        *not_empty_stats = 0;
-        *last_timestamp = timestamp32;
+        *not_empty_crc_stats = 0;
+        *last_timestamp_crc = timestamp32;
 
         if (ret < 0) {
             return JBPF_CODELET_FAILURE;
         }
 
     }
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////////
+    ///// BSR stats
+
+    uint32_t *not_empty_bsr_stats = (uint32_t*)jbpf_map_lookup_elem(&bsr_not_empty, &zero_index);
+    if (!not_empty_bsr_stats) {
+        return JBPF_CODELET_FAILURE;
+    }
+
+    bsr_stats *out_bsr = (bsr_stats *)jbpf_map_lookup_elem(&stats_map_bsr, &zero_index);
+    if (!out_bsr)
+        return JBPF_CODELET_FAILURE;
+
+    uint64_t *last_timestamp_bsr = (uint64_t*)jbpf_map_lookup_elem(&last_time_bsr, &zero_index);
+    if (!last_timestamp_bsr)
+        return JBPF_CODELET_FAILURE;
+    
+
+    if (*not_empty_bsr_stats && *last_timestamp_bsr < timestamp32)
+    {
+        out_bsr->timestamp = timestamp;
+
+#ifdef DEBUG_PRINT
+        jbpf_printf_debug("BSR OUTPUT: %lu\n", out_bsr->timestamp);
+#endif
+
+        int ret = jbpf_ringbuf_output(&output_map_bsr, (void *) out_bsr, sizeof(bsr_stats));
+
+        JBPF_HASHMAP_CLEAR(&bsr_hash);
+        
+        // Reset the info
+        // NOTE: this is not thread safe, but we don't care here
+        // The worst case we can overwrite someone else writing
+        jbpf_map_clear(&stats_map_bsr);
+
+        *not_empty_bsr_stats = 0;
+        *last_timestamp_bsr = timestamp32;
+
+        if (ret < 0) {
+            return JBPF_CODELET_FAILURE;
+        }
+
+    }
+
+
+
+    ////////////////////////////////////////////////////////////////////////////////
+    ///// PHR stats
+
+    uint32_t *not_empty_phr_stats = (uint32_t*)jbpf_map_lookup_elem(&phr_not_empty, &zero_index);
+    if (!not_empty_phr_stats) {
+        return JBPF_CODELET_FAILURE;
+    }
+
+    phr_stats *out_phr = (phr_stats *)jbpf_map_lookup_elem(&stats_map_phr, &zero_index);
+    if (!out_phr)
+        return JBPF_CODELET_FAILURE;
+
+    uint64_t *last_timestamp_phr = (uint64_t*)jbpf_map_lookup_elem(&last_time_phr, &zero_index);
+    if (!last_timestamp_phr)
+        return JBPF_CODELET_FAILURE;
+    
+
+    if (*not_empty_phr_stats && *last_timestamp_phr < timestamp32)
+    {
+        out_phr->timestamp = timestamp;
+
+#ifdef DEBUG_PRINT
+        jbpf_printf_debug("PHR OUTPUT: %lu\n", out_phr->timestamp);
+#endif
+
+        int ret = jbpf_ringbuf_output(&output_map_phr, (void *) out_phr, sizeof(phr_stats));
+
+        JBPF_HASHMAP_CLEAR(&phr_hash);
+        
+        // Reset the info
+        // NOTE: this is not thread safe, but we don't care here
+        // The worst case we can overwrite someone else writing
+        jbpf_map_clear(&stats_map_phr);
+
+        *not_empty_phr_stats = 0;
+        *last_timestamp_phr = timestamp32;
+
+        if (ret < 0) {
+            return JBPF_CODELET_FAILURE;
+        }
+
+    }
+
 
     return JBPF_CODELET_SUCCESS;
 }

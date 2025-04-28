@@ -1,0 +1,93 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT license.
+
+codeletset_id: pdcp_stats
+
+codelet_descriptor:
+
+  - codelet_name: pdcp_dl_new_sdu
+    codelet_path: ${JBPF_CODELETS}/pdcp/pdcp_dl_new_sdu.o
+    hook_name: pdcp_dl_new_sdu
+    priority: 1
+
+  - codelet_name: pdcp_dl_delivery
+    codelet_path: ${JBPF_CODELETS}/pdcp/pdcp_dl_delivery.o
+    hook_name: pdcp_dl_handle_delivery_notification
+    priority: 1
+
+    linked_maps:
+      - map_name: sdu_arrivals
+        linked_codelet_name: pdcp_dl_new_sdu
+        linked_map_name: sdu_arrivals
+      - map_name: sdu_queues
+        linked_codelet_name: pdcp_dl_new_sdu
+        linked_map_name: sdu_queues
+      # - map_name: delay_hash
+      #   linked_codelet_name: pdcp_dl_new_sdu
+      #   linked_map_name: delay_hash
+      # - map_name: queue_hash
+      #   linked_codelet_name: pdcp_dl_new_sdu
+      #   linked_map_name: queue_hash
+
+  - codelet_name: pdcp_ul_stats
+    codelet_path: ${JBPF_CODELETS}/pdcp/pdcp_ul_stats.o
+    hook_name: pdcp_ul_deliver_sdu
+    priority: 1
+
+  - codelet_name: pdcp_collect
+    codelet_path: ${JBPF_CODELETS}/pdcp/pdcp_collect.o
+    hook_name: report_stats
+    priority: 1
+    out_io_channel:
+      - name: output_map_dl_north
+        forward_destination: DestinationUDP
+        serde:
+          file_path: ${JBPF_CODELETS}/pdcp/pdcp_dl_north_stats:dl_north_stats_serializer.so
+          protobuf:
+            package_path: ${JBPF_CODELETS}/pdcp/pdcp_dl_north_stats.pb
+            msg_name: dl_north_stats
+      - name: output_map_dl_south
+        forward_destination: DestinationUDP
+        serde:
+          file_path: ${JBPF_CODELETS}/pdcp/pdcp_dl_south_stats:dl_south_stats_serializer.so
+          protobuf:
+            package_path: ${JBPF_CODELETS}/pdcp/pdcp_dl_south_stats.pb
+            msg_name: dl_south_stats
+      - name: output_map_ul
+        forward_destination: DestinationUDP
+        serde:
+          file_path: ${JBPF_CODELETS}/pdcp/pdcp_ul_stats:ul_stats_serializer.so
+          protobuf:
+            package_path: ${JBPF_CODELETS}/pdcp/pdcp_ul_stats.pb
+            msg_name: ul_stats
+
+    linked_maps:
+      - map_name: stats_map_dl_north
+        linked_codelet_name: pdcp_dl_new_sdu
+        linked_map_name: stats_map_dl_north
+      - map_name: dl_north_hash
+        linked_codelet_name: pdcp_dl_new_sdu
+        linked_map_name: dl_north_hash
+      - map_name: dl_north_not_empty
+        linked_codelet_name: pdcp_dl_new_sdu
+        linked_map_name: dl_north_not_empty
+
+      - map_name: stats_map_dl_south
+        linked_codelet_name: pdcp_dl_delivery
+        linked_map_name: stats_map_dl_south
+      - map_name: dl_south_hash
+        linked_codelet_name: pdcp_dl_delivery
+        linked_map_name: dl_south_hash
+      - map_name: dl_south_not_empty
+        linked_codelet_name: pdcp_dl_delivery
+        linked_map_name: dl_south_not_empty
+
+      - map_name: stats_map_ul
+        linked_codelet_name: pdcp_ul_stats
+        linked_map_name: stats_map_ul
+      - map_name: ul_hash
+        linked_codelet_name: pdcp_ul_stats
+        linked_map_name: ul_hash
+      - map_name: ul_not_empty
+        linked_codelet_name: pdcp_ul_stats
+        linked_map_name: ul_not_empty

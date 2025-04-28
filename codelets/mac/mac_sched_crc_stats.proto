@@ -20,7 +20,7 @@ message t_stats {
    required uint32 cnt_rsrp = 13;
 }
 
-message mac_stats {
+message crc_stats {
    required uint64 timestamp = 1;
    repeated t_stats stats = 2;
 }
