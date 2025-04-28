@@ -1,0 +1,15 @@
+syntax = "proto2";
+
+message jbpf_hook_perf {
+  required uint64 num = 1;
+  required uint64 min = 2;
+  required uint64 max = 3;
+  repeated uint32 hist = 4;
+  required string hook_name = 5;
+}
+
+message jbpf_out_perf_list {
+    required uint64 timestamp = 1;
+    required uint32 meas_period = 2;
+    repeated jbpf_hook_perf hook_perf = 3;
+}
