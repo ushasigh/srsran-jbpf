@@ -48,7 +48,7 @@ if [ "$SRS_JBPF_DOCKER" -eq 1 ]; then
         -e "JRTC_APPS=/apps" \
         -e "JBPF_CODELETS=/codelets" \
         -e "JRTC_PATH=/jrtc" \
-        --entrypoint /jrtc/bin/jrtc-ctl \
+        --entrypoint /jrtc/out/bin/jrtc-ctl \
         ghcr.io/microsoft/jrt-controller/jrt-controller-azurelinux:$SDK_IMAGE_TAG \
         load -c /apps/$DEPLOYMENT_YAML --log-level trace
     ret=$?
