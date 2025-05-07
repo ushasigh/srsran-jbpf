@@ -27,7 +27,7 @@ struct jbpf_load_map_def SEC("maps") output_map_tmp = {
 };
 
 
-#define DEBUG_PRINT
+//#define DEBUG_PRINT
 
 extern "C" SEC("jbpf_srsran_generic")
 uint64_t jbpf_main(void* state)

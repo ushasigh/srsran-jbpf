@@ -9,6 +9,8 @@
 #include "pdcp_dl_south_stats.pb.h"
 #include "pdcp_ul_stats.pb.h"
 
+#include "pdcp_dl_pkts.h"
+
 #define SEC(NAME) __attribute__((section(NAME), used))
 
 #include "jbpf_defs.h"
@@ -49,8 +51,6 @@ struct jbpf_load_map_def SEC("maps") dl_north_not_empty = {
     .value_size = sizeof(uint32_t),
     .max_entries = 1,
 };
-
-
 
 
 //// DL SOUTH
@@ -115,7 +115,6 @@ struct jbpf_load_map_def SEC("maps") ul_not_empty = {
 
 
 
-
 //#define DEBUG_PRINT 1
 
 extern "C" SEC("jbpf_ran_layer2")
@@ -156,11 +155,13 @@ uint64_t jbpf_main(void *state)
     {
         out_dl_north->timestamp = timestamp;
 
+        int ret = 0;
+#ifdef PDCP_REPORT_DL
 #ifdef DEBUG_PRINT
         jbpf_printf_debug("DL NORTH OUTPUT: %lu\n", out_dl_north->timestamp);
 #endif
-
-        int ret = jbpf_ringbuf_output(&output_map_dl_north, (void *) out_dl_north, sizeof(dl_north_stats));
+        ret = jbpf_ringbuf_output(&output_map_dl_north, (void *) out_dl_north, sizeof(dl_north_stats));
+#endif
 
         JBPF_HASHMAP_CLEAR(&dl_north_hash);
         
@@ -177,7 +178,6 @@ uint64_t jbpf_main(void *state)
         }
 
     }
-
 
 
 
@@ -202,12 +202,14 @@ uint64_t jbpf_main(void *state)
     if (*not_empty_dl_south_stats && *last_timestamp_dl_south < timestamp32)
     {
         out_dl_south->timestamp = timestamp;
+        int ret = 0;
 
+#ifdef PDCP_REPORT_DL
 #ifdef DEBUG_PRINT
         jbpf_printf_debug("DL SOUTH OUTPUT: %lu\n", out_dl_south->timestamp);
 #endif
-
-        int ret = jbpf_ringbuf_output(&output_map_dl_south, (void *) out_dl_south, sizeof(dl_south_stats));
+        ret = jbpf_ringbuf_output(&output_map_dl_south, (void *) out_dl_south, sizeof(dl_south_stats));
+#endif
 
         JBPF_HASHMAP_CLEAR(&dl_south_hash);
         
@@ -224,6 +226,7 @@ uint64_t jbpf_main(void *state)
         }
 
     }
+
 
 
 
@@ -248,11 +251,13 @@ uint64_t jbpf_main(void *state)
     {
         out_ul->timestamp = timestamp;
 
+        int ret = 0;
+#ifdef PDCP_REPORT_UL
 #ifdef DEBUG_PRINT
         jbpf_printf_debug("UL OUTPUT: %lu\n", out_ul->timestamp);
 #endif
-
-        int ret = jbpf_ringbuf_output(&output_map_ul, (void *) out_ul, sizeof(ul_stats));
+        ret = jbpf_ringbuf_output(&output_map_ul, (void *) out_ul, sizeof(ul_stats));
+#endif // PDCP_REPORT_UL
 
         JBPF_HASHMAP_CLEAR(&ul_hash);
         
@@ -269,7 +274,6 @@ uint64_t jbpf_main(void *state)
         }
 
     }
-
 
 
     return JBPF_CODELET_SUCCESS;

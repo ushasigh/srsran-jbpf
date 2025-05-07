@@ -23,6 +23,9 @@ struct jbpf_load_map_def SEC("maps") stats_tmp = {
     .max_entries = 1,
 };
 
+
+//#define DEBUG_PRINT 1
+
 SEC("jbpf_stats")
 uint64_t
 jbpf_main(void* state)
@@ -34,6 +37,11 @@ jbpf_main(void* state)
     uint64_t index = 0;
     uint16_t total = 0;
 
+#ifdef DEBUG_PRINT
+    uint64_t timestamp = jbpf_time_get_ns();
+    jbpf_printf_debug("*** PERF START: %ld\n", timestamp); 
+#endif
+
     ctx = (struct jbpf_stats_ctx*)state;
 
     out_hook_list = jbpf_map_lookup_reset_elem(&stats_tmp, &index);
@@ -41,6 +49,10 @@ jbpf_main(void* state)
     if (!out_hook_list)
         return 1;
 
+#ifdef DEBUG_PRINT
+    jbpf_printf_debug("*** PERF 1: %ld\n", timestamp); 
+#endif
+    
     out_hook_list->meas_period = ctx->meas_period;
     out_hook_list->timestamp = jbpf_time_get_ns();
 
@@ -49,6 +61,10 @@ jbpf_main(void* state)
 
     if (hook_list + 1 > hook_list_end)
         return 1;
+
+#ifdef DEBUG_PRINT
+    jbpf_printf_debug("*** PERF 2: %ld\n", timestamp); 
+#endif
 
     out_hook_list->hook_perf_count = 0;
 
@@ -92,6 +108,10 @@ jbpf_main(void* state)
                 return 1;
         }
     }
+
+#ifdef DEBUG_PRINT
+    jbpf_printf_debug("*** PERF END (total=%d): %ld\n", total, timestamp); 
+#endif
 
     return 0;
 }

@@ -77,10 +77,10 @@ uint64_t jbpf_main(void* state)
 
     uint32_t ind = JBPF_PROTOHASH_LOOKUP_ELEM_64(out, stats, ul_hash, pdcp_ctx.ue_index, pdcp_ctx.rb_id, new_val);
     if (new_val) {
-        out->stats[ind % MAX_NUM_UE_RB].total_sdu = 0;
+        out->stats[ind % MAX_NUM_UE_RB].total_sdu_B = 0;
         out->stats[ind % MAX_NUM_UE_RB].sdu_count = 0;
-        out->stats[ind % MAX_NUM_UE_RB].min_sdu = UINT32_MAX;
-        out->stats[ind % MAX_NUM_UE_RB].max_sdu = 0;
+        out->stats[ind % MAX_NUM_UE_RB].min_sdu_B = UINT32_MAX;
+        out->stats[ind % MAX_NUM_UE_RB].max_sdu_B = 0;
         out->stats[ind % MAX_NUM_UE_RB].total_win = 0;
         out->stats[ind % MAX_NUM_UE_RB].min_win = UINT32_MAX;
         out->stats[ind % MAX_NUM_UE_RB].max_win = 0;
@@ -91,12 +91,12 @@ uint64_t jbpf_main(void* state)
 
     out->stats[ind % MAX_NUM_UE_RB].sdu_count++; 
 
-    out->stats[ind % MAX_NUM_UE_RB].total_sdu += sdu_length;
-    if (out->stats[ind % MAX_NUM_UE_RB].min_sdu > sdu_length) {
-        out->stats[ind % MAX_NUM_UE_RB].min_sdu = sdu_length;
+    out->stats[ind % MAX_NUM_UE_RB].total_sdu_B += sdu_length;
+    if (out->stats[ind % MAX_NUM_UE_RB].min_sdu_B > sdu_length) {
+        out->stats[ind % MAX_NUM_UE_RB].min_sdu_B = sdu_length;
     }
-    if (out->stats[ind % MAX_NUM_UE_RB].max_sdu < sdu_length) {
-        out->stats[ind % MAX_NUM_UE_RB].max_sdu = sdu_length;
+    if (out->stats[ind % MAX_NUM_UE_RB].max_sdu_B < sdu_length) {
+        out->stats[ind % MAX_NUM_UE_RB].max_sdu_B = sdu_length;
     }
 
     out->stats[ind % MAX_NUM_UE_RB].total_win += window_size;
