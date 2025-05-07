@@ -36,7 +36,7 @@ spec:
     app: jrtc-service
 
 
-{{- if $.Values.jrtc_controller.local_decoder }}
+{{- if $.Values.jrtc_controller.local_decoder.enabled }}
 ---
 # DNS name: jrtc-decoder.{{ .Release.Namespace }}.svc.cluster.local
 apiVersion: v1
@@ -52,7 +52,7 @@ spec:
     - name: http
       port: 20789
       targetPort: 20789
-      nodePort: {{ .Values.jrtc_controller.local_decoder_port }}
+      nodePort: {{ .Values.jrtc_controller.local_decoder.port }}
       protocol: TCP
   selector:
     app: jrtc-service
@@ -141,7 +141,7 @@ spec:
         {{- if  $.Values.debug_mode.enabled }}
         args: [ "sleep 99999999d" ]
         {{- else }}
-        args: [ "/jrtc/bin/jrtc --config=/jrtc-config/config" ]
+        args: [ "/jrtc/out/bin/jrtc --config=/jrtc-config/config" ]
         {{- end }}
         securityContext:
           privileged: true
@@ -156,9 +156,9 @@ spec:
           - name: JRTC_PATH
             value: "/jrtc"
           - name: JRTC_APP_PATH
-            value: "/jrtc/lib/"
+            value: "/jrtc/out/lib/"
           - name: LD_LIBRARY_PATH
-            value: "$LD_LIBRARY_PATH:/jrtc/lib/"
+            value: "$LD_LIBRARY_PATH:/jrtc/out/lib/"
 
         resources:
           limits:
@@ -170,7 +170,7 @@ spec:
 
 
 
-    {{- if $.Values.jrtc_controller.local_decoder }}
+    {{- if $.Values.jrtc_controller.local_decoder.enabled }}
       - name: jrtc-decoder
         image: "{{ $.Values.jrtc_controller.image }}"
         imagePullPolicy: "{{ $.Values.image.pullPolicy }}"
@@ -189,7 +189,11 @@ spec:
         {{- if  $.Values.debug_mode.enabled }}
         args: [ "sleep 99999999d" ]
         {{- else }}
-        args: [ "/jrtc/bin/jrtc-ctl decoder run --decoder-data-enabled --log-level debug" ]
+        {{- if $.Values.jrtc_controller.local_decoder.log_analytics.enabled }}          
+        args: [ "/jrtc/out/bin/jrtc-ctl decoder run --decoder-data-enabled --log-level debug --json-data-enabled --loganalytics-enabled" ]
+        {{- else }}
+        args: [ "/jrtc/out/bin/jrtc-ctl decoder run --decoder-data-enabled --log-level debug --json-data-enabled" ]
+        {{- end }}
         {{- end }}
         securityContext:
           privileged: true
@@ -204,9 +208,15 @@ spec:
           - name: JRTC_PATH
             value: "/jrtc"
           - name: JRTC_APP_PATH
-            value: "/jrtc/lib/"
+            value: "/jrtc/out/lib/"
           - name: LD_LIBRARY_PATH
-            value: "$LD_LIBRARY_PATH:/jrtc/lib/"
+            value: "$LD_LIBRARY_PATH:/jrtc/out/lib/"
+        {{- if $.Values.jrtc_controller.local_decoder.log_analytics.enabled }}          
+          - name: LA_WORKSPACE_ID
+            value: {{ $.Values.jrtc_controller.local_decoder.log_analytics.workspace_id }}
+          - name: LA_PRIMARY_KEY
+            value: {{ $.Values.jrtc_controller.local_decoder.log_analytics.primary_key }}
+        {{- end }}
 
         resources:
           limits:

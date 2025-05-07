@@ -153,8 +153,13 @@ jrtc_controller:
   image: ghcr.io/microsoft/jrt-controller/jrt-controller-azurelinux:latest
   port: 30500
   # Start local decoder as a part of the jrtc controller pod for debugging
-  local_decoder: false
-  local_decoder_port: 30501
+  local_decoder: 
+    enabled: false
+    port: 30501
+    log_analytics:
+      enabled: false
+      workspace_id: "PUT_WORKSPACE_ID_HERE"
+      primary_key: "PUT_PRIMARY_KEY_HERE"
 
 
 
