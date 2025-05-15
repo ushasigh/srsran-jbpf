@@ -1,0 +1,45 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT license.
+
+codeletset_id: mac_stats
+
+codelet_descriptor:
+
+  - codelet_name: du_ue_ctx_creation
+    codelet_path: ${JBPF_CODELETS}/du_ue_contexts/du_ue_ctx_creation.o
+    hook_name: du_ue_ctx_creation
+    priority: 1
+    out_io_channel:
+      - name: output_map
+        forward_destination: DestinationUDP
+        serde:
+          file_path: ${JBPF_CODELETS}/du_ue_contexts/du_ue_ctx:du_ue_ctx_creation_serializer.so
+          protobuf:
+            package_path: ${JBPF_CODELETS}/du_ue_contexts/du_ue_ctx.pb
+            msg_name: du_ue_ctx_creation
+
+  - codelet_name: du_ue_ctx_update_crnti
+    codelet_path: ${JBPF_CODELETS}/du_ue_contexts/du_ue_ctx_update_crnti.o
+    hook_name: du_ue_ctx_update_crnti
+    priority: 1
+    out_io_channel:
+      - name: output_map
+        forward_destination: DestinationUDP
+        serde:
+          file_path: ${JBPF_CODELETS}/du_ue_contexts/du_ue_ctx:du_ue_ctx_update_crnti_serializer.so
+          protobuf:
+            package_path: ${JBPF_CODELETS}/du_ue_contexts/du_ue_ctx.pb
+            msg_name: du_ue_ctx_update_crnti
+
+  - codelet_name: du_ue_ctx_deletion
+    codelet_path: ${JBPF_CODELETS}/du_ue_contexts/du_ue_ctx_deletion.o
+    hook_name: du_ue_ctx_deletion
+    priority: 1
+    out_io_channel:
+      - name: output_map
+        forward_destination: DestinationUDP
+        serde:
+          file_path: ${JBPF_CODELETS}/du_ue_contexts/du_ue_ctx:du_ue_ctx_deletion_serializer.so
+          protobuf:
+            package_path: ${JBPF_CODELETS}/du_ue_contexts/du_ue_ctx.pb
+            msg_name: du_ue_ctx_deletion
