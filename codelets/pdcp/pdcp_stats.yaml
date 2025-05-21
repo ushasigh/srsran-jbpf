@@ -5,61 +5,6 @@ codeletset_id: pdcp_stats
 
 codelet_descriptor:
 
-### E1 test
-  # # - codelet_name: e1_cuup_bearer_context_modification
-  # #   codelet_path: ${JBPF_CODELETS}/pdcp/e1_cuup_bearer_context_modification.o
-  # #   hook_name: e1_cuup_bearer_context_modification
-  # #   priority: 1
-
-  # # - codelet_name: e1_cuup_bearer_context_release
-  # #   codelet_path: ${JBPF_CODELETS}/pdcp/e1_cuup_bearer_context_release.o
-  # #   hook_name: e1_cuup_bearer_context_release
-  # #   priority: 1
-
-
-  - codelet_name: pdcp_dl_new_sdu
-    codelet_path: ${JBPF_CODELETS}/pdcp/pdcp_dl_new_sdu.o
-    hook_name: pdcp_dl_new_sdu
-    priority: 1
-
-  - codelet_name: pdcp_dl_delivery
-    codelet_path: ${JBPF_CODELETS}/pdcp/pdcp_dl_delivery.o
-    hook_name: pdcp_dl_handle_delivery_notification
-    priority: 1
-
-## #ifdef PDCP_REPORT_DL_DELAY_QUEUE
-    linked_maps:
-      - map_name: sdu_arrivals
-        linked_codelet_name: pdcp_dl_new_sdu
-        linked_map_name: sdu_arrivals
-      - map_name: sdu_queues
-        linked_codelet_name: pdcp_dl_new_sdu
-        linked_map_name: sdu_queues
-      - map_name: delay_hash
-        linked_codelet_name: pdcp_dl_new_sdu
-        linked_map_name: delay_hash
-      - map_name: queue_hash
-        linked_codelet_name: pdcp_dl_new_sdu
-        linked_map_name: queue_hash
-
-  - codelet_name: e1_cuup_bearer_context_setup
-    codelet_path: ${JBPF_CODELETS}/pdcp/e1_cuup_bearer_context_setup.o
-    hook_name: e1_cuup_bearer_context_setup
-    priority: 1
-    linked_maps:
-      - map_name: last_acked_map
-        linked_codelet_name: pdcp_dl_delivery
-        linked_map_name: last_acked_map
-      - map_name: last_acked_hash
-        linked_codelet_name: pdcp_dl_delivery
-        linked_map_name: last_acked_hash
-## #endif
-
-  - codelet_name: pdcp_ul_stats
-    codelet_path: ${JBPF_CODELETS}/pdcp/pdcp_ul_stats.o
-    hook_name: pdcp_ul_deliver_sdu
-    priority: 1
-
   - codelet_name: pdcp_collect
     codelet_path: ${JBPF_CODELETS}/pdcp/pdcp_collect.o
     hook_name: report_stats
@@ -86,36 +31,196 @@ codelet_descriptor:
           protobuf:
             package_path: ${JBPF_CODELETS}/pdcp/pdcp_ul_stats.pb
             msg_name: ul_stats
-
+        
+  - codelet_name: pdcp_dl_deletion_collect
+    codelet_path: ${JBPF_CODELETS}/pdcp/pdcp_collect.o
+    hook_name: pdcp_dl_deletion
+    priority: 1
+    out_io_channel:
+      - name: output_map_dl_north
+        forward_destination: DestinationUDP
+        serde:
+          file_path: ${JBPF_CODELETS}/pdcp/pdcp_dl_north_stats:dl_north_stats_serializer.so
+          protobuf:
+            package_path: ${JBPF_CODELETS}/pdcp/pdcp_dl_north_stats.pb
+            msg_name: dl_north_stats
+      - name: output_map_dl_south
+        forward_destination: DestinationUDP
+        serde:
+          file_path: ${JBPF_CODELETS}/pdcp/pdcp_dl_south_stats:dl_south_stats_serializer.so
+          protobuf:
+            package_path: ${JBPF_CODELETS}/pdcp/pdcp_dl_south_stats.pb
+            msg_name: dl_south_stats
+      - name: output_map_ul
+        forward_destination: DestinationUDP
+        serde:
+          file_path: ${JBPF_CODELETS}/pdcp/pdcp_ul_stats:ul_stats_serializer.so
+          protobuf:
+            package_path: ${JBPF_CODELETS}/pdcp/pdcp_ul_stats.pb
+            msg_name: ul_stats
     linked_maps:
       - map_name: stats_map_dl_north
-        linked_codelet_name: pdcp_dl_new_sdu
+        linked_codelet_name: pdcp_collect
         linked_map_name: stats_map_dl_north
-      - map_name: dl_north_hash
-        linked_codelet_name: pdcp_dl_new_sdu
-        linked_map_name: dl_north_hash
       - map_name: dl_north_not_empty
-        linked_codelet_name: pdcp_dl_new_sdu
+        linked_codelet_name: pdcp_collect
+        linked_map_name: dl_north_not_empty
+      - map_name: stats_map_dl_south
+        linked_codelet_name: pdcp_collect
+        linked_map_name: stats_map_dl_south
+      - map_name: dl_south_not_empty
+        linked_codelet_name: pdcp_collect
+        linked_map_name: dl_south_not_empty
+      - map_name: stats_map_ul
+        linked_codelet_name: pdcp_collect
+        linked_map_name: stats_map_ul
+      - map_name: stats_map_ul
+        linked_codelet_name: pdcp_collect
+        linked_map_name: stats_map_ul
+
+  - codelet_name: pdcp_ul_deletion_collect
+    codelet_path: ${JBPF_CODELETS}/pdcp/pdcp_collect.o
+    hook_name: pdcp_ul_deletion
+    priority: 1
+    out_io_channel:
+      - name: output_map_dl_north
+        forward_destination: DestinationUDP
+        serde:
+          file_path: ${JBPF_CODELETS}/pdcp/pdcp_dl_north_stats:dl_north_stats_serializer.so
+          protobuf:
+            package_path: ${JBPF_CODELETS}/pdcp/pdcp_dl_north_stats.pb
+            msg_name: dl_north_stats
+      - name: output_map_dl_south
+        forward_destination: DestinationUDP
+        serde:
+          file_path: ${JBPF_CODELETS}/pdcp/pdcp_dl_south_stats:dl_south_stats_serializer.so
+          protobuf:
+            package_path: ${JBPF_CODELETS}/pdcp/pdcp_dl_south_stats.pb
+            msg_name: dl_south_stats
+      - name: output_map_ul
+        forward_destination: DestinationUDP
+        serde:
+          file_path: ${JBPF_CODELETS}/pdcp/pdcp_ul_stats:ul_stats_serializer.so
+          protobuf:
+            package_path: ${JBPF_CODELETS}/pdcp/pdcp_ul_stats.pb
+            msg_name: ul_stats
+    linked_maps:
+      - map_name: stats_map_dl_north
+        linked_codelet_name: pdcp_collect
+        linked_map_name: stats_map_dl_north
+      - map_name: dl_north_not_empty
+        linked_codelet_name: pdcp_collect
+        linked_map_name: dl_north_not_empty
+      - map_name: stats_map_dl_south
+        linked_codelet_name: pdcp_collect
+        linked_map_name: stats_map_dl_south
+      - map_name: dl_south_not_empty
+        linked_codelet_name: pdcp_collect
+        linked_map_name: dl_south_not_empty
+      - map_name: stats_map_ul
+        linked_codelet_name: pdcp_collect
+        linked_map_name: stats_map_ul
+      - map_name: stats_map_ul
+        linked_codelet_name: pdcp_collect
+        linked_map_name: stats_map_ul
+
+  - codelet_name: pdcp_dl_creation_deletion
+    codelet_path: ${JBPF_CODELETS}/pdcp/pdcp_dl_creation_deletion.o
+    hook_name: pdcp_dl_deletion
+    priority: 1
+
+  - codelet_name: pdcp_dl_new_sdu
+    codelet_path: ${JBPF_CODELETS}/pdcp/pdcp_dl_new_sdu.o
+    hook_name: pdcp_dl_new_sdu
+    priority: 1
+    linked_maps:
+      - map_name: stats_map_dl_north
+        linked_codelet_name: pdcp_collect
+        linked_map_name: stats_map_dl_north
+      - map_name: dl_north_not_empty
+        linked_codelet_name: pdcp_collect
         linked_map_name: dl_north_not_empty
 
+  - codelet_name: pdcp_dl_tx_data_pdu
+    codelet_path: ${JBPF_CODELETS}/pdcp/pdcp_dl_tx_data_pdu.o
+    hook_name: pdcp_dl_tx_data_pdu
+    priority: 1
+    linked_maps:
       - map_name: stats_map_dl_south
-        linked_codelet_name: pdcp_dl_delivery
+        linked_codelet_name: pdcp_collect
         linked_map_name: stats_map_dl_south
-      - map_name: dl_south_hash
-        linked_codelet_name: pdcp_dl_delivery
-        linked_map_name: dl_south_hash
       - map_name: dl_south_not_empty
-        linked_codelet_name: pdcp_dl_delivery
+        linked_codelet_name: pdcp_collect
         linked_map_name: dl_south_not_empty
+      - map_name: sdu_events
+        linked_codelet_name: pdcp_dl_new_sdu
+        linked_map_name: sdu_events
 
-      - map_name: stats_map_ul
-        linked_codelet_name: pdcp_ul_stats
-        linked_map_name: stats_map_ul
-      - map_name: ul_hash
-        linked_codelet_name: pdcp_ul_stats
-        linked_map_name: ul_hash
+  - codelet_name: pdcp_dl_handle_tx_notification
+    codelet_path: ${JBPF_CODELETS}/pdcp/pdcp_dl_tx_notification.o
+    hook_name: pdcp_dl_handle_tx_notification
+    priority: 1
+    linked_maps:
+      - map_name: stats_map_dl_south
+        linked_codelet_name: pdcp_collect
+        linked_map_name: stats_map_dl_south
+      - map_name: dl_south_not_empty
+        linked_codelet_name: pdcp_collect
+        linked_map_name: dl_south_not_empty
+      - map_name: sdu_events
+        linked_codelet_name: pdcp_dl_new_sdu
+        linked_map_name: sdu_events
+      - map_name: last_notif_acked_map
+        linked_codelet_name: pdcp_dl_creation_deletion
+        linked_map_name: last_notif_acked_map
+
+  - codelet_name: pdcp_dl_delivery
+    codelet_path: ${JBPF_CODELETS}/pdcp/pdcp_dl_delivery.o
+    hook_name: pdcp_dl_handle_delivery_notification
+    priority: 1
+    linked_maps:
+      - map_name: stats_map_dl_south
+        linked_codelet_name: pdcp_collect
+        linked_map_name: stats_map_dl_south
+      - map_name: dl_south_not_empty
+        linked_codelet_name: pdcp_collect
+        linked_map_name: dl_south_not_empty
+      - map_name: sdu_events
+        linked_codelet_name: pdcp_dl_new_sdu
+        linked_map_name: sdu_events
+      - map_name: sdu_queues
+        linked_codelet_name: pdcp_dl_new_sdu
+        linked_map_name: sdu_queues
+      - map_name: last_deliv_acked_map
+        linked_codelet_name: pdcp_dl_creation_deletion
+        linked_map_name: last_deliv_acked_map
+
+  - codelet_name: pdcp_dl_discard
+    codelet_path: ${JBPF_CODELETS}/pdcp/pdcp_dl_discard.o
+    hook_name: pdcp_dl_discard_pdu
+    priority: 1
+    linked_maps:
+      - map_name: stats_map_dl_south
+        linked_codelet_name: pdcp_collect
+        linked_map_name: stats_map_dl_south
+      - map_name: dl_south_not_empty
+        linked_codelet_name: pdcp_collect
+        linked_map_name: dl_south_not_empty
+      - map_name: sdu_events
+        linked_codelet_name: pdcp_dl_new_sdu
+        linked_map_name: sdu_events
+      - map_name: sdu_queues
+        linked_codelet_name: pdcp_dl_new_sdu
+        linked_map_name: sdu_queues
+
+  - codelet_name: pdcp_ul_stats
+    codelet_path: ${JBPF_CODELETS}/pdcp/pdcp_ul_stats.o
+    hook_name: pdcp_ul_deliver_sdu
+    priority: 1
+    linked_maps:
       - map_name: ul_not_empty
-        linked_codelet_name: pdcp_ul_stats
+        linked_codelet_name: pdcp_collect
         linked_map_name: ul_not_empty
-
-
+      - map_name: stats_map_ul
+        linked_codelet_name: pdcp_collect
+        linked_map_name: stats_map_ul
