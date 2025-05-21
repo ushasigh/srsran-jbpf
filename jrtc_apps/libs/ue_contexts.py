@@ -524,6 +524,28 @@ class srsRAN_UEContexts:
         self.context_create(plmn, pci, crnti, du_index=du_index, nci=nci, tac=tac)
 
     ####################################################################
+    def hook_du_ue_ctx_update_crnti(self, du_src: str, du_index: int, crnti: int) -> None:
+        if self.dbg:
+            print("-------------------------------------------------")
+            print(f"hook_du_ue_ctx_update_crnti: du_src {du_src} du_index {du_index} crnti {crnti}")
+
+        ue_id = self.getid_by_du_index(du_src, du_index)
+        if ue_id is None:
+            if self.dbg:
+                print(f"UE for du_src {du_src} du_index {du_index} could not be found.")
+            return
+        self.contexts[ue_id].crnti = crnti
+
+    ####################################################################
+    def hook_du_ue_ctx_deletion(self, du_src: str, du_index: int) -> None:
+        if self.dbg:
+            print("-------------------------------------------------")
+            print(f"hook_du_ue_ctx_deletion: du_src {du_src} du_index {du_index}")
+        ue_id = self.getid_by_du_index(du_src, du_index)
+        if ue_id is not None:
+            self.clear_du_index(ue_id)
+
+    ####################################################################
     def hook_cucp_uemgr_ue_add(self, cucp_src: str, cucp_index: tuple[str, int], plmn: int, pci: int, crnti: int) -> None:
         """
         Create a UE context in the CU-CP subsystem.
@@ -572,6 +594,15 @@ class srsRAN_UEContexts:
                 self.set_cucp_index(ue_id, cucp_index)
                 if self.dbg:
                     print(f"UE context updated: {self.contexts[ue_id]}")
+
+    ####################################################################
+    def hook_cucp_uemgr_ue_remove(self, cucp_src: str, cucp_index: int) -> None:
+        if self.dbg:
+            print("-------------------------------------------------")
+            print(f"hook_cucp_uemgr_ue_remove: cucp_src {cucp_src} cucp_index {cucp_index}")
+        ue_id = self.getid_by_cucp_index(cucp_src, cucp_index)
+        if ue_id is not None:
+            self.clear_cucp_index(ue_id)
 
     ####################################################################
     def hook_e1_cucp_bearer_context_setup(self, cucp_src: str, cucp_index: int, gnb_cucp_ue_e1ap_id: int) -> None:
@@ -666,24 +697,6 @@ class srsRAN_UEContexts:
         # update the cuup index
         self.set_cuup_index(ue_id, cuup_index)
 
-    ####################################################################
-    def hook_du_ue_ctx_deletion(self, du_src: str, du_index: int) -> None:
-        if self.dbg:
-            print("-------------------------------------------------")
-            print(f"hook_du_ue_ctx_deletion: du_src {du_src} du_index {du_index}")
-        ue_id = self.getid_by_du_index(du_src, du_index)
-        if ue_id is not None:
-            self.clear_du_index(ue_id)
-
-    ####################################################################
-    def hook_cucp_uemgr_ue_remove(self, cucp_src: str, cucp_index: int) -> None:
-        if self.dbg:
-            print("-------------------------------------------------")
-            print(f"hook_cucp_uemgr_ue_remove: cucp_src {cucp_src} cucp_index {cucp_index}")
-        ue_id = self.getid_by_cucp_index(cucp_src, cucp_index)
-        if ue_id is not None:
-            self.clear_cucp_index(ue_id)
-
     #####################################################################
     def hook_e1_cuup_bearer_context_release(self, cuup_src: str, cuup_index: int, cucp_ue_e1ap_id: int, cuup_ue_e1ap_id: int, success: bool) -> None:
         if self.dbg:
@@ -725,7 +738,7 @@ class srsRAN_UEContexts:
 ##########################################################################################################
 if __name__ == "__main__":
 
-    dbg = True
+    dbg = False
 
     s = srsRAN_UEContexts(dbg=dbg)
 
@@ -1413,6 +1426,58 @@ if __name__ == "__main__":
     ctx = s.getue_by_id(ue)
     assert ctx is None
     assert s.get_num_contexts() == 0
+
+
+    print("#############################################################################")
+    print("# Test update crnti")
+    s.hook_du_ue_ctx_creation( du_src, 
+                               du_index,   # du_index
+                               plmn,
+                               pci,
+                               crnti,
+                               tac,
+                               nci)
+    s.hook_cucp_uemgr_ue_add(  cucp_src, 
+                               cucp_index,
+                               plmn,
+                               pci,
+                               crnti)
+    s.hook_e1_cucp_bearer_context_setup(    cucp_src, 
+                                            cucp_index,   
+                                            cucp_ue_e1ap_id) 
+    s.hook_e1_cuup_bearer_context_setup(    cuup_src,
+                                            cuup_index,
+                                            cucp_ue_e1ap_id,
+                                            cuup_ue_e1ap_id,
+                                            True)  # succees
+    ue = s.getid_by_du_index(du_src, du_index)
+    ctx = s.getue_by_id(ue)
+    assert ctx is not None and ctx.du_index==(du_src, du_index) and ctx.cucp_index==(cucp_src, cucp_index) and ctx.cuup_index==(cuup_src, cuup_index) \
+        and ctx.plmn==plmn and ctx.nci==nci and ctx.pci==pci and ctx.tac==tac and ctx.crnti==crnti \
+        and len(ctx.e1_bearers)==1 \
+        and ctx.e1_bearers[0][0]==(cucp_src, cucp_ue_e1ap_id) and ctx.e1_bearers[0][1]==(cuup_src, cuup_ue_e1ap_id) 
+    assert s.get_num_contexts() == 1
+
+    new_crnti = 40000
+
+    # this one should fail as the du_index is unknown
+    s.hook_du_ue_ctx_update_crnti(du_src, du_index+1, new_crnti)
+    ctx = s.getue_by_id(ue)
+    assert ctx is not None and ctx.du_index==(du_src, du_index) and ctx.cucp_index==(cucp_src, cucp_index) and ctx.cuup_index==(cuup_src, cuup_index) \
+        and ctx.plmn==plmn and ctx.nci==nci and ctx.pci==pci and ctx.tac==tac and ctx.crnti==crnti \
+        and len(ctx.e1_bearers)==1 \
+        and ctx.e1_bearers[0][0]==(cucp_src, cucp_ue_e1ap_id) and ctx.e1_bearers[0][1]==(cuup_src, cuup_ue_e1ap_id) 
+    assert s.get_num_contexts() == 1
+
+    # this one should change the crnti
+    s.hook_du_ue_ctx_update_crnti(du_src, du_index, new_crnti)
+    ctx = s.getue_by_id(ue)
+    assert ctx is not None and ctx.du_index==(du_src, du_index) and ctx.cucp_index==(cucp_src, cucp_index) and ctx.cuup_index==(cuup_src, cuup_index) \
+        and ctx.plmn==plmn and ctx.nci==nci and ctx.pci==pci and ctx.tac==tac and ctx.crnti==new_crnti \
+        and len(ctx.e1_bearers)==1 \
+        and ctx.e1_bearers[0][0]==(cucp_src, cucp_ue_e1ap_id) and ctx.e1_bearers[0][1]==(cuup_src, cuup_ue_e1ap_id) 
+    assert s.get_num_contexts() == 1
+
 
     print("\n\n------ All tests passed ---------")
 
