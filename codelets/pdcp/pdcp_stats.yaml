@@ -32,102 +32,35 @@ codelet_descriptor:
             package_path: ${JBPF_CODELETS}/pdcp/pdcp_ul_stats.pb
             msg_name: ul_stats
         
-  - codelet_name: pdcp_dl_deletion_collect
-    codelet_path: ${JBPF_CODELETS}/pdcp/pdcp_collect.o
+  - codelet_name: pdcp_dl_deletion
+    codelet_path: ${JBPF_CODELETS}/pdcp/pdcp_dl_deletion.o
     hook_name: pdcp_dl_deletion
     priority: 1
-    out_io_channel:
-      - name: output_map_dl_north
-        forward_destination: DestinationUDP
-        serde:
-          file_path: ${JBPF_CODELETS}/pdcp/pdcp_dl_north_stats:dl_north_stats_serializer.so
-          protobuf:
-            package_path: ${JBPF_CODELETS}/pdcp/pdcp_dl_north_stats.pb
-            msg_name: dl_north_stats
-      - name: output_map_dl_south
-        forward_destination: DestinationUDP
-        serde:
-          file_path: ${JBPF_CODELETS}/pdcp/pdcp_dl_south_stats:dl_south_stats_serializer.so
-          protobuf:
-            package_path: ${JBPF_CODELETS}/pdcp/pdcp_dl_south_stats.pb
-            msg_name: dl_south_stats
-      - name: output_map_ul
-        forward_destination: DestinationUDP
-        serde:
-          file_path: ${JBPF_CODELETS}/pdcp/pdcp_ul_stats:ul_stats_serializer.so
-          protobuf:
-            package_path: ${JBPF_CODELETS}/pdcp/pdcp_ul_stats.pb
-            msg_name: ul_stats
     linked_maps:
       - map_name: stats_map_dl_north
         linked_codelet_name: pdcp_collect
         linked_map_name: stats_map_dl_north
-      - map_name: dl_north_not_empty
+      - map_name: dl_north_hash
         linked_codelet_name: pdcp_collect
-        linked_map_name: dl_north_not_empty
+        linked_map_name: dl_north_hash
       - map_name: stats_map_dl_south
         linked_codelet_name: pdcp_collect
         linked_map_name: stats_map_dl_south
-      - map_name: dl_south_not_empty
+      - map_name: dl_south_hash
         linked_codelet_name: pdcp_collect
-        linked_map_name: dl_south_not_empty
-      - map_name: stats_map_ul
-        linked_codelet_name: pdcp_collect
-        linked_map_name: stats_map_ul
-      - map_name: stats_map_ul
-        linked_codelet_name: pdcp_collect
-        linked_map_name: stats_map_ul
+        linked_map_name: dl_south_hash
 
-  - codelet_name: pdcp_ul_deletion_collect
-    codelet_path: ${JBPF_CODELETS}/pdcp/pdcp_collect.o
+  - codelet_name: pdcp_ul_deletion
+    codelet_path: ${JBPF_CODELETS}/pdcp/pdcp_dl_deletion.o
     hook_name: pdcp_ul_deletion
     priority: 1
-    out_io_channel:
-      - name: output_map_dl_north
-        forward_destination: DestinationUDP
-        serde:
-          file_path: ${JBPF_CODELETS}/pdcp/pdcp_dl_north_stats:dl_north_stats_serializer.so
-          protobuf:
-            package_path: ${JBPF_CODELETS}/pdcp/pdcp_dl_north_stats.pb
-            msg_name: dl_north_stats
-      - name: output_map_dl_south
-        forward_destination: DestinationUDP
-        serde:
-          file_path: ${JBPF_CODELETS}/pdcp/pdcp_dl_south_stats:dl_south_stats_serializer.so
-          protobuf:
-            package_path: ${JBPF_CODELETS}/pdcp/pdcp_dl_south_stats.pb
-            msg_name: dl_south_stats
-      - name: output_map_ul
-        forward_destination: DestinationUDP
-        serde:
-          file_path: ${JBPF_CODELETS}/pdcp/pdcp_ul_stats:ul_stats_serializer.so
-          protobuf:
-            package_path: ${JBPF_CODELETS}/pdcp/pdcp_ul_stats.pb
-            msg_name: ul_stats
     linked_maps:
-      - map_name: stats_map_dl_north
-        linked_codelet_name: pdcp_collect
-        linked_map_name: stats_map_dl_north
-      - map_name: dl_north_not_empty
-        linked_codelet_name: pdcp_collect
-        linked_map_name: dl_north_not_empty
-      - map_name: stats_map_dl_south
-        linked_codelet_name: pdcp_collect
-        linked_map_name: stats_map_dl_south
-      - map_name: dl_south_not_empty
-        linked_codelet_name: pdcp_collect
-        linked_map_name: dl_south_not_empty
       - map_name: stats_map_ul
         linked_codelet_name: pdcp_collect
         linked_map_name: stats_map_ul
-      - map_name: stats_map_ul
+      - map_name: ul_hash
         linked_codelet_name: pdcp_collect
-        linked_map_name: stats_map_ul
-
-  - codelet_name: pdcp_dl_creation_deletion
-    codelet_path: ${JBPF_CODELETS}/pdcp/pdcp_dl_creation_deletion.o
-    hook_name: pdcp_dl_deletion
-    priority: 1
+        linked_map_name: ul_hash
 
   - codelet_name: pdcp_dl_new_sdu
     codelet_path: ${JBPF_CODELETS}/pdcp/pdcp_dl_new_sdu.o
@@ -140,6 +73,9 @@ codelet_descriptor:
       - map_name: dl_north_not_empty
         linked_codelet_name: pdcp_collect
         linked_map_name: dl_north_not_empty
+      - map_name: dl_north_hash
+        linked_codelet_name: pdcp_collect
+        linked_map_name: dl_north_hash
 
   - codelet_name: pdcp_dl_tx_data_pdu
     codelet_path: ${JBPF_CODELETS}/pdcp/pdcp_dl_tx_data_pdu.o
@@ -152,6 +88,9 @@ codelet_descriptor:
       - map_name: dl_south_not_empty
         linked_codelet_name: pdcp_collect
         linked_map_name: dl_south_not_empty
+      - map_name: dl_south_hash
+        linked_codelet_name: pdcp_collect
+        linked_map_name: dl_south_hash
       - map_name: sdu_events
         linked_codelet_name: pdcp_dl_new_sdu
         linked_map_name: sdu_events
@@ -167,12 +106,18 @@ codelet_descriptor:
       - map_name: dl_south_not_empty
         linked_codelet_name: pdcp_collect
         linked_map_name: dl_south_not_empty
+      - map_name: dl_south_hash
+        linked_codelet_name: pdcp_collect
+        linked_map_name: dl_south_hash
       - map_name: sdu_events
         linked_codelet_name: pdcp_dl_new_sdu
         linked_map_name: sdu_events
       - map_name: last_notif_acked_map
-        linked_codelet_name: pdcp_dl_creation_deletion
+        linked_codelet_name: pdcp_dl_deletion
         linked_map_name: last_notif_acked_map
+      - map_name: last_notif_acked_hash
+        linked_codelet_name: pdcp_dl_deletion
+        linked_map_name: last_notif_acked_hash
 
   - codelet_name: pdcp_dl_delivery
     codelet_path: ${JBPF_CODELETS}/pdcp/pdcp_dl_delivery.o
@@ -185,6 +130,9 @@ codelet_descriptor:
       - map_name: dl_south_not_empty
         linked_codelet_name: pdcp_collect
         linked_map_name: dl_south_not_empty
+      - map_name: dl_south_hash
+        linked_codelet_name: pdcp_collect
+        linked_map_name: dl_south_hash
       - map_name: sdu_events
         linked_codelet_name: pdcp_dl_new_sdu
         linked_map_name: sdu_events
@@ -192,8 +140,11 @@ codelet_descriptor:
         linked_codelet_name: pdcp_dl_new_sdu
         linked_map_name: sdu_queues
       - map_name: last_deliv_acked_map
-        linked_codelet_name: pdcp_dl_creation_deletion
+        linked_codelet_name: pdcp_dl_deletion
         linked_map_name: last_deliv_acked_map
+      - map_name: last_deliv_acked_hash
+        linked_codelet_name: pdcp_dl_deletion
+        linked_map_name: last_deliv_acked_hash
 
   - codelet_name: pdcp_dl_discard
     codelet_path: ${JBPF_CODELETS}/pdcp/pdcp_dl_discard.o
@@ -206,6 +157,9 @@ codelet_descriptor:
       - map_name: dl_south_not_empty
         linked_codelet_name: pdcp_collect
         linked_map_name: dl_south_not_empty
+      - map_name: dl_south_hash
+        linked_codelet_name: pdcp_collect
+        linked_map_name: dl_south_hash
       - map_name: sdu_events
         linked_codelet_name: pdcp_dl_new_sdu
         linked_map_name: sdu_events
@@ -224,3 +178,6 @@ codelet_descriptor:
       - map_name: stats_map_ul
         linked_codelet_name: pdcp_collect
         linked_map_name: stats_map_ul
+      - map_name: ul_hash
+        linked_codelet_name: pdcp_collect
+        linked_map_name: ul_hash
