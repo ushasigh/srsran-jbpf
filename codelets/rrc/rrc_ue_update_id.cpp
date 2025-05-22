@@ -47,7 +47,7 @@ uint64_t jbpf_main(void* state)
         return JBPF_CODELET_FAILURE;
 
     out->timestamp = jbpf_time_get_ns();
-    out->ue_index = rrc_ctx.ue_index;
+    out->cucp_ue_index = rrc_ctx.cu_cp_ue_index;
     out->timsi = ctx->srs_meta_data1;
 
     int ret = jbpf_ringbuf_output(&rrc_ue_update_id_output_map, (void *)out, sizeof(rrc_ue_update_id));
