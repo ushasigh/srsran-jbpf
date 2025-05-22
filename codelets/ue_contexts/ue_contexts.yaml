@@ -26,7 +26,7 @@ codelet_descriptor:
       - name: output_map
         forward_destination: DestinationUDP
         serde:
-          file_path: ${JBPF_CODELETS}/ue_contexts/du_ue_ctx:du_ue_ctx_update_crnti_serializer.so
+          file_path: ${JBPF_CODELETS}/ue_contexts/ue_contexts:du_ue_ctx_update_crnti_serializer.so
           protobuf:
             package_path: ${JBPF_CODELETS}/ue_contexts/ue_contexts.pb
             msg_name: du_ue_ctx_update_crnti
@@ -39,14 +39,14 @@ codelet_descriptor:
       - name: output_map
         forward_destination: DestinationUDP
         serde:
-          file_path: ${JBPF_CODELETS}/ue_contexts/du_ue_ctx:du_ue_ctx_deletion_serializer.so
+          file_path: ${JBPF_CODELETS}/ue_contexts/ue_contexts:du_ue_ctx_deletion_serializer.so
           protobuf:
             package_path: ${JBPF_CODELETS}/ue_contexts/ue_contexts.pb
             msg_name: du_ue_ctx_deletion
 
   - codelet_name: cucp_uemgr_ue_add
     codelet_path: ${JBPF_CODELETS}/ue_contexts/cucp_uemgr_ue_add.o
-    hook_name: du_ue_ctx_deletion
+    hook_name: cucp_uemgr_ue_add
     priority: 1
     out_io_channel:
       - name: output_map
