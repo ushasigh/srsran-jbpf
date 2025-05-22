@@ -47,9 +47,6 @@
 #define FIVE_SECOND_NS (5000000000)
 
 typedef struct {
-    uint16_t ue_index;
-    uint16_t rb_id;
-    uint32_t count;
     uint64_t sdu_arrival_ns;
     uint64_t pdcpTx_ns;
     uint64_t rlcTxStarted_ns;
@@ -64,11 +61,8 @@ typedef struct {
 
 
 typedef struct {
-    uint16_t ue_index;
-    uint16_t rb_id;
     uint32_t pkts;
     uint32_t bytes;
-    uint64_t last_update_ns;
 } t_queue;
 
 

@@ -67,6 +67,7 @@ struct jbpf_load_map_def SEC("maps") last_deliv_acked_map = {
 DEFINE_PROTOHASH_64(last_notif_acked_hash, MAX_NUM_UE_RB);
 DEFINE_PROTOHASH_64(last_deliv_acked_hash, MAX_NUM_UE_RB);
 
+DEFINE_PROTOHASH_64(queue_hash, MAX_SDU_QUEUES);
 
 
 
@@ -171,7 +172,10 @@ uint64_t jbpf_main(void* state)
     dls_out->stats[ind % MAX_NUM_UE_RB].sdu_discarded_bytes.count = 0;
     dls_out->stats[ind % MAX_NUM_UE_RB].sdu_discarded_bytes.total = 0;
 
-
+    // clear the queue hash entries
+    uint64_t compound_key = ((uint64_t)rb_id << 31) << 1 | (uint64_t)pdcp_ctx.cu_ue_index; 
+    jbpf_map_delete_elem(&queue_hash, &compound_key); 
+    
 
 
     return JBPF_CODELET_SUCCESS;

@@ -155,49 +155,35 @@ uint64_t jbpf_main(void* state)
 // Still not fully debugged so allowing to be disabled
 #ifdef PDCP_REPORT_DL_DELAY_QUEUE
 
-    // NOTE: There are two potential issues here:
-    // - We don't empty the hash once a packet is served. 
-    //   We relay on it being cleared once a sec, when reported.
-    //   This means that we can have a hash overflow and miss some packets
-    // - To prevent overflow, the hash size may have to be large
-    //   This can cause large overhead at JBPF codelet level, affecting RAN
-    //   We haven't measured this yet.  
-
     uint64_t now_ns = jbpf_time_get_ns();
     uint32_t key1 = 
         ((uint64_t)(rb_id & 0xFFFF) << 15) << 1 | 
         ((uint64_t)(pdcp_ctx.cu_ue_index & 0xFFFF));
     ind = JBPF_PROTOHASH_LOOKUP_ELEM_64(events, map, delay_hash, key1, count, new_val);
-    if (new_val) {
-        // It should always be a new value, but maybe the hash is full, then ignore
-        events->map[ind % MAX_SDU_IN_FLIGHT].sdu_arrival_ns = now_ns;
-        events->map[ind % MAX_SDU_IN_FLIGHT].sdu_length = sdu_length;
-    }
+
+    // in normal behavior, we should not have a new value, since the element would be cleated by deliv/discard handlers.
+    // however in cases where a ue gets deleted and another one gets created the same cu_ue_index,
+    // we will find an old element.
+    // therefore reset the values irrespective of new_val
+    events->map[ind % MAX_SDU_IN_FLIGHT].sdu_arrival_ns = now_ns;
+    events->map[ind % MAX_SDU_IN_FLIGHT].pdcpTx_ns = 0;
+    events->map[ind % MAX_SDU_IN_FLIGHT].rlcTxStarted_ns = 0;
+    events->map[ind % MAX_SDU_IN_FLIGHT].rlcDelivered_ns = 0;
+    events->map[ind % MAX_SDU_IN_FLIGHT].sdu_length = sdu_length;
+    
 #ifdef DEBUG_PRINT
     jbpf_printf_debug("   NEW DELAY: cu_ue_index=%d, arrival_ns=%ld, sdu_length=%d\n", 
         pdcp_ctx.cu_ue_index, events->map[ind % MAX_SDU_IN_FLIGHT].sdu_arrival_ns, sdu_length);
 #endif
 
     ind = JBPF_PROTOHASH_LOOKUP_ELEM_64(queues, map, queue_hash, pdcp_ctx.cu_ue_index, rb_id, new_val);
+
     if (new_val) {
         queues->map[ind % MAX_SDU_QUEUES].pkts = 0;
         queues->map[ind % MAX_SDU_QUEUES].bytes = 0;
     }
-
-    // TBD: We don't check whether the actual UE changes. 
-    // If a UE detaches and another one gets the same cu_ue_index, 
-    // we will incorrectly add the stale queue count to the new index. 
-    // We need to flush the stats somehow when a new UE is detected.
-    // We should do it at the PDCP layer ideally.
-    // We should perhaps use pdcp_dl_reestablish hook, or add another hook.     
-    if (now_ns - queues->map[ind % MAX_SDU_QUEUES].last_update_ns > FIVE_SECOND_NS) {
-        queues->map[ind % MAX_SDU_QUEUES].pkts = 0;
-        queues->map[ind % MAX_SDU_QUEUES].bytes = 0;
-    }
-
     queues->map[ind % MAX_SDU_QUEUES].pkts ++;
     queues->map[ind % MAX_SDU_QUEUES].bytes += sdu_length;
-    queues->map[ind % MAX_SDU_QUEUES].last_update_ns = now_ns;
 #ifdef DEBUG_PRINT
     jbpf_printf_debug("   NEW QUEUE: cu_ue_index=%d, pkts=%ld, bytes=%d\n", 
         pdcp_ctx.cu_ue_index,
