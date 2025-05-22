@@ -1,6 +1,33 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
 
+#
+# There are numerous maps shared by the various codelets
+# Here are the "owners" ...
+#
+#  pdcp_collect.cpp
+#    dl_north_hash
+#    dl_south_hash
+#    ul_hash
+#    stats_map_dl_north
+#    dl_north_not_empty
+#    stats_map_dl_south
+#    dl_south_not_empty
+#    stats_map_ul
+#    ul_not_empty
+#
+#  pdcp_dl_new_sdu.cpp
+#    delay_hash
+#    queue_hash
+#    sdu_events
+#    sdu_queues
+#
+#  pdcp_dl_deletion
+#    last_notif_acked_hash
+#    last_deliv_acked_hash
+#
+
+
 codeletset_id: pdcp_stats
 
 codelet_descriptor:
@@ -49,6 +76,9 @@ codelet_descriptor:
       - map_name: dl_south_hash
         linked_codelet_name: pdcp_collect
         linked_map_name: dl_south_hash
+      - map_name: queue_hash
+        linked_codelet_name: pdcp_dl_new_sdu
+        linked_map_name: queue_hash
 
   - codelet_name: pdcp_ul_deletion
     codelet_path: ${JBPF_CODELETS}/pdcp/pdcp_dl_deletion.o
@@ -94,6 +124,9 @@ codelet_descriptor:
       - map_name: sdu_events
         linked_codelet_name: pdcp_dl_new_sdu
         linked_map_name: sdu_events
+      - map_name: delay_hash
+        linked_codelet_name: pdcp_dl_new_sdu
+        linked_map_name: delay_hash        
 
   - codelet_name: pdcp_dl_handle_tx_notification
     codelet_path: ${JBPF_CODELETS}/pdcp/pdcp_dl_tx_notification.o
@@ -118,6 +151,9 @@ codelet_descriptor:
       - map_name: last_notif_acked_hash
         linked_codelet_name: pdcp_dl_deletion
         linked_map_name: last_notif_acked_hash
+      - map_name: delay_hash
+        linked_codelet_name: pdcp_dl_new_sdu
+        linked_map_name: delay_hash        
 
   - codelet_name: pdcp_dl_delivery
     codelet_path: ${JBPF_CODELETS}/pdcp/pdcp_dl_delivery.o
@@ -145,6 +181,12 @@ codelet_descriptor:
       - map_name: last_deliv_acked_hash
         linked_codelet_name: pdcp_dl_deletion
         linked_map_name: last_deliv_acked_hash
+      - map_name: delay_hash
+        linked_codelet_name: pdcp_dl_new_sdu
+        linked_map_name: delay_hash        
+      - map_name: queue_hash
+        linked_codelet_name: pdcp_dl_new_sdu
+        linked_map_name: queue_hash        
 
   - codelet_name: pdcp_dl_discard
     codelet_path: ${JBPF_CODELETS}/pdcp/pdcp_dl_discard.o
@@ -166,7 +208,13 @@ codelet_descriptor:
       - map_name: sdu_queues
         linked_codelet_name: pdcp_dl_new_sdu
         linked_map_name: sdu_queues
-
+      - map_name: delay_hash
+        linked_codelet_name: pdcp_dl_new_sdu
+        linked_map_name: delay_hash        
+      - map_name: queue_hash
+        linked_codelet_name: pdcp_dl_new_sdu
+        linked_map_name: queue_hash     
+        
   - codelet_name: pdcp_ul_stats
     codelet_path: ${JBPF_CODELETS}/pdcp/pdcp_ul_stats.o
     hook_name: pdcp_ul_deliver_sdu
