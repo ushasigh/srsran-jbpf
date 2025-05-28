@@ -58,7 +58,22 @@ codelet_descriptor:
           protobuf:
             package_path: ${JBPF_CODELETS}/pdcp/pdcp_ul_stats.pb
             msg_name: ul_stats
-        
+
+  - codelet_name: pdcp_dl_new_sdu
+    codelet_path: ${JBPF_CODELETS}/pdcp/pdcp_dl_new_sdu.o
+    hook_name: pdcp_dl_new_sdu
+    priority: 1
+    linked_maps:
+      - map_name: stats_map_dl_north
+        linked_codelet_name: pdcp_collect
+        linked_map_name: stats_map_dl_north
+      - map_name: dl_north_not_empty
+        linked_codelet_name: pdcp_collect
+        linked_map_name: dl_north_not_empty
+      - map_name: dl_north_hash
+        linked_codelet_name: pdcp_collect
+        linked_map_name: dl_north_hash
+
   - codelet_name: pdcp_dl_deletion
     codelet_path: ${JBPF_CODELETS}/pdcp/pdcp_dl_deletion.o
     hook_name: pdcp_dl_deletion
@@ -81,7 +96,7 @@ codelet_descriptor:
         linked_map_name: queue_hash
 
   - codelet_name: pdcp_ul_deletion
-    codelet_path: ${JBPF_CODELETS}/pdcp/pdcp_dl_deletion.o
+    codelet_path: ${JBPF_CODELETS}/pdcp/pdcp_ul_deletion.o
     hook_name: pdcp_ul_deletion
     priority: 1
     linked_maps:
@@ -91,21 +106,6 @@ codelet_descriptor:
       - map_name: ul_hash
         linked_codelet_name: pdcp_collect
         linked_map_name: ul_hash
-
-  - codelet_name: pdcp_dl_new_sdu
-    codelet_path: ${JBPF_CODELETS}/pdcp/pdcp_dl_new_sdu.o
-    hook_name: pdcp_dl_new_sdu
-    priority: 1
-    linked_maps:
-      - map_name: stats_map_dl_north
-        linked_codelet_name: pdcp_collect
-        linked_map_name: stats_map_dl_north
-      - map_name: dl_north_not_empty
-        linked_codelet_name: pdcp_collect
-        linked_map_name: dl_north_not_empty
-      - map_name: dl_north_hash
-        linked_codelet_name: pdcp_collect
-        linked_map_name: dl_north_hash
 
   - codelet_name: pdcp_dl_tx_data_pdu
     codelet_path: ${JBPF_CODELETS}/pdcp/pdcp_dl_tx_data_pdu.o
@@ -214,7 +214,7 @@ codelet_descriptor:
       - map_name: queue_hash
         linked_codelet_name: pdcp_dl_new_sdu
         linked_map_name: queue_hash     
-        
+
   - codelet_name: pdcp_ul_stats
     codelet_path: ${JBPF_CODELETS}/pdcp/pdcp_ul_stats.o
     hook_name: pdcp_ul_deliver_sdu

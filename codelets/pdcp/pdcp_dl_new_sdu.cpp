@@ -165,12 +165,13 @@ uint64_t jbpf_main(void* state)
     // however in cases where a ue gets deleted and another one gets created the same cu_ue_index,
     // we will find an old element.
     // therefore reset the values irrespective of new_val
+    
     events->map[ind % MAX_SDU_IN_FLIGHT].sdu_arrival_ns = now_ns;
     events->map[ind % MAX_SDU_IN_FLIGHT].pdcpTx_ns = 0;
     events->map[ind % MAX_SDU_IN_FLIGHT].rlcTxStarted_ns = 0;
     events->map[ind % MAX_SDU_IN_FLIGHT].rlcDelivered_ns = 0;
     events->map[ind % MAX_SDU_IN_FLIGHT].sdu_length = sdu_length;
-    
+
 #ifdef DEBUG_PRINT
     jbpf_printf_debug("   NEW DELAY: cu_ue_index=%d, arrival_ns=%ld, sdu_length=%d\n", 
         pdcp_ctx.cu_ue_index, events->map[ind % MAX_SDU_IN_FLIGHT].sdu_arrival_ns, sdu_length);

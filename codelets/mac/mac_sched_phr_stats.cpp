@@ -68,7 +68,7 @@ uint64_t jbpf_main(void* state)
     //out->ue_index = ctx->du_ue_index;
     //out->rnti = (uint32_t) mac_ctx.rnti;
 
-    *not_empty_stats = 1;
+
 
     // NOTE: here I cannot use this call:
     // struct srsran::cell_ph_report rep = static_cast<srsran::cell_ph_report>(mac_ctx.phr.get_se_phr());
@@ -91,6 +91,7 @@ uint64_t jbpf_main(void* state)
             }
             if (out->stats[ind % MAX_NUM_UE_CELL].ph_max < ph_reports[i].ph.stop()) {
                 out->stats[ind % MAX_NUM_UE_CELL].ph_max = ph_reports[i].ph.stop();
+                
             }
             // out->ph_reports[i].ph_min = ph_reports[i].ph.start();
             // out->ph_reports[i].ph_max = ph_reports[i].ph.stop();
@@ -104,6 +105,7 @@ uint64_t jbpf_main(void* state)
                 // out->ph_reports[i].p_cmax_min = ph_reports[i].p_cmax.value().start();
                 // out->ph_reports[i].p_cmax_max = ph_reports[i].p_cmax.value().stop();
             }
+            *not_empty_stats = 1;
         } else {
             break;
         }

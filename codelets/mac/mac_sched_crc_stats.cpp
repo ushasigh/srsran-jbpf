@@ -93,7 +93,6 @@ uint64_t jbpf_main(void* state)
         out->stats[ind % MAX_NUM_UE].cnt_sinr = 0;
         out->stats[ind % MAX_NUM_UE].cnt_rsrp = 0;
     }
-    *not_empty_stats = 1;
 
 
     //////////////// Loss stats
@@ -121,7 +120,6 @@ uint64_t jbpf_main(void* state)
             out->stats[ind].cons_max);
 #endif
         *loss_cnt = 0;
-        *not_empty_stats = 1;
     } else {
         // Increase loss count
         (*loss_cnt)++;
@@ -190,6 +188,7 @@ uint64_t jbpf_main(void* state)
 #endif
     }
 
+    *not_empty_stats = 1;
 
     // if (mac_ctx.time_advance_offset.has_value()) {
     //     // Check phy_time_unit.to_seconds() to see how to convert to seconds

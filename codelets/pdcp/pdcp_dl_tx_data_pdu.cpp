@@ -105,6 +105,7 @@ uint64_t jbpf_main(void* state)
     int new_val = 0;
     uint32_t ind = JBPF_PROTOHASH_LOOKUP_ELEM_64(out, stats, dl_south_hash, rb_id, pdcp_ctx.cu_ue_index, new_val);
     if (new_val) {
+        
         out->stats[ind % MAX_NUM_UE_RB].cu_ue_index = pdcp_ctx.cu_ue_index;
         out->stats[ind % MAX_NUM_UE_RB].is_srb = pdcp_ctx.is_srb;
         out->stats[ind % MAX_NUM_UE_RB].rb_id = pdcp_ctx.rb_id;
@@ -178,12 +179,12 @@ uint64_t jbpf_main(void* state)
         uint32_t aind = *pind;
 
         uint64_t now_ns = jbpf_time_get_ns();
-        events->map[ind % MAX_SDU_IN_FLIGHT].pdcpTx_ns = now_ns;
+        events->map[aind % MAX_SDU_IN_FLIGHT].pdcpTx_ns = now_ns;
 
         // only calculate pdcp_tx_delay if we have a valid sdu arrival time
         if ((events->map[aind % MAX_SDU_IN_FLIGHT].sdu_arrival_ns > 0) &&
             (events->map[aind % MAX_SDU_IN_FLIGHT].pdcpTx_ns > events->map[aind % MAX_SDU_IN_FLIGHT].sdu_arrival_ns)) {
-            uint64_t delay = events->map[ind % MAX_SDU_IN_FLIGHT].pdcpTx_ns - events->map[aind % MAX_SDU_IN_FLIGHT].sdu_arrival_ns;
+            uint64_t delay = events->map[aind % MAX_SDU_IN_FLIGHT].pdcpTx_ns - events->map[aind % MAX_SDU_IN_FLIGHT].sdu_arrival_ns;
 
             // get sdu length
             sdu_length = events->map[aind % MAX_SDU_IN_FLIGHT].sdu_length;

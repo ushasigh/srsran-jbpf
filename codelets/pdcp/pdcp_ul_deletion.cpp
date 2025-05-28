@@ -61,6 +61,7 @@ uint64_t jbpf_main(void* state)
         ue_index, rb_id);
 #endif
 
+
     // When a bearer context is setup, we need to reset the last acked
     // At the beginning, 0 is not acked so set to "-1".
     int new_val = 0;

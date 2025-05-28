@@ -104,6 +104,7 @@ uint64_t jbpf_main(void* state)
         ue_index, rb_id);
 #endif
 
+
     // When a bearer context is setup, we need to reset the last acked
     // At the beginning, 0 is not acked so set to "-1".
     int new_val = 0;
@@ -113,7 +114,7 @@ uint64_t jbpf_main(void* state)
     last_notif_acked->ack[ack_ind % MAX_NUM_UE_RB] = UINT32_MAX;
 
     ack_ind = JBPF_PROTOHASH_LOOKUP_ELEM_64(last_deliv_acked, ack, last_deliv_acked_hash, rb_id, pdcp_ctx.cu_ue_index, new_val);
-    last_notif_acked->ack[ack_ind % MAX_NUM_UE_RB] = UINT32_MAX;
+    last_deliv_acked->ack[ack_ind % MAX_NUM_UE_RB] = UINT32_MAX;
 
     dl_north_stats *dln_out = (dl_north_stats *)jbpf_map_lookup_elem(&stats_map_dl_north, &zero_index);
     if (!dln_out)

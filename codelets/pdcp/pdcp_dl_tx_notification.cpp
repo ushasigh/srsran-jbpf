@@ -191,6 +191,17 @@ uint64_t jbpf_main(void* state)
     }
 
     uint32_t delta = notif_count - last_notif_acked->ack[ack_ind % MAX_NUM_UE_RB];   // modulo arithmetic
+
+    if (delta > 500) {
+
+        jbpf_printf_debug("PDCP DL TX NOTIF: cu_ue_index=%d, rb_id=%d delta too big !!!  ", 
+            pdcp_ctx.cu_ue_index, rb_id);
+        jbpf_printf_debug("delta=%d notif_count=%d last_deliv_acked=%d \n", 
+            delta, notif_count, last_notif_acked->ack[ack_ind % MAX_NUM_UE_RB]);        
+        return JBPF_CODELET_FAILURE;
+    }
+
+
     #ifdef DEBUG_PRINT
             jbpf_printf_debug("PDCP DL TX NOTIF,    ACKING: notif_count=%d, last_notif_acked=%d, delta=%d\n", 
                 notif_count, last_notif_acked->ack[ack_ind % MAX_NUM_UE_RB], delta);
@@ -206,7 +217,7 @@ uint64_t jbpf_main(void* state)
             uint32_t aind = *pind;
 
             uint64_t now_ns = jbpf_time_get_ns();
-            events->map[ind % MAX_SDU_IN_FLIGHT].rlcTxStarted_ns = now_ns;
+            events->map[aind % MAX_SDU_IN_FLIGHT].rlcTxStarted_ns = now_ns;
 
             if ((events->map[aind % MAX_SDU_IN_FLIGHT].pdcpTx_ns > 0) &&
                 (events->map[aind % MAX_SDU_IN_FLIGHT].rlcTxStarted_ns > events->map[aind % MAX_SDU_IN_FLIGHT].pdcpTx_ns)) {

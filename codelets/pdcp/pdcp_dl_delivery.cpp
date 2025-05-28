@@ -206,10 +206,21 @@ uint64_t jbpf_main(void* state)
     }
 
     uint32_t delta = notif_count - last_deliv_acked->ack[ack_ind % MAX_NUM_UE_RB];   // modulo arithmetic
-    #ifdef DEBUG_PRINT
-            jbpf_printf_debug("    ACKING: notif_count=%d, last_deliv_acked=%d, delta=%d\n", 
-                notif_count, last_deliv_acked->ack[ack_ind % MAX_NUM_UE_RB], delta);
-    #endif
+
+    if (delta > 500) {
+
+        jbpf_printf_debug("PDCP DL DELIVER SDU: cu_ue_index=%d, rb_id=%d delta too big !!!  ", 
+            pdcp_ctx.cu_ue_index, rb_id);
+        jbpf_printf_debug("delta=%d notif_count=%d last_deliv_acked=%d \n", 
+            delta, notif_count, last_deliv_acked->ack[ack_ind % MAX_NUM_UE_RB]);        
+        return JBPF_CODELET_FAILURE;
+    }
+
+#ifdef DEBUG_PRINT
+    jbpf_printf_debug("    ACKING: notif_count=%d, last_deliv_acked=%d, delta=%d\n", 
+        notif_count, last_deliv_acked->ack[ack_ind % MAX_NUM_UE_RB], delta);
+#endif
+
     for (uint32_t ncnt = 1; ncnt <= delta; ncnt++) {
         uint32_t notif = last_deliv_acked->ack[ack_ind % MAX_NUM_UE_RB] + ncnt;         // wraps if necessary
 
@@ -221,7 +232,7 @@ uint64_t jbpf_main(void* state)
             uint32_t aind = *pind;
 
             uint64_t now_ns = jbpf_time_get_ns();
-            events->map[ind % MAX_SDU_IN_FLIGHT].rlcDelivered_ns = now_ns;
+            events->map[aind % MAX_SDU_IN_FLIGHT].rlcDelivered_ns = now_ns;
 
             // only calculate rlc_deliv_delay if we have a valid rlcTxStarted_ns
             if ((events->map[aind % MAX_SDU_IN_FLIGHT].rlcTxStarted_ns > 0) &&
@@ -270,18 +281,18 @@ uint64_t jbpf_main(void* state)
                 }
             }
             
-    #ifdef DEBUG_PRINT
+#ifdef DEBUG_PRINT
             jbpf_printf_debug("    DELIVER DELAY: notif=%d, sdu_length=%d, delay=%d\n", 
                 notif, sdu_length, delay);
-    #endif
+#endif
         
         } else {
             // Just find the key, don't add it. 
             // It should always be found, but maybe the hash has been cleaned, then ignore
-//#ifdef DEBUG_PRINT
+#ifdef DEBUG_PRINT
             jbpf_printf_debug("PDCP DL DELIVER KEY NOT FOUND: notif=%d, notif_count=%d, last_deliv_acked=%d\n", 
                 notif, notif_count, last_deliv_acked->ack[ack_ind % MAX_NUM_UE_RB]);
-//#endif
+#endif
         }    
     }
 
