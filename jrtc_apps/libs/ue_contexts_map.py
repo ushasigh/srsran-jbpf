@@ -103,14 +103,14 @@
 
 
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from typing import List, Tuple
 
 
 
 ##########################################
-@dataclass
-class unique_idx:
+@dataclass(frozen=True)
+class unique_index:
     src: str
     idx: int
 
@@ -120,9 +120,9 @@ class unique_idx:
 ##########################################
 @dataclass
 class ue_context:
-    du_index: unique_idx
-    cucp_index: unique_idx
-    cuup_index: unique_idx
+    du_index: unique_index
+    cucp_index: unique_index
+    cuup_index: unique_index
     plmn: int
     nci: int
     pci: int
@@ -131,7 +131,7 @@ class ue_context:
     e1_bearers: List[Tuple[int, int]]     # tuple of (cucp_ue_e1ap_id, cuup_ue_e1ap_id)
     tmsi: int = None  
     
-    def __init__(self, plmn: int, pci: int, crnti: int, du_index: tuple[str, int] = None, cucp_index: tuple[str, int] = None, cuup_index: tuple[str, int] = None,
+    def __init__(self, plmn: int, pci: int, crnti: int, du_index: unique_index = None, cucp_index: unique_index = None, cuup_index: unique_index = None,
                  nci: int=None, tac: int=None):
         self.plmn = plmn
         self.pci = pci
@@ -157,7 +157,7 @@ class ue_context:
             return True
         return False
 
-    def get_bearer(self, cucp_ue_e1ap_id: tuple[str, int]) -> Tuple[Tuple[str, int], Tuple[str, int]]:
+    def get_bearer(self, cucp_ue_e1ap_id: unique_index) -> Tuple[Tuple[str, int], Tuple[str, int]]:
         for bearer in self.e1_bearers:
             if bearer[0] == cucp_ue_e1ap_id:
                 return bearer
@@ -190,14 +190,6 @@ class ue_context:
             "e1_bearers": self.e1_bearers
         }
 
-#################################################
-def validate_str_int_tuple(value, name="value"):
-    if (not isinstance(value, tuple) or
-        len(value) != 2 or
-        not isinstance(value[0], str) or
-        not isinstance(value[1], int)):
-        raise TypeError(f"{name} must be a tuple of (str, int), got: {value}")
-
 
 ###########################################################################################################
 class ue_contexts_map:
@@ -218,7 +210,7 @@ class ue_contexts_map:
         self.contexts_by_cuup_ue_e1ap_id = {}
 
     ####################################################################
-    def context_create(self, plmn: int, pci: int, crnti: int, du_index: tuple[str, int] = None, cucp_index: tuple[str, int] = None, cuup_index: tuple[str, int] = None,
+    def context_create(self, plmn: int, pci: int, crnti: int, du_index: unique_index = None, cucp_index: unique_index = None, cuup_index: unique_index = None,
         nci: int=None, tac: int=None) -> None:
         if self.dbg:
             print(f"context_create: plmn={plmn} pci={pci} crnti={crnti} du_index={du_index} cucp_index={cucp_index} cuup_index={cuup_index} nci={nci} tac={tac}")
@@ -260,14 +252,13 @@ class ue_contexts_map:
             self.contexts.pop(ue_id, None)
 
     ####################################################################
-    def set_du_index(self, ue_id: int, du_index: tuple[str, int]) -> None:
+    def set_du_index(self, ue_id: int, du_index: unique_index) -> None:
         if ue_id not in self.contexts:
             if self.dbg:
                 print(f"UE context with ID {ue_id} does not exist.")
             return
         if self.dbg:
             print(f"set_du_index: ue_id={ue_id} du_index={du_index}")
-        validate_str_int_tuple(du_index, name="du_index")
         self.contexts[ue_id].du_index = du_index
         self.contexts_by_du_index[du_index] = ue_id
 
@@ -284,13 +275,12 @@ class ue_contexts_map:
         self.delete_unused_context(ue_id)
 
     ####################################################################
-    def set_cucp_index(self, ue_id: int, cucp_index: tuple[str, int]) -> None:
+    def set_cucp_index(self, ue_id: int, cucp_index: unique_index) -> None:
         if ue_id not in self.contexts:
             print(f"UE context with ID {ue_id} does not exist.")
             return
         if self.dbg:
             print(f"set_cucp_index: ue_id={ue_id} cucp_index={cucp_index}")
-        validate_str_int_tuple(cucp_index, name="cucp_index")
         self.contexts[ue_id].cucp_index = cucp_index
         self.contexts_by_cucp_index[cucp_index] = ue_id
 
@@ -308,14 +298,13 @@ class ue_contexts_map:
         self.delete_unused_context(ue_id)
 
     ####################################################################
-    def set_cuup_index(self, ue_id: int, cuup_index: tuple[str, int]) -> None:
+    def set_cuup_index(self, ue_id: int, cuup_index: unique_index) -> None:
         if ue_id not in self.contexts:
             if self.dbg:
                 print(f"UE context with ID {ue_id} does not exist.")
             return
         if self.dbg:
             print(f"set_cuup_index: ue_id={ue_id} cuup_index={cuup_index}")
-        validate_str_int_tuple(cuup_index, name="cuup_index")
         self.contexts[ue_id].cuup_index = cuup_index
         self.contexts_by_cuup_index[cuup_index] = ue_id
 
@@ -333,20 +322,19 @@ class ue_contexts_map:
         self.delete_unused_context(ue_id)
 
     ####################################################################
-    def set_cucp_ue_e1ap_id(self, ue_id: int, cucp_ue_e1ap_id: tuple[str, int]) -> None:
+    def set_cucp_ue_e1ap_id(self, ue_id: int, cucp_ue_e1ap_id: unique_index) -> None:
         if ue_id not in self.contexts:
             if self.dbg:
                 print(f"UE context with ID {ue_id} does not exist.")
             return
         if self.dbg:
             print(f"set_cucp_ue_e1ap_id: ue_id={ue_id} cucp_ue_e1ap_id={cucp_ue_e1ap_id}")
-        validate_str_int_tuple(cucp_ue_e1ap_id, name="cucp_ue_e1ap_id")
         bearer = (cucp_ue_e1ap_id, None)
         self.contexts[ue_id].e1_bearers.append(bearer)
         self.contexts_by_cucp_ue_e1ap_id[cucp_ue_e1ap_id] = ue_id
 
     ####################################################################
-    def clear_cucp_ue_e1ap_id(self, ue_id: int, cucp_ue_e1ap_id: tuple[str, int]) -> None:
+    def clear_cucp_ue_e1ap_id(self, ue_id: int, cucp_ue_e1ap_id: unique_index) -> None:
         if ue_id not in self.contexts:
             if self.dbg:
                 print(f"UE context with ID {ue_id} does not exist.")
@@ -354,8 +342,6 @@ class ue_contexts_map:
 
         if self.dbg: 
             print(f"clear_cucp_ue_e1ap_id: ue_id={ue_id} cucp_ue_e1ap_id={cucp_ue_e1ap_id}")
-
-        validate_str_int_tuple(cucp_ue_e1ap_id, name="cucp_ue_e1ap_id")
 
         # remove the bearer with the matching cucp_ue_e1ap_id
         bearer = None
@@ -373,7 +359,7 @@ class ue_contexts_map:
         
 
     ####################################################################
-    def set_cuup_ue_e1ap_id(self, ue_id: int, cucp_ue_e1ap_id: tuple[str, int], cuup_ue_e1ap_id: tuple[str, int]) -> None:
+    def set_cuup_ue_e1ap_id(self, ue_id: int, cucp_ue_e1ap_id: unique_index, cuup_ue_e1ap_id: unique_index) -> None:
         if ue_id not in self.contexts:
             if self.dbg:
                 print(f"UE context with ID {ue_id} does not exist.")
@@ -381,9 +367,6 @@ class ue_contexts_map:
 
         if self.dbg:
             print(f"set_cuup_ue_e1ap_id: ue_id={ue_id} cucp_ue_e1ap_id={cucp_ue_e1ap_id} cuup_ue_e1ap_id={cuup_ue_e1ap_id}")
-
-        validate_str_int_tuple(cucp_ue_e1ap_id, name="cucp_ue_e1ap_id")
-        validate_str_int_tuple(cuup_ue_e1ap_id, name="cuup_ue_e1ap_id")
 
         # update the bearer with the matching cucp_ue_e1ap_id with the cuup_ue_e1ap_id
         for i, b in enumerate(self.contexts[ue_id].e1_bearers):
@@ -397,7 +380,7 @@ class ue_contexts_map:
         self.contexts_by_cuup_ue_e1ap_id[cuup_ue_e1ap_id] = ue_id
 
     ####################################################################
-    def clear_cuup_ue_e1ap_id(self, ue_id: int, cuup_ue_e1ap_id: tuple[str, int]) -> None:
+    def clear_cuup_ue_e1ap_id(self, ue_id: int, cuup_ue_e1ap_id: unique_index) -> None:
         if ue_id not in self.contexts:
             if self.dbg:
                 print(f"UE context with ID {ue_id} does not exist.")
@@ -405,8 +388,6 @@ class ue_contexts_map:
 
         if self.dbg:
             print(f"clear_cuup_ue_e1ap_id: ue_id={ue_id} cuup_ue_e1ap_id={cuup_ue_e1ap_id}")
-
-        validate_str_int_tuple(cuup_ue_e1ap_id, name="cuup_ue_e1ap_id")        
         
         # remove the bearer with the matching cuup_ue_e1ap_id
         bearer = None
@@ -472,17 +453,17 @@ class ue_contexts_map:
 
     #####################################################################
     def getid_by_du_index(self, du_src: str, du_index: int) -> int:
-        du_index = (du_src, du_index)
+        du_index = unique_index(du_src, du_index)
         return self.contexts_by_du_index.get(du_index, None)
 
     #####################################################################
     def getid_by_cucp_index(self, cucp_src: str, cucp_index: int) -> int:
-        cucp_index = (cucp_src, cucp_index)
+        cucp_index = unique_index(cucp_src, cucp_index)
         return self.contexts_by_cucp_index.get(cucp_index, None)
 
     #####################################################################
     def getid_by_cuup_index(self, cuup_src: str, cuup_index: int) -> int:
-        cuup_index = (cuup_src, cuup_index)
+        cuup_index = unique_index(cuup_src, cuup_index)
         return self.contexts_by_cuup_index.get(cuup_index, None)
 
     #####################################################################
@@ -542,7 +523,7 @@ class ue_contexts_map:
                 print(f"Unexpected UE context with du_src {du_src} du_index {du_index} already exists.  Stale UE will be deleted")
             self.context_delete(ue_id)
 
-        du_index = (du_src, du_index)
+        du_index = unique_index(du_src, du_index)
 
         # Check if the UE context with the unique info already exists
         # It should not exist, do if it does, delete it
@@ -600,7 +581,7 @@ class ue_contexts_map:
                 print(f"Unexpected UE context with cucp_src {cucp_src} cucp_index {cucp_index} already exists.  Stale UE will be deleted")
             self.context_delete(ue_id)
 
-        cucp_index = (cucp_src, cucp_index)
+        cucp_index = unique_index(cucp_src, cucp_index)
 
         # Check if a UE context with the unique info already exists
         # If it does not 
@@ -684,7 +665,7 @@ class ue_contexts_map:
             print("-------------------------------------------------")
             print(f"hook_e1_cuup_bearer_context_setup success={success}, cuup_src={cuup_src} cuup_index={cuup_index}  gnb_cu_cp_ue_e1ap_id={gnb_cucp_ue_e1ap_id} gnb_cu_up_ue_e1ap_id={gnb_cuup_ue_e1ap_id}")
 
-        cuup_index = (cuup_src, cuup_index)
+        cuup_index = unique_index(cuup_src, cuup_index)
         gnb_cuup_ue_e1ap_id_tup = (cuup_src, gnb_cuup_ue_e1ap_id)
 
         # Check if a UE context with the gnb_cuup_ue_e1ap_id already exists
@@ -735,7 +716,7 @@ class ue_contexts_map:
             print("-------------------------------------------------")
             print(f"hook_e1_cuup_bearer_context_release success {success} cuup_src {cuup_src} cuup_index {cuup_index} gnb_cucp_ue_e1ap_id={cucp_ue_e1ap_id} gnb_cuup_ue_e1ap_id={cuup_ue_e1ap_id}")
 
-        cuup_index = (cuup_src, cuup_index)
+        cuup_index = unique_index(cuup_src, cuup_index)
 
         if success is False:
             return
@@ -814,8 +795,10 @@ if __name__ == "__main__":
     ue_id = s.getid_by_du_index(du1_src, 0)
     assert ue_id == 1
     ue = s.getue_by_id(ue_id)
-    assert ue is not None and ue.du_index == (du1_src,0) and ue.cucp_index is None and ue.cuup_index is None \
-           and ue.plmn==101 and ue.nci==201 and ue.pci==401 and ue.tac==12 and ue.crnti==20000
+    print(ue)
+    assert ue is not None and ue.du_index == unique_index("du1", 0) \
+        and ue.cucp_index is None and ue.cuup_index is None \
+        and ue.plmn==101 and ue.nci==201 and ue.pci==401 and ue.tac==12 and ue.crnti==20000
 
 
     print("############################################################################")
@@ -831,7 +814,7 @@ if __name__ == "__main__":
     ue_id = s.getid_by_du_index(du1_src, 1) 
     assert ue_id == 2
     ue = s.getue_by_id(ue_id)
-    assert ue is not None and ue.du_index==(du1_src,1) and ue.cucp_index is None and ue.cuup_index is None \
+    assert ue is not None and ue.du_index==unique_index(du1_src,1) and ue.cucp_index is None and ue.cuup_index is None \
            and ue.plmn==101 and ue.nci==201 and ue.pci==401 and ue.tac==12 and ue.crnti==20000
 
 
@@ -848,12 +831,12 @@ if __name__ == "__main__":
     ue_id = s.getid_by_du_index(du1_src, 1) 
     assert ue_id == 2
     ue = s.getue_by_id(ue_id)
-    assert ue is not None and ue.du_index==(du1_src,1) and ue.cucp_index is None and ue.cuup_index is None \
+    assert ue is not None and ue.du_index==unique_index(du1_src,1) and ue.cucp_index is None and ue.cuup_index is None \
            and ue.plmn==101 and ue.nci==201 and ue.pci==401 and ue.tac==12 and ue.crnti==20000
     ue_id = s.getid_by_du_index(du1_src, 2) 
     assert ue_id == 3
     ue = s.getue_by_id(ue_id)
-    assert ue is not None and ue.du_index==(du1_src,2) and ue.cucp_index is None and ue.cuup_index is None \
+    assert ue is not None and ue.du_index==unique_index(du1_src,2) and ue.cucp_index is None and ue.cuup_index is None \
            and ue.plmn==101 and ue.nci==201 and ue.pci==401 and ue.tac==12 and ue.crnti==20001
 
     
@@ -869,7 +852,7 @@ if __name__ == "__main__":
     ue_id = s.getid_by_cucp_index(cucp1_src, 0)
     assert ue_id == 4
     ue = s.getue_by_id(ue_id)
-    assert ue is not None and ue.du_index is None and ue.cucp_index==(cucp1_src, 0) and ue.cuup_index is None \
+    assert ue is not None and ue.du_index is None and ue.cucp_index==unique_index(cucp1_src, 0) and ue.cuup_index is None \
            and ue.plmn==101 and ue.nci is None and ue.pci==499 and ue.tac is None and ue.crnti==20000
 
 
@@ -884,7 +867,7 @@ if __name__ == "__main__":
     ue_id = s.getid_by_cucp_index(cucp1_src, 1)
     assert ue_id == 2
     ue = s.getue_by_id(ue_id)
-    assert ue is not None and ue.du_index==(du1_src,1) and ue.cucp_index==(cucp1_src, 1) and ue.cuup_index is None \
+    assert ue is not None and ue.du_index==unique_index(du1_src,1) and ue.cucp_index==unique_index(cucp1_src, 1) and ue.cuup_index is None \
            and ue.plmn==101 and ue.nci==201 and ue.pci==401 and ue.tac==12 and ue.crnti==20000
 
 
@@ -899,7 +882,7 @@ if __name__ == "__main__":
     ue_id = s.getid_by_cucp_index(cucp1_src, 1)
     assert ue_id == 5
     ue = s.getue_by_id(ue_id)
-    assert ue is not None and ue.du_index is None and ue.cucp_index==(cucp1_src, 1) and ue.cuup_index is None \
+    assert ue is not None and ue.du_index is None and ue.cucp_index==unique_index(cucp1_src, 1) and ue.cuup_index is None \
            and ue.plmn==101 and ue.nci is None and ue.pci==401 and ue.tac is None and ue.crnti==20000
 
 
@@ -914,7 +897,7 @@ if __name__ == "__main__":
     ue_id = s.getid_by_cucp_ue_e1ap_id(cucp1_src, 2000)
     assert ue_id == 5
     ue = s.getue_by_id(ue_id)
-    assert ue is not None and ue.du_index is None and ue.cucp_index==(cucp1_src, 1) and ue.cuup_index is None \
+    assert ue is not None and ue.du_index is None and ue.cucp_index==unique_index(cucp1_src, 1) and ue.cuup_index is None \
            and ue.plmn==101 and ue.nci is None and ue.pci==401 and ue.tac is None and ue.crnti==20000 \
            and len(ue.e1_bearers)==1 and ue.e1_bearers[0][0]==(cucp1_src,2000) and ue.e1_bearers[0][1] is None
     
@@ -959,7 +942,7 @@ if __name__ == "__main__":
     ue_id = s.getid_by_cucp_ue_e1ap_id(cucp1_src, 2000)
     assert ue_id == 0
     ue = s.getue_by_id(ue_id)
-    assert ue is not None and ue.du_index==(du1_src,0) and ue.cucp_index==(cucp1_src, 1) and ue.cuup_index is None \
+    assert ue is not None and ue.du_index==unique_index(du1_src,0) and ue.cucp_index==unique_index(cucp1_src, 1) and ue.cuup_index is None \
            and ue.plmn==101 and ue.nci==201 and ue.pci==400 and ue.tac==12 and ue.crnti==20000 \
            and len(ue.e1_bearers)==1 and ue.e1_bearers[0][0]==(cucp1_src, 2000) and ue.e1_bearers[0][1] is None
 
@@ -980,7 +963,7 @@ if __name__ == "__main__":
     ue_id = s.getid_by_cucp_ue_e1ap_id(cucp1_src, 2000)
     assert ue_id == 0
     ue = s.getue_by_id(ue_id)
-    assert ue is not None and ue.du_index==(du1_src,0) and ue.cucp_index==(cucp1_src, 1) and ue.cuup_index==(cuup1_src,10) \
+    assert ue is not None and ue.du_index==unique_index(du1_src,0) and ue.cucp_index==unique_index(cucp1_src, 1) and ue.cuup_index==unique_index(cuup1_src,10) \
            and ue.plmn==101 and ue.nci==201 and ue.pci==400 and ue.tac==12 and ue.crnti==20000 \
            and len(ue.e1_bearers)==1 and ue.e1_bearers[0][0]==(cucp1_src,2000) and ue.e1_bearers[0][1]==(cuup1_src,12000)
 
@@ -1053,7 +1036,7 @@ if __name__ == "__main__":
             ue_id = s.getid_by_cuup_ue_e1ap_id(cuup1_src, cuup_e1Off+e1off)
             assert ue_id == ue
         ctx = s.getue_by_id(ue_id)
-        assert ctx is not None and ctx.du_index==(du1_src,du_off+ue) and ctx.cucp_index==(cucp1_src, cucp_off+ue) and ctx.cuup_index==(cuup1_src,cuup_off+ue) \
+        assert ctx is not None and ctx.du_index==unique_index(du1_src,du_off+ue) and ctx.cucp_index==unique_index(cucp1_src, cucp_off+ue) and ctx.cuup_index==unique_index(cuup1_src,cuup_off+ue) \
                and ctx.plmn==101 and ctx.nci==201 and ctx.pci==400 and ctx.tac==12 and ctx.crnti==crnti_off+ue \
                and len(ctx.e1_bearers)==num_e1 and \
                all(ctx.e1_bearers[i][0]==(cucp1_src, cucp_e1Off+(ue*num_e1)+i) and ctx.e1_bearers[i][1]==(cuup1_src, cuup_e1Off+(ue*num_e1)+i) for i in range(0, num_e1))
@@ -1092,13 +1075,13 @@ if __name__ == "__main__":
     ue = s.getid_by_du_index(du1_src, du_off+ue_to_delete)
     s.hook_du_ue_ctx_deletion(du1_src, du_off+ue_to_delete)
     ctx = s.getue_by_id(ue)
-    assert ctx is not None and ctx.du_index is None and ctx.cucp_index==(cucp1_src, cucp_off+ue) and ctx.cuup_index==(cuup1_src,cuup_off+ue) \
+    assert ctx is not None and ctx.du_index is None and ctx.cucp_index==unique_index(cucp1_src, cucp_off+ue) and ctx.cuup_index==unique_index(cuup1_src,cuup_off+ue) \
             and ctx.plmn==101 and ctx.nci==201 and ctx.pci==400 and ctx.tac==12 and ctx.crnti==crnti_off+ue \
             and len(ctx.e1_bearers)==num_e1 and \
             all(ctx.e1_bearers[i][0]==(cucp1_src, cucp_e1Off+(ue*num_e1)+i) and ctx.e1_bearers[i][1]==(cuup1_src, cuup_e1Off+(ue*num_e1)+i) for i in range(0, num_e1))
     s.hook_cucp_uemgr_ue_remove(cucp1_src, cucp_off+ue)
     ctx = s.getue_by_id(ue)
-    assert ctx is not None and ctx.du_index is None and ctx.cucp_index is None and ctx.cuup_index==(cuup1_src,cuup_off+ue) \
+    assert ctx is not None and ctx.du_index is None and ctx.cucp_index is None and ctx.cuup_index==unique_index(cuup1_src,cuup_off+ue) \
             and ctx.plmn==101 and ctx.nci==201 and ctx.pci==400 and ctx.tac==12 and ctx.crnti==crnti_off+ue \
             and len(ctx.e1_bearers)==num_e1 and \
             all(ctx.e1_bearers[i][0]==(cucp1_src, cucp_e1Off+(ue*num_e1)+i) and ctx.e1_bearers[i][1]==(cuup1_src, cuup_e1Off+(ue*num_e1)+i) for i in range(0, num_e1))
@@ -1124,12 +1107,12 @@ if __name__ == "__main__":
         s.hook_e1_cuup_bearer_context_release(cuup1_src, cuup_off+ue, cucp_e1Off+e1off, cuup_e1Off+e1off, True)
         assert s.get_num_contexts() == num_ue
     ctx = s.getue_by_id(ue)
-    assert ctx is not None and ctx.du_index==(du1_src,du_off+ue) and ctx.cucp_index==(cucp1_src, cucp_off+ue) and ctx.cuup_index is None \
+    assert ctx is not None and ctx.du_index==unique_index(du1_src,du_off+ue) and ctx.cucp_index==unique_index(cucp1_src, cucp_off+ue) and ctx.cuup_index is None \
         and ctx.plmn==101 and ctx.nci==201 and ctx.pci==400 and ctx.tac==12 and ctx.crnti==crnti_off+ue \
         and len(ctx.e1_bearers)==0 
     s.hook_cucp_uemgr_ue_remove(cucp1_src, cucp_off+ue)
     ctx = s.getue_by_id(ue)
-    assert ctx is not None and ctx.du_index==(du1_src,du_off+ue) and ctx.cucp_index is None and ctx.cuup_index is None \
+    assert ctx is not None and ctx.du_index==unique_index(du1_src,du_off+ue) and ctx.cucp_index is None and ctx.cuup_index is None \
         and ctx.plmn==101 and ctx.nci==201 and ctx.pci==400 and ctx.tac==12 and ctx.crnti==crnti_off+ue \
         and len(ctx.e1_bearers)==0 
     s.hook_du_ue_ctx_deletion(du1_src, du_off+ue)
@@ -1202,18 +1185,18 @@ if __name__ == "__main__":
 
     # assert the expected contexts
     expected_contexts = [
-        {'du_index': ('du0', 0), 'cucp_index': ('cucp0', 0), 'cuup_index': ('cuup0', 0), 'plmn': 101, 'nci': 201, 'pci': 400, 'tac': 12, 'crnti': 30000, 'tmsi': None, 'e1_bearers': [(('cucp0', 0), ('cuup0', 0)), (('cucp0', 1), ('cuup0', 1))]},
-        {'du_index': ('du0', 1), 'cucp_index': ('cucp0', 1), 'cuup_index': ('cuup0', 1), 'plmn': 101, 'nci': 201, 'pci': 400, 'tac': 12, 'crnti': 30001, 'tmsi': None, 'e1_bearers': [(('cucp0', 2), ('cuup0', 2)), (('cucp0', 3), ('cuup0', 3))]},
-        {'du_index': ('du0', 2), 'cucp_index': ('cucp0', 2), 'cuup_index': ('cuup0', 2), 'plmn': 101, 'nci': 201, 'pci': 400, 'tac': 12, 'crnti': 30002, 'tmsi': None, 'e1_bearers': [(('cucp0', 4), ('cuup0', 4)), (('cucp0', 5), ('cuup0', 5))]},
-        {'du_index': ('du0', 3), 'cucp_index': ('cucp0', 3), 'cuup_index': ('cuup0', 3), 'plmn': 101, 'nci': 201, 'pci': 400, 'tac': 12, 'crnti': 30003, 'tmsi': None, 'e1_bearers': [(('cucp0', 6), ('cuup0', 6)), (('cucp0', 7), ('cuup0', 7))]},
-        {'du_index': ('du1', 0), 'cucp_index': ('cucp0', 4), 'cuup_index': ('cuup0', 4), 'plmn': 101, 'nci': 202, 'pci': 401, 'tac': 13, 'crnti': 30000, 'tmsi': None, 'e1_bearers': [(('cucp0', 8), ('cuup0', 8)), (('cucp0', 9), ('cuup0', 9))]},
-        {'du_index': ('du1', 1), 'cucp_index': ('cucp0', 5), 'cuup_index': ('cuup0', 5), 'plmn': 101, 'nci': 202, 'pci': 401, 'tac': 13, 'crnti': 30001, 'tmsi': None, 'e1_bearers': [(('cucp0', 10), ('cuup0', 10)), (('cucp0', 11), ('cuup0', 11))]},
-        {'du_index': ('du1', 2), 'cucp_index': ('cucp0', 6), 'cuup_index': ('cuup1', 0), 'plmn': 101, 'nci': 202, 'pci': 401, 'tac': 13, 'crnti': 30002, 'tmsi': None, 'e1_bearers': [(('cucp0', 12), ('cuup1', 0)), (('cucp0', 13), ('cuup1', 1))]},
-        {'du_index': ('du1', 3), 'cucp_index': ('cucp0', 7), 'cuup_index': ('cuup1', 1), 'plmn': 101, 'nci': 202, 'pci': 401, 'tac': 13, 'crnti': 30003, 'tmsi': None, 'e1_bearers': [(('cucp0', 14), ('cuup1', 2)), (('cucp0', 15), ('cuup1', 3))]},
-        {'du_index': ('du2', 0), 'cucp_index': ('cucp0', 8), 'cuup_index': ('cuup1', 2), 'plmn': 101, 'nci': 203, 'pci': 402, 'tac': 14, 'crnti': 30000, 'tmsi': None, 'e1_bearers': [(('cucp0', 16), ('cuup1', 4)), (('cucp0', 17), ('cuup1', 5))]},
-        {'du_index': ('du2', 1), 'cucp_index': ('cucp0', 9), 'cuup_index': ('cuup1', 3), 'plmn': 101, 'nci': 203, 'pci': 402, 'tac': 14, 'crnti': 30001, 'tmsi': None, 'e1_bearers': [(('cucp0', 18), ('cuup1', 6)), (('cucp0', 19), ('cuup1', 7))]},
-        {'du_index': ('du2', 2), 'cucp_index': ('cucp0', 10), 'cuup_index': ('cuup1', 4), 'plmn': 101, 'nci': 203, 'pci': 402, 'tac': 14, 'crnti': 30002, 'tmsi': None, 'e1_bearers': [(('cucp0', 20), ('cuup1', 8)), (('cucp0', 21), ('cuup1', 9))]},
-        {'du_index': ('du2', 3), 'cucp_index': ('cucp0', 11), 'cuup_index': ('cuup1', 5), 'plmn': 101, 'nci': 203, 'pci': 402, 'tac': 14, 'crnti': 30003, 'tmsi': None, 'e1_bearers': [(('cucp0', 22), ('cuup1', 10)), (('cucp0', 23), ('cuup1', 11))]}
+        {'du_index': {'src':'du0', 'idx':0}, 'cucp_index': {'src':'cucp0', 'idx':0}, 'cuup_index': {'src':'cuup0', 'idx':0}, 'plmn': 101, 'nci': 201, 'pci': 400, 'tac': 12, 'crnti': 30000, 'tmsi': None, 'e1_bearers': [(('cucp0', 0), ('cuup0', 0)), (('cucp0', 1), ('cuup0', 1))]},
+        {'du_index': {'src':'du0', 'idx':1}, 'cucp_index': {'src':'cucp0', 'idx':1}, 'cuup_index': {'src':'cuup0', 'idx':1}, 'plmn': 101, 'nci': 201, 'pci': 400, 'tac': 12, 'crnti': 30001, 'tmsi': None, 'e1_bearers': [(('cucp0', 2), ('cuup0', 2)), (('cucp0', 3), ('cuup0', 3))]},
+        {'du_index': {'src':'du0', 'idx':2}, 'cucp_index': {'src':'cucp0', 'idx':2}, 'cuup_index': {'src':'cuup0', 'idx':2}, 'plmn': 101, 'nci': 201, 'pci': 400, 'tac': 12, 'crnti': 30002, 'tmsi': None, 'e1_bearers': [(('cucp0', 4), ('cuup0', 4)), (('cucp0', 5), ('cuup0', 5))]},
+        {'du_index': {'src':'du0', 'idx':3}, 'cucp_index': {'src':'cucp0', 'idx':3}, 'cuup_index': {'src':'cuup0', 'idx':3}, 'plmn': 101, 'nci': 201, 'pci': 400, 'tac': 12, 'crnti': 30003, 'tmsi': None, 'e1_bearers': [(('cucp0', 6), ('cuup0', 6)), (('cucp0', 7), ('cuup0', 7))]},
+        {'du_index': {'src':'du1', 'idx':0}, 'cucp_index': {'src':'cucp0', 'idx':4}, 'cuup_index': {'src':'cuup0', 'idx':4}, 'plmn': 101, 'nci': 202, 'pci': 401, 'tac': 13, 'crnti': 30000, 'tmsi': None, 'e1_bearers': [(('cucp0', 8), ('cuup0', 8)), (('cucp0', 9), ('cuup0', 9))]},
+        {'du_index': {'src':'du1', 'idx':1}, 'cucp_index': {'src':'cucp0', 'idx':5}, 'cuup_index': {'src':'cuup0', 'idx':5}, 'plmn': 101, 'nci': 202, 'pci': 401, 'tac': 13, 'crnti': 30001, 'tmsi': None, 'e1_bearers': [(('cucp0', 10), ('cuup0', 10)), (('cucp0', 11), ('cuup0', 11))]},
+        {'du_index': {'src':'du1', 'idx':2}, 'cucp_index': {'src':'cucp0', 'idx':6}, 'cuup_index': {'src':'cuup1', 'idx':0}, 'plmn': 101, 'nci': 202, 'pci': 401, 'tac': 13, 'crnti': 30002, 'tmsi': None, 'e1_bearers': [(('cucp0', 12), ('cuup1', 0)), (('cucp0', 13), ('cuup1', 1))]},
+        {'du_index': {'src':'du1', 'idx':3}, 'cucp_index': {'src':'cucp0', 'idx':7}, 'cuup_index': {'src':'cuup1', 'idx':1}, 'plmn': 101, 'nci': 202, 'pci': 401, 'tac': 13, 'crnti': 30003, 'tmsi': None, 'e1_bearers': [(('cucp0', 14), ('cuup1', 2)), (('cucp0', 15), ('cuup1', 3))]},
+        {'du_index': {'src':'du2', 'idx':0}, 'cucp_index': {'src':'cucp0', 'idx':8}, 'cuup_index': {'src':'cuup1', 'idx':2}, 'plmn': 101, 'nci': 203, 'pci': 402, 'tac': 14, 'crnti': 30000, 'tmsi': None, 'e1_bearers': [(('cucp0', 16), ('cuup1', 4)), (('cucp0', 17), ('cuup1', 5))]},
+        {'du_index': {'src':'du2', 'idx':1}, 'cucp_index': {'src':'cucp0', 'idx':9}, 'cuup_index': {'src':'cuup1', 'idx':3}, 'plmn': 101, 'nci': 203, 'pci': 402, 'tac': 14, 'crnti': 30001, 'tmsi': None, 'e1_bearers': [(('cucp0', 18), ('cuup1', 6)), (('cucp0', 19), ('cuup1', 7))]},
+        {'du_index': {'src':'du2', 'idx':2}, 'cucp_index': {'src':'cucp0', 'idx':10}, 'cuup_index': {'src':'cuup1', 'idx':4}, 'plmn': 101, 'nci': 203, 'pci': 402, 'tac': 14, 'crnti': 30002, 'tmsi': None, 'e1_bearers': [(('cucp0', 20), ('cuup1', 8)), (('cucp0', 21), ('cuup1', 9))]},
+        {'du_index': {'src':'du2', 'idx':3}, 'cucp_index': {'src':'cucp0', 'idx':11}, 'cuup_index': {'src':'cuup1', 'idx':5}, 'plmn': 101, 'nci': 203, 'pci': 402, 'tac': 14, 'crnti': 30003, 'tmsi': None, 'e1_bearers': [(('cucp0', 22), ('cuup1', 10)), (('cucp0', 23), ('cuup1', 11))]}
     ]
     expected_contexts_by_du_index = {'du0::0': 0, 'du0::1': 1, 'du0::2': 2, 'du0::3': 3, 'du1::0': 4, 'du1::1': 5, 'du1::2': 6, 'du1::3': 7, 'du2::0': 8, 'du2::1': 9, 'du2::2': 10, 'du2::3': 11}
     expected_contexts_by_cucp_index= {'cucp0::0': 0, 'cucp0::1': 1, 'cucp0::2': 2, 'cucp0::3': 3, 'cucp0::4': 4, 'cucp0::5': 5, 'cucp0::6': 6, 'cucp0::7': 7, 'cucp0::8': 8, 'cucp0::9': 9, 'cucp0::10': 10, 'cucp0::11': 11}
@@ -1223,15 +1206,15 @@ if __name__ == "__main__":
 
     for i in range(0, num_ue):
         ctx = s.getue_by_id(i)
-        assert ctx.to_dict() == expected_contexts[i]
+        assert asdict(ctx) == expected_contexts[i]
 
-    contexts_by_du_index = {f"{k[0]}::{k[1]}": v for k, v in s.contexts_by_du_index.items()}
+    contexts_by_du_index = {f"{k.src}::{k.idx}": v for k, v in s.contexts_by_du_index.items()}
     assert contexts_by_du_index == expected_contexts_by_du_index
 
-    contexts_by_cucp_index = {f"{k[0]}::{k[1]}": v for k, v in s.contexts_by_cucp_index.items()}
+    contexts_by_cucp_index = {f"{k.src}::{k.idx}": v for k, v in s.contexts_by_cucp_index.items()}
     assert contexts_by_cucp_index == expected_contexts_by_cucp_index
 
-    contexts_by_cuup_index = {f"{k[0]}::{k[1]}": v for k, v in s.contexts_by_cuup_index.items()}
+    contexts_by_cuup_index = {f"{k.src}::{k.idx}": v for k, v in s.contexts_by_cuup_index.items()}
     assert contexts_by_cuup_index == expected_contexts_by_cuup_index
 
     contexts_by_cucp_ue_e1ap_id = {f"{k[0]}::{k[1]}": v for k, v in s.contexts_by_cucp_ue_e1ap_id.items()}
@@ -1316,14 +1299,14 @@ if __name__ == "__main__":
     ue = s.getid_by_du_index('du2', 3)
     s.hook_du_ue_ctx_deletion('du2', 3)
     ctx = s.getue_by_id(ue)
-    assert ctx is not None and ctx.du_index is None and ctx.cucp_index==('cucp0', 11) and ctx.cuup_index==('cuup1', 5) \
+    assert ctx is not None and ctx.du_index is None and ctx.cucp_index==unique_index('cucp0', 11) and ctx.cuup_index==unique_index('cuup1', 5) \
             and ctx.plmn==101 and ctx.nci==203 and ctx.pci==402 and ctx.tac==14 and ctx.crnti==30003 \
             and len(ctx.e1_bearers)==2 \
             and ctx.e1_bearers[0][0]==('cucp0', 22) and ctx.e1_bearers[0][1]==('cuup1', 10) and ctx.e1_bearers[1][0]==('cucp0', 23) and ctx.e1_bearers[1][1]==('cuup1', 11)
     
     s.hook_cucp_uemgr_ue_remove('cucp0', 11)
     ctx = s.getue_by_id(ue)
-    assert ctx is not None and ctx.du_index is None and ctx.cucp_index is None and ctx.cuup_index==('cuup1', 5) \
+    assert ctx is not None and ctx.du_index is None and ctx.cucp_index is None and ctx.cuup_index==unique_index('cuup1', 5) \
             and ctx.plmn==101 and ctx.nci==203 and ctx.pci==402 and ctx.tac==14 and ctx.crnti==30003 \
             and len(ctx.e1_bearers)==2 \
             and ctx.e1_bearers[0][0]==('cucp0', 22) and ctx.e1_bearers[0][1]==('cuup1', 10) and ctx.e1_bearers[1][0]==('cucp0', 23) and ctx.e1_bearers[1][1]==('cuup1', 11)
@@ -1331,7 +1314,7 @@ if __name__ == "__main__":
     # try an e1ap_ids=22/13.   e1ap_id=13 is not known so nothing should happen
     s.hook_e1_cuup_bearer_context_release('cuup1', 5, 22, 13, True)
     ctx = s.getue_by_id(ue)
-    assert ctx is not None and ctx.du_index is None and ctx.cucp_index is None and ctx.cuup_index==('cuup1', 5) \
+    assert ctx is not None and ctx.du_index is None and ctx.cucp_index is None and ctx.cuup_index==unique_index('cuup1', 5) \
             and ctx.plmn==101 and ctx.nci==203 and ctx.pci==402 and ctx.tac==14 and ctx.crnti==30003 \
             and len(ctx.e1_bearers)==2 \
             and ctx.e1_bearers[0][0]==('cucp0', 22) and ctx.e1_bearers[0][1]==('cuup1', 10) and ctx.e1_bearers[1][0]==('cucp0', 23) and ctx.e1_bearers[1][1]==('cuup1', 11)
@@ -1339,7 +1322,7 @@ if __name__ == "__main__":
     # delete 22/10. 
     s.hook_e1_cuup_bearer_context_release('cuup1', 5, 22, 10, True)
     ctx = s.getue_by_id(ue)
-    assert ctx is not None and ctx.du_index is None and ctx.cucp_index is None and ctx.cuup_index==('cuup1', 5) \
+    assert ctx is not None and ctx.du_index is None and ctx.cucp_index is None and ctx.cuup_index==unique_index('cuup1', 5) \
             and ctx.plmn==101 and ctx.nci==203 and ctx.pci==402 and ctx.tac==14 and ctx.crnti==30003 \
             and len(ctx.e1_bearers)==1 \
             and ctx.e1_bearers[0][0]==('cucp0', 23) and ctx.e1_bearers[0][1]==('cuup1', 11)
@@ -1357,20 +1340,20 @@ if __name__ == "__main__":
 
     s.hook_e1_cuup_bearer_context_release('cuup0', 4, 9, 9, True)
     ctx = s.getue_by_id(ue)
-    assert ctx is not None and ctx.du_index==('du1', 0) and ctx.cucp_index==('cucp0', 4) and ctx.cuup_index==('cuup0', 4) \
+    assert ctx is not None and ctx.du_index==unique_index('du1', 0) and ctx.cucp_index==unique_index('cucp0', 4) and ctx.cuup_index==unique_index('cuup0', 4) \
             and ctx.plmn==101 and ctx.nci==202 and ctx.pci==401 and ctx.tac==13 and ctx.crnti==30000 \
             and len(ctx.e1_bearers)==1 \
             and ctx.e1_bearers[0][0]==('cucp0', 8) and ctx.e1_bearers[0][1]==('cuup0', 8)
 
     s.hook_e1_cuup_bearer_context_release('cuup0', 4, 8, 8, True)
     ctx = s.getue_by_id(ue)
-    assert ctx is not None and ctx.du_index==('du1', 0) and ctx.cucp_index==('cucp0', 4) and ctx.cuup_index is None \
+    assert ctx is not None and ctx.du_index==unique_index('du1', 0) and ctx.cucp_index==unique_index('cucp0', 4) and ctx.cuup_index is None \
             and ctx.plmn==101 and ctx.nci==202 and ctx.pci==401 and ctx.tac==13 and ctx.crnti==30000 \
             and len(ctx.e1_bearers)==0
              
     s.hook_cucp_uemgr_ue_remove('cucp0', 4)
     ctx = s.getue_by_id(ue)
-    assert ctx is not None and ctx.du_index==('du1', 0) and ctx.cucp_index is None and ctx.cuup_index is None \
+    assert ctx is not None and ctx.du_index==unique_index('du1', 0) and ctx.cucp_index is None and ctx.cuup_index is None \
             and ctx.plmn==101 and ctx.nci==202 and ctx.pci==401 and ctx.tac==13 and ctx.crnti==30000 \
             and len(ctx.e1_bearers)==0
 
@@ -1446,7 +1429,7 @@ if __name__ == "__main__":
 
     ue = s.getid_by_du_index(du_src, du_index)
     ctx = s.getue_by_id(ue)
-    assert ctx is not None and ctx.du_index==(du_src, du_index) and ctx.cucp_index==(cucp_src, cucp_index) and ctx.cuup_index==(cuup_src, cuup_index) \
+    assert ctx is not None and ctx.du_index==unique_index(du_src, du_index) and ctx.cucp_index==unique_index(cucp_src, cucp_index) and ctx.cuup_index==unique_index(cuup_src, cuup_index) \
         and ctx.plmn==plmn and ctx.nci==nci and ctx.pci==pci and ctx.tac==tac and ctx.crnti==crnti \
         and len(ctx.e1_bearers)==1 \
         and ctx.e1_bearers[0][0]==(cucp_src, cucp_ue_e1ap_id) and ctx.e1_bearers[0][1]==(cuup_src, cuup_ue_e1ap_id) 
@@ -1454,14 +1437,14 @@ if __name__ == "__main__":
 
     s.hook_e1_cuup_bearer_context_release(cuup_src, cuup_index, cucp_ue_e1ap_id, cuup_ue_e1ap_id, True)
     ctx = s.getue_by_id(ue)
-    assert ctx is not None and ctx.du_index==(du_src, du_index) and ctx.cucp_index==(cucp_src, cucp_index) and ctx.cuup_index is None \
+    assert ctx is not None and ctx.du_index==unique_index(du_src, du_index) and ctx.cucp_index==unique_index(cucp_src, cucp_index) and ctx.cuup_index is None \
         and ctx.plmn==plmn and ctx.nci==nci and ctx.pci==pci and ctx.tac==tac and ctx.crnti==crnti \
         and len(ctx.e1_bearers)==0
     assert s.get_num_contexts() == 1
 
     s.hook_du_ue_ctx_deletion(du_src, du_index)
     ctx = s.getue_by_id(ue)
-    assert ctx is not None and ctx.du_index is None and ctx.cucp_index==(cucp_src, cucp_index) and ctx.cuup_index is None \
+    assert ctx is not None and ctx.du_index is None and ctx.cucp_index==unique_index(cucp_src, cucp_index) and ctx.cuup_index is None \
         and ctx.plmn==plmn and ctx.nci==nci and ctx.pci==pci and ctx.tac==tac and ctx.crnti==crnti \
         and len(ctx.e1_bearers)==0
     assert s.get_num_contexts() == 1
@@ -1496,7 +1479,7 @@ if __name__ == "__main__":
                                             True)  # succees
     ue = s.getid_by_du_index(du_src, du_index)
     ctx = s.getue_by_id(ue)
-    assert ctx is not None and ctx.du_index==(du_src, du_index) and ctx.cucp_index==(cucp_src, cucp_index) and ctx.cuup_index==(cuup_src, cuup_index) \
+    assert ctx is not None and ctx.du_index==unique_index(du_src, du_index) and ctx.cucp_index==unique_index(cucp_src, cucp_index) and ctx.cuup_index==unique_index(cuup_src, cuup_index) \
         and ctx.plmn==plmn and ctx.nci==nci and ctx.pci==pci and ctx.tac==tac and ctx.crnti==crnti \
         and len(ctx.e1_bearers)==1 \
         and ctx.e1_bearers[0][0]==(cucp_src, cucp_ue_e1ap_id) and ctx.e1_bearers[0][1]==(cuup_src, cuup_ue_e1ap_id) 
@@ -1507,7 +1490,7 @@ if __name__ == "__main__":
     # this one should fail as the du_index is unknown
     s.hook_du_ue_ctx_update_crnti(du_src, du_index+1, new_crnti)
     ctx = s.getue_by_id(ue)
-    assert ctx is not None and ctx.du_index==(du_src, du_index) and ctx.cucp_index==(cucp_src, cucp_index) and ctx.cuup_index==(cuup_src, cuup_index) \
+    assert ctx is not None and ctx.du_index==unique_index(du_src, du_index) and ctx.cucp_index==unique_index(cucp_src, cucp_index) and ctx.cuup_index==unique_index(cuup_src, cuup_index) \
         and ctx.plmn==plmn and ctx.nci==nci and ctx.pci==pci and ctx.tac==tac and ctx.crnti==crnti \
         and len(ctx.e1_bearers)==1 \
         and ctx.e1_bearers[0][0]==(cucp_src, cucp_ue_e1ap_id) and ctx.e1_bearers[0][1]==(cuup_src, cuup_ue_e1ap_id) 
@@ -1516,7 +1499,7 @@ if __name__ == "__main__":
     # this one should change the crnti
     s.hook_du_ue_ctx_update_crnti(du_src, du_index, new_crnti)
     ctx = s.getue_by_id(ue)
-    assert ctx is not None and ctx.du_index==(du_src, du_index) and ctx.cucp_index==(cucp_src, cucp_index) and ctx.cuup_index==(cuup_src, cuup_index) \
+    assert ctx is not None and ctx.du_index==unique_index(du_src, du_index) and ctx.cucp_index==unique_index(cucp_src, cucp_index) and ctx.cuup_index==unique_index(cuup_src, cuup_index) \
         and ctx.plmn==plmn and ctx.nci==nci and ctx.pci==pci and ctx.tac==tac and ctx.crnti==new_crnti \
         and len(ctx.e1_bearers)==1 \
         and ctx.e1_bearers[0][0]==(cucp_src, cucp_ue_e1ap_id) and ctx.e1_bearers[0][1]==(cuup_src, cuup_ue_e1ap_id) 
@@ -1536,8 +1519,7 @@ if __name__ == "__main__":
     assert s.get_num_contexts() == 1
     s.add_tmsi('cucp0', 1, 1234)  
     u = s.getuectx(1)
-    assert u.to_dict() == {'du_index': ('du0', 0), 'cucp_index': ('cucp0', 1), 'cuup_index': ('cuup0', 0), 'plmn': 61712, 'nci': 6733824, 'pci': 1, 'tac': 1, 'crnti': 40000, 'tmsi': 1234, 'e1_bearers': [(('cucp0', 1), ('cuup0', 1))]}
-
+    assert asdict(u) == {'du_index': {'src':'du0', 'idx':0}, 'cucp_index': {'src':'cucp0', 'idx':1}, 'cuup_index': {'src':'cuup0', 'idx':0}, 'plmn': 61712, 'nci': 6733824, 'pci': 1, 'tac': 1, 'crnti': 40000, 'tmsi': 1234, 'e1_bearers': [(('cucp0', 1), ('cuup0', 1))]}
          
     print("\n\n------ All tests passed ---------")
 
