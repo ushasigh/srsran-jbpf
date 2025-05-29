@@ -6,7 +6,8 @@ import json
 import os
 import sys
 import ctypes
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
+from typing import Dict
 
 JRTC_APP_PATH = os.environ.get("JRTC_APP_PATH")
 if JRTC_APP_PATH is None:
@@ -90,8 +91,27 @@ class AppStateVars:
 
 
 ##########################################################################
+
 def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_data_entry, state: AppStateVars):
 
+    ###########################################################################
+    def report_uectx_info(uectx) -> Dict:
+        if uectx is None:
+            return None
+        d = asdict(uectx)
+
+        # Remove keys with None values
+        [d.pop(k) for k in list(d) if d[k] is None]
+
+        # remove e1_beaerss if it is empty
+        if "e1_bearers" in d and len(d["e1_bearers"]) == 0:
+            d.pop("e1_bearers")
+
+
+        return d
+
+    ##########################################################################
+    # main part of function
     if timeout:
 
         ## timeout processing
@@ -105,7 +125,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
         # Check the stream index and process the data accordingly
 
         #####################################################
-        ### PeUe contexts
+        ### Ue contexts
 
         if stream_idx == UECTX_DU_ADD_SIDX:
             data_ptr = ctypes.cast(
@@ -120,6 +140,17 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                               data.crnti,
                               data.tac,
                               data.nci)
+            ueid = state.ue_map.getid_by_du_index(deviceid, data.du_ue_index)
+            uectx = state.ue_map.getuectx(ueid)
+
+            output = {
+                "timestamp": data.timestamp,
+                "stream_index": "UECTX_DU_ADD",
+                "ueid": ueid,
+                "ue_ctx": report_uectx_info(uectx)
+            }            
+
+            print(f"UECTX_DU_ADD: {output}")
         
         elif stream_idx == UECTX_DU_UPDATE_CRNTI_SIDX:
             data_ptr = ctypes.cast(
@@ -127,7 +158,23 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
             )
             data = data_ptr.contents
             deviceid = str(jrtc_app_router_stream_id_get_device_id(state.app, UECTX_DU_UPDATE_CRNTI_SIDX))
-            state.ue_map.hook_du_ue_ctx_update_crnti(deviceid, data.du_ue_index)
+            state.ue_map.hook_du_ue_ctx_update_crnti(deviceid, data.du_ue_index, data.crnti)
+
+            ueid = state.ue_map.getid_by_du_index(deviceid, data.du_ue_index)
+            uectx = state.ue_map.getuectx(ueid)
+
+            output = {
+                "timestamp": data.timestamp,
+                "stream_index": "UECTX_DU_UPDATE_CRNTI",
+                "ueid": ueid,
+                "ue_ctx": report_uectx_info(uectx)
+            }            
+
+            if uectx is None:
+                output["du_ue_index"] = data.du_ue_index
+                output["rnti"] = data.rnti
+
+            print(f"UECTX_DU_UPDATE_CRNTI: {output}")
 
         elif stream_idx == UECTX_DU_DEL_SIDX:
             data_ptr = ctypes.cast(
@@ -135,7 +182,23 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
             )
             data = data_ptr.contents
             deviceid = str(jrtc_app_router_stream_id_get_device_id(state.app, UECTX_DU_DEL_SIDX))
+
+            ueid = state.ue_map.getid_by_du_index(deviceid, data.du_ue_index)
+            uectx = state.ue_map.getuectx(ueid)
+
+            output = {
+                "timestamp": data.timestamp,
+                "stream_index": "UECTX_DU_DEL",
+                "ueid": ueid,
+                "ue_ctx": report_uectx_info(uectx)
+            }            
+
+            if uectx is None:
+                output["du_ue_index"] = data.du_ue_index
+
             state.ue_map.hook_du_ue_ctx_deletion(deviceid, data.du_ue_index)
+
+            print(f"UECTX_DU_DEL: {output}")
 
         elif stream_idx == UECTX_CUCP_ADD_SIDX:
             data_ptr = ctypes.cast(
@@ -152,6 +215,21 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                                     data.pci,
                                     data.crnti)
 
+            ueid = state.ue_map.getid_by_cucp_index(deviceid, data.cucp_ue_index)
+            uectx = state.ue_map.getuectx(ueid)
+
+            output = {
+                "timestamp": data.timestamp,
+                "stream_index": "UECTX_CUCP_ADD",
+                "ueid": ueid,
+                "ue_ctx": report_uectx_info(uectx)
+            }            
+
+            if uectx is None:
+                output["cucp_ue_index"] = data.cucp_ue_index
+
+            print(f"UECTX_CUCP_ADD: {output}")
+
         elif stream_idx == UECTX_CUCP_UPDATE_CRNTI_SIDX:
             data_ptr = ctypes.cast(
                 data_entry.data, ctypes.POINTER(struct__cucp_ue_ctx_update)
@@ -165,13 +243,38 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                                 data.pci,
                                 data.crnti)
 
+            output = {
+                "timestamp": data.timestamp,
+                "stream_index": "UECTX_CUCP_UPDATE_CRNTI",
+                "ueid": ueid,
+                "ue_ctx": report_uectx_info(uectx)
+            }            
+
+            print(f"UECTX_CUCP_UPDATE_CRNTI: {output}")
+
         elif stream_idx == UECTX_CUCP_DEL_SIDX:
             data_ptr = ctypes.cast(
                 data_entry.data, ctypes.POINTER(struct__cucp_ue_ctx_deletion)
             )
             data = data_ptr.contents
             deviceid = str(jrtc_app_router_stream_id_get_device_id(state.app, UECTX_CUCP_DEL_SIDX))
+
+            ueid = state.ue_map.getid_by_cucp_index(deviceid, data.cucp_ue_index)
+            uectx = state.ue_map.getuectx(ueid)
+
+            output = {
+                "timestamp": data.timestamp,
+                "stream_index": "UECTX_CUCP_DEL",
+                "ueid": ueid,
+                "ue_ctx": report_uectx_info(uectx)
+            }            
+
+            if uectx is None:
+                output["cucp_ue_index"] = data.cucp_ue_index
+
             state.ue_map.hook_cucp_uemgr_ue_remove(deviceid, data.cucp_ue_index)
+
+            print(f"UECTX_CUCP_DEL: {output}")
 
         elif stream_idx == UECTX_CUCP_E1AP_BEARER_SETUP_SIDX:
             data_ptr = ctypes.cast(
@@ -183,6 +286,21 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                                 deviceid,
                                 data.cucp_ue_index, 
                                 data.cucp_ue_e1ap_id)
+            
+            ueid = state.ue_map.getid_by_cucp_index(deviceid, data.cucp_ue_index)
+            uectx = state.ue_map.getuectx(ueid)
+
+            output = {
+                "timestamp": data.timestamp,
+                "stream_index": "UECTX_CUCP_E1AP_BEARER_SETUP",
+                "ueid": ueid,
+                "ue_ctx": report_uectx_info(uectx)
+            }            
+
+            if uectx is None:
+                output["cucp_ue_index"] = data.cucp_ue_index
+
+            print(f"UECTX_CUCP_E1AP_BEARER_SETUP: {output}")
 
         elif stream_idx == UECTX_CUUP_E1AP_BEARER_SETUP_SIDX:
             data_ptr = ctypes.cast(
@@ -197,6 +315,21 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                                 data.cuup_ue_e1ap_id,
                                 data.success)
 
+            ueid = state.ue_map.getid_by_cuup_index(deviceid, data.cuup_ue_index)
+            uectx = state.ue_map.getuectx(ueid)
+
+            output = {
+                "timestamp": data.timestamp,
+                "stream_index": "UECTX_CUUP_E1AP_BEARER_SETUP",
+                "ueid": ueid,
+                "ue_ctx": report_uectx_info(uectx),
+                "success": data.success,
+            }            
+
+            if uectx is None:
+                output["cuup_ue_index"] = data.cuup_ue_index
+
+            print(f"UECTX_CUUP_E1AP_BEARER_SETUP: {output}")
 
         elif stream_idx == UECTX_CUUP_E1AP_BEARER_DEL_SIDX:
             data_ptr = ctypes.cast(
@@ -204,12 +337,29 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
             )
             data = data_ptr.contents
             deviceid = str(jrtc_app_router_stream_id_get_device_id(state.app, UECTX_CUUP_E1AP_BEARER_DEL_SIDX))
+
+            ueid = state.ue_map.getid_by_cuup_index(deviceid, data.cuup_ue_index)
+            uectx = state.ue_map.getuectx(ueid)
+
+            output = {
+                "timestamp": data.timestamp,
+                "stream_index": "UECTX_CUUP_E1AP_BEARER_DEL_SIDX",
+                "ueid": ueid,
+                "ue_ctx": report_uectx_info(uectx),
+                "success": data.success,
+            }            
+
+            if uectx is None:
+                output["cuup_ue_index"] = data.cuup_ue_index
+
             state.ue_map.hook_e1_cuup_bearer_context_release(
                                 deviceid,
                                 data.cuup_ue_index,
                                 data.cucp_ue_e1ap_id,
                                 data.cuup_ue_e1ap_id,
                                 data.success)
+
+            print(f"UECTX_CUUP_E1AP_BEARER_DEL_SIDX: {output}")
 
         #####################################################
         ### Perf
@@ -260,14 +410,12 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                 "timestamp": data.timestamp,
                 "stream_index": "RRC_UE_ADD",
                 "ueid": ueid,
-                "cucp_ue_index": data.cucp_ue_index,
-                "tmsi": uectx.tmsi if (uectx is not None) else None,
-                "c_rnti": data.c_rnti,
-                "pci": data.pci,
-                "tac": data.tac,
-                "plmn": data.plmn,
-                "nci": data.nci
+                "ue_ctx": report_uectx_info(uectx)
             }
+
+            if uectx is None:
+                s["cucp_ue_index"] = data.cucp_ue_index
+
             print(f"RRC_UE_ADD: {output}")
 
         elif stream_idx == RRC_UE_PROCEDURE_SIDX:
@@ -284,12 +432,15 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                 "timestamp": data.timestamp,
                 "stream_index": "RRC_UE_PROCEDURE",
                 "ueid": ueid,
-                "cucp_ue_index": data.cucp_ue_index,
-                "tmsi": uectx.tmsi if (uectx is not None) else None,
+                "ue_ctx": report_uectx_info(uectx),
                 "procedure": data.procedure,
                 "success": data.success,
                 "meta": data.meta
             }
+
+            if uectx is None:
+                output["cucp_ue_index"] = data.cucp_ue_index
+
             print(f"RRC_UE_PROCEDURE: {output}")
 
         elif stream_idx == RRC_UE_REMOVE_SIDX:
@@ -305,9 +456,13 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
             output = {
                 "timestamp": data.timestamp,
                 "stream_index": "RRC_UE_REMOVE",
-                "cucp_ue_index": data.cucp_ue_index,
-                "tmsi": uectx.tmsi if (uectx is not None) else None
+                "ueid": ueid,
+                "ue_ctx": report_uectx_info(uectx)
             }
+
+            if uectx is None:
+                output["cucp_ue_index"] = data.cucp_ue_index
+
             print(f"RRC_UE_REMOVE: {output}")
 
         elif stream_idx == RRC_UE_UPDATE_CONTEXT_SIDX:
@@ -324,10 +479,10 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                 "timestamp": data.timestamp,
                 "stream_index": "RRC_UE_UPDATE_CONTEXT",
                 "ueid": ueid,
+                "ue_ctx": report_uectx_info(uectx),
                 "cucp_ue_index": data.cucp_ue_index,
-                "tmsi": uectx.tmsi if (uectx is not None) else None,
                 "old_ue_index": data.old_ue_index,
-                "c_rnti": data.c_rnti,
+                "rnti": data.c_rnti,
                 "pci": data.pci,
                 "tac": data.tac,
                 "plmn": data.plmn,
@@ -348,10 +503,14 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
 
             output = {
                 "timestamp": data.timestamp,
-                "stream_index": stream_idx,
-                "cucp_ue_index": data.cucp_ue_index,
-                "tmsi": uectx.tmsi if (uectx is not None) else None
+                "stream_index": "RRC_UE_UPDATE_ID",
+                "ueid": ueid,
+                "ue_ctx": report_uectx_info(uectx)
             }
+
+            if uectx is None:
+                output["cucp_ue_index"] = data.cucp_ue_index
+
             print(f"RRC_UE_UPDATE_ID: {output}")
 
 
@@ -387,11 +546,14 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
 
                 s = {
                     "ueid": ueid,
-                    ue_index_key: stat.cu_ue_index,
-                    "tmsi": uectx.tmsi if (uectx is not None) else None, 
+                    "ue_ctx": report_uectx_info(uectx),
                     "is_srb": stat.is_srb,
                     "rb_id": stat.rb_id
                 }
+
+                if uectx is None:
+                    s[ue_index_key]: stat.cu_ue_index
+
                 if stat.sdu_bytes.count > 0:
                     s["sdu_bytes"] = {
                         "count": stat.sdu_bytes.count,
@@ -447,11 +609,14 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
 
                 s = {
                     "ueid": ueid,
-                    ue_index_key: stat.cu_ue_index,
-                    "tmsi": uectx.tmsi if (uectx is not None) else None, 
+                    "ue_ctx": report_uectx_info(uectx),
                     "is_srb": stat.is_srb,
                     "rb_id": stat.rb_id
                 }
+
+                if uectx is None:
+                    s[ue_index_key]: stat.cu_ue_index
+
                 # window stats
                 if stat.window.count > 0:
                     s["window"] = {
@@ -585,11 +750,13 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
 
                 s = {
                     "ueid": ueid,
-                    ue_index_key: stat.cu_ue_index,
-                    "tmsi": uectx.tmsi if (uectx is not None) else None,
+                    "ue_ctx": report_uectx_info(uectx),
                     "is_srb": stat.is_srb,
                     "rb_id": stat.rb_id
                 }
+
+                if uectx is None:
+                    s[ue_index_key]: stat.cu_ue_index
 
                 # window stats
                 if stat.window.count > 0:
@@ -644,10 +811,9 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                 if stat.cnt_tx > 0:
                     ueid = state.ue_map.getid_by_du_index(deviceid, stat.du_ue_index)
                     uectx = state.ue_map.getuectx(ueid)
-                    output["stats"].append({
+                    s ={
                         "ueid": ueid,
-                        "du_ue_index": stat.du_ue_index,
-                        "tmsi": uectx.tmsi if (uectx is not None) else None,
+                        "ue_ctx": report_uectx_info(uectx),
                         "cons_min": stat.cons_min,
                         "cons_max": stat.cons_max,
                         "succ_rate": stat.succ_tx / stat.cnt_tx,
@@ -657,7 +823,11 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                         "max_rsrp": stat.max_rsrp,
                         "avg_sinr": stat.sum_sinr / stat.cnt_sinr,
                         "avg_rsrp": stat.sum_rsrp / stat.cnt_rsrp
-                    })
+                    }
+                    if uectx is None:
+                        s["du_ue_index"] = stat.du_ue_index,
+
+                    output["stats"].append(s)
                 cnt += 1
                 if cnt >= data.stats_count:
                     break
@@ -683,12 +853,16 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                 if  stat.cnt > 0:
                     ueid = state.ue_map.getid_by_du_index(deviceid, stat.du_ue_index)
                     uectx = state.ue_map.getuectx(ueid)
-                    output["stats"].append({
+                    s = {
                         "ueid": ueid,
-                        "du_ue_index": stat.du_ue_index,
-                        "tmsi": uectx.tmsi if (uectx is not None) else None,
+                        "ue_ctx": report_uectx_info(uectx),
                         "cnt": stat.cnt
-                    })
+                    }
+                    if uectx is None:
+                        s["du_ue_index"] = stat.du_ue_index
+                                            
+                    output["stats"].append(s)                    
+    
                     cnt += 1
                     if cnt >= data.stats_count:
                         break
@@ -713,16 +887,21 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                 if stat.ph_max > 0:
                     ueid = state.ue_map.getid_by_du_index(deviceid, stat.du_ue_index)
                     uectx = state.ue_map.getuectx(ueid)
-                    output["stats"].append({
+                    s = {
                         "ueid": ueid,
-                        "du_ue_index": stat.du_ue_index,
-                        "tmsi": uectx.tmsi if (uectx is not None) else None,
+                        "ue_ctx": report_uectx_info(uectx),
                         "serv_cell_id": stat.serv_cell_id,
                         "ph_min": stat.ph_min,
                         "ph_max": stat.ph_max,
                         "p_cmax_min": stat.p_cmax_min,
                         "p_cmax_max": stat.p_cmax_max
-                    })
+                    }
+
+                    if uectx is None:
+                        s["du_ue_index"] = stat.du_ue_index
+                                            
+                    output["stats"].append(s)           
+
                 cnt += 1
                 if cnt >= data.stats_count:
                     break
@@ -751,12 +930,10 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                 if stat.rnti > 0:
                     ueid = state.ue_map.getid_by_pci_rnti(stat.cell_id, stat.rnti)                    
                     uectx = state.ue_map.getuectx(ueid)
-                    output["ues"].append({
+                    s = {
                         "cell_id": stat.cell_id,
                         "ueid": ueid,
-                        "du_ue_index": uectx.du_index.idx if (uectx is not None) else None,
-                        "tmsi": uectx.tmsi if (uectx is not None) else None,
-                        "rnti": stat.rnti,
+                        "ue_ctx": report_uectx_info(uectx),
                         "l1_dlc_tx": stat.l1_dlc_tx,
                         "l1_prb_min": stat.l1_prb_min,
                         "l1_prb_max": stat.l1_prb_max,
@@ -768,7 +945,12 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                         "l1_dlc_mcs_hist": list(stat.l1_dlc_mcs_hist),
                         "l1_dlc_tbs_hist": list(stat.l1_dlc_tbs_hist),
                         "l1_dlc_ant_hist": list(stat.l1_dlc_ant_hist)
-                    })
+                    }
+
+                    if uectx is None:
+                        s["rnti"] = stat.rnti
+                                            
+                    output["ues"].append(s)                    
                 cnt += 1
                 if cnt >= data.stats_count:
                     break
@@ -791,12 +973,10 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                 if stat.rnti > 0:
                     ueid = state.ue_map.getid_by_pci_rnti(stat.cell_id, stat.rnti)                    
                     uectx = state.ue_map.getuectx(ueid)
-                    output["ues"].append({
+                    s = {
                         "cell_id": stat.cell_id,
                         "ueid": ueid,
-                        "du_ue_index": uectx.du_index.idx if (uectx is not None) else None,
-                        "tmsi": uectx.tmsi if (uectx is not None) else None,
-                        "rnti": stat.rnti,
+                        "ue_ctx": report_uectx_info(uectx),
                         "l1_ulc_tx": stat.l1_ulc_tx,
                         "l1_prb_min": stat.l1_prb_min,
                         "l1_prb_max": stat.l1_prb_max,
@@ -808,7 +988,13 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                         "l1_ulc_mcs_hist": list(stat.l1_ulc_mcs_hist),
                         "l1_ulc_tbs_hist": list(stat.l1_ulc_tbs_hist),
                         "l1_ulc_ant_hist": list(stat.l1_ulc_ant_hist)
-                    })
+                    }
+
+                    if uectx is None:
+                        s["rnti"] = stat.rnti
+                                            
+                    output["ues"].append(s)   
+
                 cnt += 1
                 if cnt >= data.stats_count:
                     break
@@ -831,19 +1017,23 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                 if stat.rnti > 0:
                     ueid = state.ue_map.getid_by_pci_rnti(stat.cell_id, stat.rnti)                    
                     uectx = state.ue_map.getuectx(ueid)
-                    output["ues"].append({
+                    s = {
                         "cell_id": stat.cell_id,
                         "ueid": ueid,
-                        "du_ue_index": uectx.du_index.idx if (uectx is not None) else None,
-                        "tmsi": uectx.tmsi if (uectx is not None) else None,
-                        "rnti": stat.rnti,
+                        "ue_ctx": report_uectx_info(uectx),
                         "l1_crc_ta_hist": list(stat.l1_crc_ta_hist),
                         "l1_crc_snr_hist": list(stat.l1_crc_snr_hist),
                         "l1_ta_min": stat.l1_ta_min,
                         "l1_ta_max": stat.l1_ta_max,
                         "l1_snr_min": stat.l1_snr_min,
                         "l1_snr_max": stat.l1_snr_max
-                    })
+                    }
+
+                    if uectx is None:
+                        s["rnti"] = stat.rnti
+                                            
+                    output["ues"].append(s)   
+
                 cnt += 1
                 if cnt >= data.stats_count:
                     break
