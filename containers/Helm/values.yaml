@@ -20,10 +20,10 @@ resources:
       hugepages1Gi: 4Gi
   jbpf_proxy:
     limits:
-      cpu: 100m
+      cpu: 500m
       memory: 500Mi
     requests:
-      cpu: 50m
+      cpu: 500m
       memory: 500Mi
   jrtc:
     limits:
