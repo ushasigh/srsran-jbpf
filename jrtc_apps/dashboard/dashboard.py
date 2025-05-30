@@ -1191,7 +1191,7 @@ def jrtc_start_app(capsule):
                 1024 * 1024,  # 1 MB per batch
                 5             # Timeout for batch sending (5 seconds)
             ), 
-            dbg=True
+            dbg=False
         )
 
     stream_id = "dashboard"
