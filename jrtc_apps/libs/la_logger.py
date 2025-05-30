@@ -4,7 +4,6 @@ import hmac
 import base64
 import requests
 import atexit
-import json
 from dataclasses import dataclass
 
 
@@ -48,13 +47,6 @@ class LaLogger:
 
     ############################################
     def process_msg(self, msg):        
-
-        # check if this is valid JSON
-        try:
-            json.loads(msg)
-        except json.JSONDecodeError as e:
-            print(f"LaLogger():process_msg: Invalid JSON message: {e}")
-            return
 
         len_msg = len(msg)
 

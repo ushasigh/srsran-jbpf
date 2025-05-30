@@ -6,7 +6,6 @@
 #
 
 import datetime as dt
-#import numpy
 import json
 
 
@@ -24,7 +23,7 @@ class Logger:
         self.stream_type = stream_type
         self.remote_logger = remote_logger
         # initialisation
-        self.sn = 0 #numpy.uint64(0)
+        self.sn = 0
 
     ############################################
     def log_msg(self, log, rlog, structure_type, msg, timestamp=None):
@@ -51,11 +50,16 @@ class Logger:
                 "stream_payload_msg": msg,
             }
 
-            j = json.dumps(j)
+            # check if this is valid JSON
+            try:
+                j = json.dumps(j)
+            except Exception as e:
+                print(f"Logger():log_msg: Problem dumping to JSON: {j}, Error {e}")
+                return
 
             self.remote_logger.process_msg(j)
 
-            self.sn += 1 # numpy.uint64(1)
+            self.sn += 1 
 
    ############################################
     def process_timeout(self):
