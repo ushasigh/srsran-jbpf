@@ -5,7 +5,6 @@
 
 #include "jbpf_srsran_contexts.h"
 
-#include "pdcp_helpers.h"
 #include "pdcp_dl_pkts.h"
 #include "pdcp_dl_south_stats.pb.h"
 
@@ -212,7 +211,11 @@ uint64_t jbpf_main(void* state)
         jbpf_printf_debug("PDCP DL DELIVER SDU: cu_ue_index=%d, rb_id=%d delta too big !!!  ", 
             pdcp_ctx.cu_ue_index, rb_id);
         jbpf_printf_debug("delta=%d notif_count=%d last_deliv_acked=%d \n", 
-            delta, notif_count, last_deliv_acked->ack[ack_ind % MAX_NUM_UE_RB]);        
+            delta, notif_count, last_deliv_acked->ack[ack_ind % MAX_NUM_UE_RB]);    
+            
+        // Reset the notification count
+        last_deliv_acked->ack[ack_ind % MAX_NUM_UE_RB] = notif_count;
+                    
         return JBPF_CODELET_FAILURE;
     }
 

@@ -5,7 +5,6 @@
 
 #include "jbpf_srsran_contexts.h"
 
-#include "pdcp_helpers.h"
 #include "pdcp_dl_pkts.h"
 #include "pdcp_dl_north_stats.pb.h"
 

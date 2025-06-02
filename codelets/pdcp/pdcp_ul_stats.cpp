@@ -5,7 +5,6 @@
 
 #include "jbpf_srsran_contexts.h"
 
-#include "pdcp_helpers.h"
 #include "pdcp_ul_stats.pb.h"
 
 #include "../utils/misc_utils.h"
