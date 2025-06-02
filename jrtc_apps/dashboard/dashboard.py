@@ -22,10 +22,10 @@ include_ue_contexts = True
 include_perf = True
 include_rrc = True
 include_pdcp = True
+include_rlc = True
 include_mac = True
 include_fapi = True
 include_xran = False
-
 
 
 # always include the logger modules
@@ -65,6 +65,13 @@ if include_pdcp:
     from pdcp_dl_north_stats import struct__dl_north_stats
     from pdcp_dl_south_stats import struct__dl_south_stats
     from pdcp_ul_stats import struct__ul_stats
+if include_rlc:
+    rlc_dl_north_stats = sys.modules.get('rlc_dl_north_stats')
+    rlc_dl_south_stats = sys.modules.get('rlc_dl_south_stats')
+    rlc_ul_stats = sys.modules.get('rlc_ul_stats')
+    from rlc_dl_north_stats import struct__rlc_dl_north_stats
+    from rlc_dl_south_stats import struct__rlc_dl_south_stats
+    from rlc_ul_stats import struct__rlc_ul_stats
 if include_mac:
     mac_sched_crc_stats = sys.modules.get('mac_sched_crc_stats')
     mac_sched_bsr_stats = sys.modules.get('mac_sched_bsr_stats')
@@ -400,7 +407,6 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                 state.logger.log_msg(True, True, "Dashboard", f"{output}")
 
 
-
         #####################################################
         ### RRC
 
@@ -521,6 +527,194 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
 
             state.logger.log_msg(True, True, "Dashboard", f"{output}")
 
+
+        #####################################################
+        ### RLC
+        elif stream_idx == RLC_DL_NORTH_STATS_SIDX:
+            data_ptr = ctypes.cast(
+                data_entry.data, ctypes.POINTER(struct__rlc_dl_north_stats)
+            )
+            data = data_ptr.contents
+            deviceid = str(jrtc_app_router_stream_id_get_device_id(state.app, RLC_DL_NORTH_STATS_SIDX))
+            dl_north_stats = list(data.stats)
+            output = {
+                "timestamp": data.timestamp,
+                "stream_index": "RLC_DL_NORTH_STATS",
+                "stats": []
+            }
+            cnt = 0
+            for stat in dl_north_stats:
+
+                report_stat = False
+
+                ueid = state.ue_map.getid_by_cucp_index(deviceid, stat.du_ue_index) 
+                uectx = state.ue_map.getuectx(ueid)
+
+                s = {
+                    "ueid": ueid,
+                    "ue_ctx": report_uectx_info(uectx),
+                    "is_srb": stat.is_srb,
+                    "rb_id": stat.rb_id
+                }
+
+                if uectx is None:
+                    s['du_ue_index']: stat.du_ue_index
+
+                if stat.sdu_new_bytes.count > 0:
+                    s["sdu_new_bytes"] = {
+                        "count": stat.sdu_new_bytes.count,
+                        "total": stat.sdu_new_bytes.total
+                    }
+                    report_stat = True
+                if report_stat:
+                    output["stats"].append(s)
+                cnt += 1
+                if cnt >= data.stats_count:
+                    break
+            if len(output["stats"]) > 0:
+                state.logger.log_msg(True, True, "Dashboard", f"{output}")
+
+        elif stream_idx == RLC_DL_SOUTH_STATS_SIDX:
+            data_ptr = ctypes.cast(
+                data_entry.data, ctypes.POINTER(struct__rlc_dl_south_stats)
+            )
+            data = data_ptr.contents
+            deviceid = str(jrtc_app_router_stream_id_get_device_id(state.app, RLC_DL_SOUTH_STATS_SIDX))
+            dl_south_stats = list(data.stats)
+            output = {
+                "timestamp": data.timestamp,
+                "stream_index": "RLC_DL_SOUTH_STATS",
+                "stats": []
+            }
+            cnt = 0
+            for stat in dl_south_stats:
+
+                report_stat = False
+
+                ueid = state.ue_map.getid_by_cucp_index(deviceid, stat.du_ue_index) 
+                uectx = state.ue_map.getuectx(ueid)
+
+                s = {
+                    "ueid": ueid,
+                    "ue_ctx": report_uectx_info(uectx),
+                    "is_srb": stat.is_srb,
+                    "rb_id": stat.rb_id
+                }
+
+                if uectx is None:
+                    s['du_ue_index']: stat.du_ue_index
+
+                if stat.pdu_window.count > 0:
+                    s["pdu_window"] = {
+                        "count": stat.pdu_window.count,
+                        "total": stat.pdu_window.total,
+                        "avg": stat.pdu_window.total / stat.pdu_window.count,
+                        "min": stat.pdu_window.min,
+                        "max": stat.pdu_window.max
+                    }
+                    report_stat = True
+
+                if stat.pdu_tx_bytes.count > 0:
+                    s["pdu_tx_bytes"] = {
+                        "count": stat.pdu_tx_bytes.count,
+                        "total": stat.pdu_tx_bytes.total
+                    }
+                    report_stat = True
+
+                if stat.pdu_retx_bytes.count > 0:
+                    s["pdu_retx_bytes"] = {
+                        "count": stat.pdu_retx_bytes.count,
+                        "total": stat.pdu_retx_bytes.total
+                    }
+                    report_stat = True
+
+                if stat.pdu_status_bytes.count > 0:
+                    s["pdu_status_bytes"] = {
+                        "count": stat.pdu_status_bytes.count,
+                        "total": stat.pdu_status_bytes.total
+                    }
+                    report_stat = True
+
+                if stat.pdu_retx_count.count > 0:
+                    s["pdu_retx_count"] = {
+                        "count": stat.pdu_retx_count.count,
+                        "total": stat.pdu_retx_count.total,
+                        "avg": stat.pdu_retx_count.total / stat.pdu_retx_count.count,
+                        "min": stat.pdu_retx_count.min,
+                        "max": stat.pdu_retx_count.max
+                    }
+                    report_stat = True
+
+                if report_stat:
+                    output["stats"].append(s)
+                cnt += 1
+                if cnt >= data.stats_count:
+                    break
+            if len(output["stats"]) > 0:
+                state.logger.log_msg(True, True, "Dashboard", f"{output}")
+
+        elif stream_idx == RLC_UL_STATS_SIDX:
+
+            data_ptr = ctypes.cast(
+                data_entry.data, ctypes.POINTER(struct__rlc_ul_stats)
+            )
+            data = data_ptr.contents
+            deviceid = str(jrtc_app_router_stream_id_get_device_id(state.app, RLC_UL_STATS_SIDX))
+            ul_stats = list(data.stats)
+            output = {
+                "timestamp": data.timestamp,
+                "stream_index": "RLC_UL_STATS",
+                "stats": []
+            }
+            cnt = 0
+            for stat in ul_stats:
+
+                report_stat = False
+
+                ueid = state.ue_map.getid_by_cucp_index(deviceid, stat.du_ue_index) 
+                uectx = state.ue_map.getuectx(ueid)
+
+                s = {
+                    "ueid": ueid,
+                    "ue_ctx": report_uectx_info(uectx),
+                    "is_srb": stat.is_srb,
+                    "rb_id": stat.rb_id
+                }
+
+                if uectx is None:
+                    s['du_ue_index']: stat.du_ue_index
+
+                if stat.pdu_window.count > 0:
+                    s["pdu_window"] = {
+                        "count": stat.pdu_window.count,
+                        "total": stat.pdu_window.total,
+                        "avg": stat.pdu_window.total / stat.pdu_window.count,
+                        "min": stat.pdu_window.min,
+                        "max": stat.pdu_window.max
+                    }
+                    report_stat = True
+
+                if stat.pdu_bytes.count > 0:
+                    s["pdu_bytes"] = {
+                        "count": stat.pdu_bytes.count,
+                        "total": stat.pdu_bytes.total
+                    }
+                    report_stat = True
+
+                if stat.sdu_delivered_bytes.count > 0:
+                    s["sdu_delivered_bytes"] = {
+                        "count": stat.sdu_delivered_bytes.count,
+                        "total": stat.sdu_delivered_bytes.total,
+                    }
+                    report_stat = True
+
+                if report_stat:
+                    output["stats"].append(s)
+                cnt += 1
+                if cnt >= data.stats_count:
+                    break
+            if len(output["stats"]) > 0:
+                state.logger.log_msg(True, True, "Dashboard", f"{output}")
 
 
         #####################################################
@@ -699,16 +893,14 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                 if stat.sdu_tx_bytes.count > 0:
                     s["sdu_tx_bytes"] = {
                         "count": stat.sdu_tx_bytes.count,
-                        "total": stat.sdu_tx_bytes.total,
-                        "avg": stat.sdu_tx_bytes.total / stat.sdu_tx_bytes.count,
+                        "total": stat.sdu_tx_bytes.total
                     }
                     report_stat = True
                 # sdu_retx_bytes stats
                 if stat.sdu_retx_bytes.count > 0:
                     s["sdu_retx_bytes"] = {
                         "count": stat.sdu_retx_bytes.count,
-                        "total": stat.sdu_retx_bytes.total,
-                        "avg": stat.sdu_retx_bytes.total / stat.sdu_retx_bytes.count,
+                        "total": stat.sdu_retx_bytes.total
                     }
                     report_stat = True
                 # sdu_discarded_bytes stats
@@ -716,7 +908,6 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     s["sdu_discarded_bytes"] = {
                         "count": stat.sdu_discarded_bytes.count,
                         "total": stat.sdu_discarded_bytes.total,
-                        "avg": stat.sdu_discarded_bytes.total / stat.sdu_discarded_bytes.count,
                     }
                     report_stat = True
 
@@ -1106,8 +1297,8 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                 "error": "Unknown stream index"
             }
 
-        # Send the output to the dashboard
-        state.logger.log_msg(True, True, "Dashboard", f"{output}")
+            # Send the output to the dashboard
+            state.logger.log_msg(True, True, "Dashboard", f"{output}")
 
 
 
@@ -1127,6 +1318,9 @@ def jrtc_start_app(capsule):
     global MAC_SCHED_CRC_STATS_SIDX
     global MAC_SCHED_BSR_STATS_SIDX
     global MAC_SCHED_PHR_STATS_SIDX
+    global RLC_DL_NORTH_STATS_SIDX
+    global RLC_DL_SOUTH_STATS_SIDX
+    global RLC_UL_STATS_SIDX
     global PDCP_DL_NORTH_STATS_SIDX
     global PDCP_DL_SOUTH_STATS_SIDX
     global PDCP_UL_STATS_SIDX
@@ -1154,6 +1348,9 @@ def jrtc_start_app(capsule):
     MAC_SCHED_CRC_STATS_SIDX = -1
     MAC_SCHED_BSR_STATS_SIDX = -1
     MAC_SCHED_PHR_STATS_SIDX = -1
+    RLC_DL_NORTH_STATS_SIDX = -1
+    RLC_DL_SOUTH_STATS_SIDX = -1
+    RLC_UL_STATS_SIDX = -1
     PDCP_DL_NORTH_STATS_SIDX = -1
     PDCP_DL_SOUTH_STATS_SIDX = -1
     PDCP_UL_STATS_SIDX = -1
@@ -1422,6 +1619,51 @@ def jrtc_start_app(capsule):
 
 
 
+    #####################################################
+    ### RLC
+
+    if include_rlc:
+        streams.append(JrtcStreamCfg_t(
+            JrtcStreamIdCfg_t(
+                JRTC_ROUTER_REQ_DEST_ANY, 
+                JRTC_ROUTER_REQ_DEVICE_ID_ANY, 
+                b"dashboard://jbpf_agent/rlc_stats/rlc_collect", 
+                b"output_map_dl_north"),
+            True,   # is_rx
+            None    # No AppChannelCfg 
+        ))
+        RLC_DL_NORTH_STATS_SIDX = last_cnt
+        state.logger.log_msg(True, False, "", f"RLC_DL_NORTH_STATS_SIDX: {RLC_DL_NORTH_STATS_SIDX}")
+        last_cnt += 1
+
+        streams.append(JrtcStreamCfg_t(
+            JrtcStreamIdCfg_t(
+                JRTC_ROUTER_REQ_DEST_ANY, 
+                JRTC_ROUTER_REQ_DEVICE_ID_ANY, 
+                b"dashboard://jbpf_agent/rlc_stats/rlc_collect", 
+                b"output_map_dl_south"),
+            True,   # is_rx
+            None    # No AppChannelCfg 
+        ))
+        RLC_DL_SOUTH_STATS_SIDX = last_cnt
+        state.logger.log_msg(True, False, "", f"RLC_DL_SOUTH_STATS_SIDX: {RLC_DL_SOUTH_STATS_SIDX}")
+        last_cnt += 1
+
+        streams.append(JrtcStreamCfg_t(
+            JrtcStreamIdCfg_t(
+                JRTC_ROUTER_REQ_DEST_ANY, 
+                JRTC_ROUTER_REQ_DEVICE_ID_ANY, 
+                b"dashboard://jbpf_agent/rlc_stats/rlc_collect", 
+                b"output_map_ul"),
+            True,   # is_rx
+            None    # No AppChannelCfg 
+        ))
+        RLC_UL_STATS_SIDX = last_cnt
+        state.logger.log_msg(True, False, "", f"RLC_UL_STATS_SIDX: {RLC_UL_STATS_SIDX}")
+        last_cnt += 1
+        
+    
+    
     #####################################################
     ### PDCP
 

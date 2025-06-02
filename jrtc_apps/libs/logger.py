@@ -27,6 +27,7 @@ class Logger:
 
     ############################################
     def log_msg(self, log, rlog, structure_type, msg, timestamp=None):
+
         if timestamp is None:
             timestamp = dt.datetime.now(dt.timezone.utc).isoformat(
                 "T", "microseconds"
@@ -34,7 +35,6 @@ class Logger:
         
         if log:
             prefix = "" if (timestamp is None) else f"{timestamp} : "
-            s = prefix + msg
             s = prefix + msg
             print(s)
 

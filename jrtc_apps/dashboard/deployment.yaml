@@ -25,6 +25,10 @@ app:
       - ${JBPF_CODELETS}/mac/mac_sched_crc_stats.py
       - ${JBPF_CODELETS}/mac/mac_sched_phr_stats.py
 
+      - ${JBPF_CODELETS}/rlc/rlc_dl_north_stats.py
+      - ${JBPF_CODELETS}/rlc/rlc_dl_south_stats.py
+      - ${JBPF_CODELETS}/rlc/rlc_ul_stats.py
+
       - ${JBPF_CODELETS}/pdcp/pdcp_dl_north_stats.py
       - ${JBPF_CODELETS}/pdcp/pdcp_dl_south_stats.py
       - ${JBPF_CODELETS}/pdcp/pdcp_ul_stats.py
@@ -57,6 +61,9 @@ jbpf:
 
     - device: 1
       config: ${JBPF_CODELETS}/mac/mac_stats.yaml 
+
+    - device: 1
+      config: ${JBPF_CODELETS}/rlc/rlc_stats.yaml 
 
     - device: 1
       config: ${JBPF_CODELETS}/pdcp/pdcp_stats.yaml 

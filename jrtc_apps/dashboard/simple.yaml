@@ -23,6 +23,9 @@ jbpf:
 
     - device: 1
       config: ${JBPF_CODELETS}/mac/mac_stats.yaml 
+  
+    - device: 1
+      config: ${JBPF_CODELETS}/rlc/rlc_stats.yaml 
 
     - device: 1
       config: ${JBPF_CODELETS}/pdcp/pdcp_stats.yaml 
