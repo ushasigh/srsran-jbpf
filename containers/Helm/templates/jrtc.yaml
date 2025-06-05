@@ -60,6 +60,30 @@ spec:
 
 
 
+{{- if $.Values.jrtc_controller.app_json_input.enabled }}
+---
+# DNS name: jrtc-json-input.{{ .Release.Namespace }}.svc.cluster.local
+apiVersion: v1
+kind: Service
+metadata:
+  name: jrtc-json-input
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: jrtc
+spec:
+  type: NodePort
+  ports:
+    - name: udp
+      port: 20790
+      targetPort: 20790
+      nodePort: {{ .Values.jrtc_controller.app_json_input.port }}
+      protocol: UDP
+  selector:
+    app: jrtc-service
+{{- end }}
+
+
+
 ---
 apiVersion: apps/v1
 kind: StatefulSet
@@ -165,7 +189,10 @@ spec:
           - name: LA_PRIMARY_KEY
             value: {{ $.Values.jrtc_controller.log_analytics.primary_key }}
         {{- end }}
-
+        {{- if $.Values.jrtc_controller.app_json_input.enabled }}
+          - name: JRTC_JSON_INPUT_PORT
+            value: "{{ .Values.jrtc_controller.app_json_input.port }}"
+        {{- end }}
         resources:
           limits:
             memory: {{ $.Values.resources.jrtc.limits.memory }}
