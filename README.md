@@ -9,9 +9,10 @@ The simplest way to get started is by using Kubernetes. This is the default inst
 However, we also support bare-metal installations.
 For bare-metal setup instructions, please follow [these instructions](docs/baremetal.md) 
 
-### Environment Setup
+### Prerequisites
 
-Before starting, ensure that **Kubernetes** is installed and configured.  
+Before starting, ensure that **Kubernetes** and **Helm** are installed and configured. 
+If you are not an expert in Kubernetes, you can try one of the simple, single-node setups, such as [k3d](https://k3s.io/). 
 This guide assumes **srsRAN** will be deployed using **Helm**.
 
 ### Preparing the Environment

@@ -1,0 +1,98 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT license.
+
+codeletset_id: mac_stats
+
+codelet_descriptor:
+
+  - codelet_name: mac_sched_crc_stats
+    codelet_path: ${JBPF_CODELETS}/mac/mac_sched_crc_stats.o
+    hook_name: mac_sched_crc_indication
+    priority: 1
+
+  - codelet_name: mac_sched_bsr_stats
+    codelet_path: ${JBPF_CODELETS}/mac/mac_sched_bsr_stats.o
+    hook_name: mac_sched_ul_bsr_indication
+    priority: 1
+
+  - codelet_name: mac_sched_phr_stats
+    codelet_path: ${JBPF_CODELETS}/mac/mac_sched_phr_stats.o
+    hook_name: mac_sched_ul_phr_indication
+    priority: 1
+
+
+  - codelet_name: mac_stats_collect
+    codelet_path: ${JBPF_CODELETS}/mac/mac_stats_collect.o
+    hook_name: report_stats
+    priority: 1
+    out_io_channel:
+      - name: output_map_crc
+        forward_destination: DestinationUDP
+        serde:
+          file_path: ${JBPF_CODELETS}/mac/mac_sched_crc_stats:crc_stats_serializer.so
+          protobuf:
+            package_path: ${JBPF_CODELETS}/mac/mac_sched_crc_stats.pb
+            msg_name: crc_stats
+      - name: output_map_bsr
+        forward_destination: DestinationUDP
+        serde:
+          file_path: ${JBPF_CODELETS}/mac/mac_sched_bsr_stats:bsr_stats_serializer.so
+          protobuf:
+            package_path: ${JBPF_CODELETS}/mac/mac_sched_bsr_stats.pb
+            msg_name: bsr_stats
+      - name: output_map_phr
+        forward_destination: DestinationUDP
+        serde:
+          file_path: ${JBPF_CODELETS}/mac/mac_sched_phr_stats:phr_stats_serializer.so
+          protobuf:
+            package_path: ${JBPF_CODELETS}/mac/mac_sched_phr_stats.pb
+            msg_name: phr_stats
+    linked_maps:
+      - map_name: stats_map_crc
+        linked_codelet_name: mac_sched_crc_stats
+        linked_map_name: stats_map_crc
+      - map_name: crc_hash
+        linked_codelet_name: mac_sched_crc_stats
+        linked_map_name: crc_hash
+      - map_name: crc_not_empty
+        linked_codelet_name: mac_sched_crc_stats
+        linked_map_name: crc_not_empty
+
+      - map_name: stats_map_bsr
+        linked_codelet_name: mac_sched_bsr_stats
+        linked_map_name: stats_map_bsr
+      - map_name: bsr_hash
+        linked_codelet_name: mac_sched_bsr_stats
+        linked_map_name: bsr_hash
+      - map_name: bsr_not_empty
+        linked_codelet_name: mac_sched_bsr_stats
+        linked_map_name: bsr_not_empty
+
+      - map_name: stats_map_phr
+        linked_codelet_name: mac_sched_phr_stats
+        linked_map_name: stats_map_phr
+      - map_name: phr_hash
+        linked_codelet_name: mac_sched_phr_stats
+        linked_map_name: phr_hash
+      - map_name: phr_not_empty
+        linked_codelet_name: mac_sched_phr_stats
+        linked_map_name: phr_not_empty
+
+  - codelet_name: mac_sched_ue_deletion
+    codelet_path: ${JBPF_CODELETS}/mac/mac_sched_ue_deletion.o
+    hook_name: mac_sched_ue_deletion
+    priority: 1
+    linked_maps:
+      - map_name: stats_map_crc
+        linked_codelet_name: mac_sched_crc_stats
+        linked_map_name: stats_map_crc
+      - map_name: crc_hash
+        linked_codelet_name: mac_sched_crc_stats
+        linked_map_name: crc_hash
+
+      - map_name: stats_map_bsr
+        linked_codelet_name: mac_sched_bsr_stats
+        linked_map_name: stats_map_bsr
+      - map_name: bsr_hash
+        linked_codelet_name: mac_sched_bsr_stats
+        linked_map_name: bsr_hash

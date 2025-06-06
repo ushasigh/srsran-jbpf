@@ -79,6 +79,32 @@
 })
 
 
+
+#define JBPF_PROTOHASH_REMOVE_ELEM_64(out, hist, hashmap, key1, key2) ({\
+  _Static_assert(IS_POWER_OF_2(sizeof(out->hist) / sizeof(out->hist[0])), "histogram length has to be power of 2"); \
+  _Static_assert(sizeof(__##hashmap##_type) == 8, "This hashmap should have 64-bit keys"); \
+  uint64_t compound_key = ((uint64_t)key2 << 31) << 1 | (uint64_t)key1; \
+  int ret = jbpf_map_delete_elem(&hashmap, &compound_key); \
+  if (ret == JBPF_MAP_ERROR) return JBPF_MAP_UPDATE_ERROR; \
+  ret; \
+})
+
+
+
+#define JBPF_HASHMAP_LOOKUP_UPDATE_UINT32_ELEM(hist, key, default_val) ({\
+  uint32_t *val = (uint32_t *)jbpf_map_lookup_elem(hist, key); \
+  if (!val) { \
+      uint32_t ctmp = default_val; \
+      int res = jbpf_map_update_elem(hist, key, &ctmp, 0); \
+      if (res == JBPF_MAP_SUCCESS) { \
+          val = (uint32_t *)jbpf_map_lookup_elem(hist, key); \
+          if (!val) return 1; \
+      } else return JBPF_MAP_UPDATE_ERROR; \
+  } \
+  val; \
+})
+
+
 #define JBPF_HASHMAP_CLEAR(hist) ({\
   int res = jbpf_map_try_clear(hist); \
   if (res != JBPF_MAP_SUCCESS) return 1; \

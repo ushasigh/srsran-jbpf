@@ -1,0 +1,143 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT license.
+
+codeletset_id: rlc_stats
+
+codelet_descriptor:
+
+  - codelet_name: rlc_collect
+    codelet_path: ${JBPF_CODELETS}/rlc/rlc_collect.o
+    hook_name: report_stats
+    priority: 1
+    out_io_channel:
+      - name: output_map_dl_north
+        forward_destination: DestinationUDP
+        serde:
+          file_path: ${JBPF_CODELETS}/rlc/rlc_dl_north_stats:rlc_dl_north_stats_serializer.so
+          protobuf:
+            package_path: ${JBPF_CODELETS}/rlc/rlc_dl_north_stats.pb
+            msg_name: rlc_dl_north_stats
+      - name: output_map_dl_south
+        forward_destination: DestinationUDP
+        serde:
+          file_path: ${JBPF_CODELETS}/rlc/rlc_dl_south_stats:rlc_dl_south_stats_serializer.so
+          protobuf:
+            package_path: ${JBPF_CODELETS}/rlc/rlc_dl_south_stats.pb
+            msg_name: rlc_dl_south_stats
+      - name: output_map_ul
+        forward_destination: DestinationUDP
+        serde:
+          file_path: ${JBPF_CODELETS}/rlc/rlc_ul_stats:rlc_ul_stats_serializer.so
+          protobuf:
+            package_path: ${JBPF_CODELETS}/rlc/rlc_ul_stats.pb
+            msg_name: rlc_ul_stats
+
+  - codelet_name: rlc_dl_new_sdu
+    codelet_path: ${JBPF_CODELETS}/rlc/rlc_dl_new_sdu.o
+    hook_name: rlc_dl_new_sdu
+    priority: 1
+    linked_maps:
+      - map_name: stats_map_dl_north
+        linked_codelet_name: rlc_collect
+        linked_map_name: stats_map_dl_north
+      - map_name: dl_north_not_empty
+        linked_codelet_name: rlc_collect
+        linked_map_name: dl_north_not_empty
+      - map_name: dl_north_hash
+        linked_codelet_name: rlc_collect
+        linked_map_name: dl_north_hash
+
+  - codelet_name: rlc_dl_deletion
+    codelet_path: ${JBPF_CODELETS}/rlc/rlc_dl_deletion.o
+    hook_name: rlc_dl_deletion
+    priority: 1
+    linked_maps:
+      - map_name: stats_map_dl_north
+        linked_codelet_name: rlc_collect
+        linked_map_name: stats_map_dl_north
+      - map_name: dl_north_hash
+        linked_codelet_name: rlc_collect
+        linked_map_name: dl_north_hash
+      - map_name: stats_map_dl_south
+        linked_codelet_name: rlc_collect
+        linked_map_name: stats_map_dl_south
+      - map_name: dl_south_hash
+        linked_codelet_name: rlc_collect
+        linked_map_name: dl_south_hash
+
+  - codelet_name: rlc_ul_deletion
+    codelet_path: ${JBPF_CODELETS}/rlc/rlc_ul_deletion.o
+    hook_name: rlc_ul_deletion
+    priority: 1
+    linked_maps:
+      - map_name: stats_map_ul
+        linked_codelet_name: rlc_collect
+        linked_map_name: stats_map_ul
+      - map_name: ul_hash
+        linked_codelet_name: rlc_collect
+        linked_map_name: ul_hash
+
+  - codelet_name: rlc_dl_tx_pdu
+    codelet_path: ${JBPF_CODELETS}/rlc/rlc_dl_tx_pdu.o
+    hook_name: rlc_dl_tx_pdu
+    priority: 1
+    linked_maps:
+      - map_name: stats_map_dl_south
+        linked_codelet_name: rlc_collect
+        linked_map_name: stats_map_dl_south
+      - map_name: dl_south_not_empty
+        linked_codelet_name: rlc_collect
+        linked_map_name: dl_south_not_empty
+      - map_name: dl_south_hash
+        linked_codelet_name: rlc_collect
+        linked_map_name: dl_south_hash
+
+  - codelet_name: rlc_dl_am_tx_pdu_retx_count
+    codelet_path: ${JBPF_CODELETS}/rlc/rlc_dl_am_tx_pdu_retx_count.o
+    hook_name: rlc_dl_am_tx_pdu_retx_count
+    priority: 1
+    linked_maps:
+      - map_name: stats_map_dl_south
+        linked_codelet_name: rlc_collect
+        linked_map_name: stats_map_dl_south
+      - map_name: dl_south_not_empty
+        linked_codelet_name: rlc_collect
+        linked_map_name: dl_south_not_empty
+      - map_name: dl_south_hash
+        linked_codelet_name: rlc_collect
+        linked_map_name: dl_south_hash
+
+  - codelet_name: rlc_dl_am_tx_pdu_max_retx_count_reached
+    codelet_path: ${JBPF_CODELETS}/rlc/rlc_dl_am_tx_pdu_retx_max_reached.o
+    hook_name: rlc_dl_am_tx_pdu_max_retx_count_reached
+    priority: 1
+
+  - codelet_name: rlc_ul_rx_pdu
+    codelet_path: ${JBPF_CODELETS}/rlc/rlc_ul_rx_pdu.o
+    hook_name: rlc_ul_rx_pdu
+    priority: 1
+    linked_maps:
+      - map_name: ul_not_empty
+        linked_codelet_name: rlc_collect
+        linked_map_name: ul_not_empty
+      - map_name: stats_map_ul
+        linked_codelet_name: rlc_collect
+        linked_map_name: stats_map_ul
+      - map_name: ul_hash
+        linked_codelet_name: rlc_collect
+        linked_map_name: ul_hash
+
+  - codelet_name: rlc_ul_deliver_sdu
+    codelet_path: ${JBPF_CODELETS}/rlc/rlc_ul_deliver_sdu.o
+    hook_name: rlc_ul_sdu_delivered
+    priority: 1
+    linked_maps:
+      - map_name: ul_not_empty
+        linked_codelet_name: rlc_collect
+        linked_map_name: ul_not_empty
+      - map_name: stats_map_ul
+        linked_codelet_name: rlc_collect
+        linked_map_name: stats_map_ul
+      - map_name: ul_hash
+        linked_codelet_name: rlc_collect
+        linked_map_name: ul_hash
