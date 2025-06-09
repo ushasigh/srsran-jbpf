@@ -103,14 +103,14 @@
 
 
 import sys
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, replace
 from typing import List, Tuple
 
 
 
 ##########################################
 @dataclass(frozen=True)
-class unique_index:
+class UniqueIndex:
     src: str
     idx: int
 
@@ -118,24 +118,40 @@ class unique_index:
         return f'{{"src":"{self.src}", "idx":{self.idx}}}'
 
 ##########################################
-@dataclass
-class ue_context:
-    du_index: unique_index
-    cucp_index: unique_index
-    cuup_index: unique_index
+# The following are the group of identifiers that, as a group, are used to uniquely identify a UE at both DU and CUCP.
+@dataclass(frozen=True)
+class RanUniqueUeId:
     plmn: int
-    nci: int
     pci: int
-    tac: int
     crnti: int
+
+    def __str__(self):
+        return f'{{"plmn":"{self.plmn}", "pci":{self.pci}, "crnti":{self.crnti}}}'
+
+@dataclass(frozen=True)
+class RanNgapUeIds:
+    ran_ue_ngap_id: int = None
+    amf_ue_ngap_id: int = None 
+       
+    def __str__(self):
+        return f'{{"ran_ue_ngap_id":"{self.ran_ue_ngap_id}", "amf_ue_ngap_id":{self.amf_ue_ngap_id}}}'
+
+
+@dataclass
+class UeContext:
+    du_index: UniqueIndex
+    cucp_index: UniqueIndex
+    cuup_index: UniqueIndex
+    ran_unique_ue_id: RanUniqueUeId 
+    nci: int
+    tac: int
     e1_bearers: List[Tuple[int, int]]     # tuple of (cucp_ue_e1ap_id, cuup_ue_e1ap_id)
     tmsi: int = None  
+    ngap_ids: RanNgapUeIds = None 
     
-    def __init__(self, plmn: int, pci: int, crnti: int, du_index: unique_index = None, cucp_index: unique_index = None, cuup_index: unique_index = None,
+    def __init__(self, ran_unique_ue_id: RanUniqueUeId, du_index: UniqueIndex = None, cucp_index: UniqueIndex = None, cuup_index: UniqueIndex = None,
                  nci: int=None, tac: int=None):
-        self.plmn = plmn
-        self.pci = pci
-        self.crnti = crnti
+        self.ran_unique_ue_id = ran_unique_ue_id
         # optional
         self.nci = nci
         self.tac = tac
@@ -143,6 +159,7 @@ class ue_context:
         self.cucp_index = cucp_index
         self.cuup_index = cuup_index
         self.e1_bearers = []
+        self.ngap_ids = None
 
     def used(self) -> bool:
         """
@@ -157,7 +174,7 @@ class ue_context:
             return True
         return False
 
-    def get_bearer(self, cucp_ue_e1ap_id: unique_index) -> Tuple[Tuple[str, int], Tuple[str, int]]:
+    def get_bearer(self, cucp_ue_e1ap_id: UniqueIndex) -> Tuple[Tuple[str, int], Tuple[str, int]]:
         for bearer in self.e1_bearers:
             if bearer[0] == cucp_ue_e1ap_id:
                 return bearer
@@ -172,27 +189,15 @@ class ue_context:
     def __str__(self):
         return (f"UEContext(du_index={self.du_index}, "
                 f"cucp_index={self.cucp_index}, cuup_index={self.cuup_index}, "
-                f"plmn={self.plmn}, nci={self.nci}, pci={self.pci}, "
-                f"tac={self.tac}, crnti={self.crnti}, tmsi={self.tmsi}, "
-                f"e1_bearers={self.e1_bearers})")
+                f"ran_unique_ue_id={self.ran_unique_ue_id}, nci={self.nci}, "
+                f"tac={self.tac}, tmsi={self.tmsi}, "
+                f"e1_bearers={self.e1_bearers}, "
+                f"ngap_ids={self.ngap_ids})")
 
-    def to_dict(self):
-        return {
-            "du_index": self.du_index,
-            "cucp_index": self.cucp_index,
-            "cuup_index": self.cuup_index,
-            "plmn": self.plmn,
-            "nci": self.nci,
-            "pci": self.pci,
-            "tac": self.tac,
-            "crnti": self.crnti,
-            "tmsi": self.tmsi,
-            "e1_bearers": self.e1_bearers
-        }
 
 
 ###########################################################################################################
-class ue_contexts_map:
+class UeContextsMap:
     """
     This class is used to manage UE contexts in the srsRAN system.
     It provides methods to create, delete, and modify UE contexts.
@@ -210,11 +215,11 @@ class ue_contexts_map:
         self.contexts_by_cuup_ue_e1ap_id = {}
 
     ####################################################################
-    def context_create(self, plmn: int, pci: int, crnti: int, du_index: unique_index = None, cucp_index: unique_index = None, cuup_index: unique_index = None,
+    def context_create(self, ran_unique_ue_id: RanUniqueUeId, du_index: UniqueIndex = None, cucp_index: UniqueIndex = None, cuup_index: UniqueIndex = None,
         nci: int=None, tac: int=None) -> None:
         if self.dbg:
-            print(f"context_create: plmn={plmn} pci={pci} crnti={crnti} du_index={du_index} cucp_index={cucp_index} cuup_index={cuup_index} nci={nci} tac={tac}")
-        ue = ue_context(plmn, pci, crnti, du_index=du_index, cucp_index=cucp_index, cuup_index=cuup_index, nci=nci, tac=tac)
+            print(f"context_create: ran_unique_ue_id={ran_unique_ue_id} du_index={du_index} cucp_index={cucp_index} cuup_index={cuup_index} nci={nci} tac={tac}")
+        ue = UeContext(ran_unique_ue_id, du_index=du_index, cucp_index=cucp_index, cuup_index=cuup_index, nci=nci, tac=tac)
         # add mappings
         self.contexts[self.context_id] = ue
         if ue.du_index is not None:
@@ -252,7 +257,7 @@ class ue_contexts_map:
             self.contexts.pop(ue_id, None)
 
     ####################################################################
-    def set_du_index(self, ue_id: int, du_index: unique_index) -> None:
+    def set_du_index(self, ue_id: int, du_index: UniqueIndex) -> None:
         if ue_id not in self.contexts:
             if self.dbg:
                 print(f"UE context with ID {ue_id} does not exist.")
@@ -275,7 +280,7 @@ class ue_contexts_map:
         self.delete_unused_context(ue_id)
 
     ####################################################################
-    def set_cucp_index(self, ue_id: int, cucp_index: unique_index) -> None:
+    def set_cucp_index(self, ue_id: int, cucp_index: UniqueIndex) -> None:
         if ue_id not in self.contexts:
             print(f"UE context with ID {ue_id} does not exist.")
             return
@@ -298,7 +303,7 @@ class ue_contexts_map:
         self.delete_unused_context(ue_id)
 
     ####################################################################
-    def set_cuup_index(self, ue_id: int, cuup_index: unique_index) -> None:
+    def set_cuup_index(self, ue_id: int, cuup_index: UniqueIndex) -> None:
         if ue_id not in self.contexts:
             if self.dbg:
                 print(f"UE context with ID {ue_id} does not exist.")
@@ -322,7 +327,7 @@ class ue_contexts_map:
         self.delete_unused_context(ue_id)
 
     ####################################################################
-    def set_cucp_ue_e1ap_id(self, ue_id: int, cucp_ue_e1ap_id: unique_index) -> None:
+    def set_cucp_ue_e1ap_id(self, ue_id: int, cucp_ue_e1ap_id: UniqueIndex) -> None:
         if ue_id not in self.contexts:
             if self.dbg:
                 print(f"UE context with ID {ue_id} does not exist.")
@@ -334,7 +339,7 @@ class ue_contexts_map:
         self.contexts_by_cucp_ue_e1ap_id[cucp_ue_e1ap_id] = ue_id
 
     ####################################################################
-    def clear_cucp_ue_e1ap_id(self, ue_id: int, cucp_ue_e1ap_id: unique_index) -> None:
+    def clear_cucp_ue_e1ap_id(self, ue_id: int, cucp_ue_e1ap_id: UniqueIndex) -> None:
         if ue_id not in self.contexts:
             if self.dbg:
                 print(f"UE context with ID {ue_id} does not exist.")
@@ -359,7 +364,7 @@ class ue_contexts_map:
         
 
     ####################################################################
-    def set_cuup_ue_e1ap_id(self, ue_id: int, cucp_ue_e1ap_id: unique_index, cuup_ue_e1ap_id: unique_index) -> None:
+    def set_cuup_ue_e1ap_id(self, ue_id: int, cucp_ue_e1ap_id: UniqueIndex, cuup_ue_e1ap_id: UniqueIndex) -> None:
         if ue_id not in self.contexts:
             if self.dbg:
                 print(f"UE context with ID {ue_id} does not exist.")
@@ -380,7 +385,7 @@ class ue_contexts_map:
         self.contexts_by_cuup_ue_e1ap_id[cuup_ue_e1ap_id] = ue_id
 
     ####################################################################
-    def clear_cuup_ue_e1ap_id(self, ue_id: int, cuup_ue_e1ap_id: unique_index) -> None:
+    def clear_cuup_ue_e1ap_id(self, ue_id: int, cuup_ue_e1ap_id: UniqueIndex) -> None:
         if ue_id not in self.contexts:
             if self.dbg:
                 print(f"UE context with ID {ue_id} does not exist.")
@@ -404,10 +409,10 @@ class ue_contexts_map:
             self.delete_unused_context(ue_id)        
 
     ####################################################################
-    def getid_by_du_cucp_unique_info(self, plmn: int, pci:int, rnti: int) -> int:
+    def getid_by_ran_unique_ue_id(self, ran_unique_ue_id: RanUniqueUeId ) -> int:
         filtered_contexts = {
             k: v for k, v in self.contexts.items()
-            if v.plmn == plmn and v.pci == pci and v.crnti == rnti
+            if v.ran_unique_ue_id == ran_unique_ue_id
         }
         if len(filtered_contexts) == 1:
             return list(filtered_contexts.keys())[0]
@@ -428,7 +433,7 @@ class ue_contexts_map:
 
         filtered_contexts = {
             k: v for k, v in self.contexts.items()
-            if v.crnti == rnti
+            if v.ran_unique_ue_id.crnti == rnti
             # TBD : add pci too
         }
         if len(filtered_contexts) == 1:
@@ -442,7 +447,7 @@ class ue_contexts_map:
         return self.contexts.get(ue_id, None)
     
     #####################################################################
-    def getuectx(self, ue_id: int) -> ue_context:
+    def getuectx(self, ue_id: int) -> UeContext:
         if ue_id is None:
             return None
         if ue_id not in self.contexts:
@@ -453,17 +458,17 @@ class ue_contexts_map:
 
     #####################################################################
     def getid_by_du_index(self, du_src: str, du_index: int) -> int:
-        du_index = unique_index(du_src, du_index)
+        du_index = UniqueIndex(du_src, du_index)
         return self.contexts_by_du_index.get(du_index, None)
 
     #####################################################################
     def getid_by_cucp_index(self, cucp_src: str, cucp_index: int) -> int:
-        cucp_index = unique_index(cucp_src, cucp_index)
+        cucp_index = UniqueIndex(cucp_src, cucp_index)
         return self.contexts_by_cucp_index.get(cucp_index, None)
 
     #####################################################################
     def getid_by_cuup_index(self, cuup_src: str, cuup_index: int) -> int:
-        cuup_index = unique_index(cuup_src, cuup_index)
+        cuup_index = UniqueIndex(cuup_src, cuup_index)
         return self.contexts_by_cuup_index.get(cuup_index, None)
 
     #####################################################################
@@ -484,9 +489,73 @@ class ue_contexts_map:
         return None
         
     #####################################################################
-    def getid_by_cuup_ue_e1ap_id(self, cucu_src: str, cuup_ue_e1ap_id: int) -> int:
-        cuup_ue_e1ap_id = (cucu_src, cuup_ue_e1ap_id)
+    def getid_by_cuup_ue_e1ap_id(self, cuup_src: str, cuup_ue_e1ap_id: int) -> int:
+        cuup_ue_e1ap_id = (cuup_src, cuup_ue_e1ap_id)
         return self.contexts_by_cuup_ue_e1ap_id.get(cuup_ue_e1ap_id, None)
+
+    #####################################################################
+    def getid_by_ngap_ran_ue_id(self, cucp_src: str, ngap_ran_ue_id: int) -> int:
+
+        if ngap_ran_ue_id is None:
+            return None
+        
+        # filter contexts by ngap_ids.ran_ue_ngap_id
+        filtered_contexts = {
+            k: v for k, v in self.contexts.items()
+            if v.ngap_ids is not None and v.ngap_ids.ran_ue_ngap_id == ngap_ran_ue_id
+        }
+
+        # filter where cucp_index.src matches cucp_src
+        filtered_contexts = {
+            k: v for k, v in filtered_contexts.items()
+            if v.cucp_index is not None and v.cucp_index.src == cucp_src
+        }
+
+        if len(filtered_contexts) == 0:
+            return None
+        else:
+            return list(filtered_contexts.keys())[0]
+
+    #####################################################################
+    def getid_by_ngap_amf_ue_id(self, cucp_src: str, ngap_amf_ue_id: int) -> int:
+
+        if ngap_amf_ue_id is None:
+            return None
+        
+        # filter contexts by ngap_ids.amf_ue_ngap_id
+        filtered_contexts = {
+            k: v for k, v in self.contexts.items()
+            if v.ngap_ids is not None and v.ngap_ids.amf_ue_ngap_id == ngap_amf_ue_id
+        }
+
+        # filter where cucp_index.src matches cucp_src
+        filtered_contexts = {
+            k: v for k, v in filtered_contexts.items()
+            if v.cucp_index is not None and v.cucp_index.src == cucp_src
+        }
+
+
+        if len(filtered_contexts) == 0:
+            return None
+        else:
+            return list(filtered_contexts.keys())[0]
+
+    #####################################################################
+    def getid_by_ngap_ue_ids(self, ngap_ran_ue_id: int, ngap_amf_ue_id: int) -> int:
+
+        if ngap_amf_ue_id is None and ngap_ran_ue_id is None:
+            return None
+        
+        # filter contexts by ngap_ids.amf_ue_ngap_id
+        filtered_contexts = {
+            k: v for k, v in self.contexts.items()
+            if v.ngap_ids == RanNgapUeIds(ngap_ran_ue_id, ngap_amf_ue_id)
+        }
+
+        if len(filtered_contexts) == 0:
+            return None
+        else:
+            return list(filtered_contexts.keys())[0]
 
     ####################################################################
     def get_e1_bearer_NoSrcCheck(self, cucp_ue_e1ap_id: int) -> (int, Tuple[Tuple[str, int], Tuple[str, int]]):
@@ -523,18 +592,20 @@ class ue_contexts_map:
                 print(f"Unexpected UE context with du_src {du_src} du_index {du_index} already exists.  Stale UE will be deleted")
             self.context_delete(ue_id)
 
-        du_index = unique_index(du_src, du_index)
+        du_index = UniqueIndex(du_src, du_index)
+
+        ran_unique_ue_id = RanUniqueUeId(plmn, pci, crnti)
 
         # Check if the UE context with the unique info already exists
         # It should not exist, do if it does, delete it
-        ue_id = self.getid_by_du_cucp_unique_info(plmn, pci, crnti)
+        ue_id = self.getid_by_ran_unique_ue_id(ran_unique_ue_id)
         if ue_id is not None:
             if self.dbg:
-                print(f"Unexpected UE context with [plmn={plmn} pci={pci} crnti={crnti}] already exists.  Stale UE will be deleted")
+                print(f"Unexpected UE context with [ran_unique_ue_id={ran_unique_ue_id}] already exists.  Stale UE will be deleted")
             self.context_delete(ue_id)
 
         # Create a new UE context
-        self.context_create(plmn, pci, crnti, du_index=du_index, nci=nci, tac=tac)
+        self.context_create(ran_unique_ue_id, du_index=du_index, nci=nci, tac=tac)
 
     ####################################################################
     def hook_du_ue_ctx_update_crnti(self, du_src: str, du_index: int, crnti: int) -> None:
@@ -547,7 +618,9 @@ class ue_contexts_map:
             if self.dbg:
                 print(f"UE for du_src {du_src} du_index {du_index} could not be found.")
             return
-        self.contexts[ue_id].crnti = crnti
+        self.contexts[ue_id].ran_unique_ue_id = replace(
+            self.contexts[ue_id].ran_unique_ue_id,
+            crnti=crnti)
 
     ####################################################################
     def hook_du_ue_ctx_deletion(self, du_src: str, du_index: int) -> None:
@@ -581,7 +654,9 @@ class ue_contexts_map:
                 print(f"Unexpected UE context with cucp_src {cucp_src} cucp_index {cucp_index} already exists.  Stale UE will be deleted")
             self.context_delete(ue_id)
 
-        cucp_index = unique_index(cucp_src, cucp_index)
+        cucp_index = UniqueIndex(cucp_src, cucp_index)
+
+        ran_unique_ue_id = RanUniqueUeId(plmn, pci, crnti)
 
         # Check if a UE context with the unique info already exists
         # If it does not 
@@ -590,20 +665,20 @@ class ue_contexts_map:
         #   check if the cucp index is currently set.
         #   If it is, delete the UE and create a new one
         #   If it is not, just update the cucp index
-        ue_id = self.getid_by_du_cucp_unique_info(plmn, pci, crnti)
+        ue_id = self.getid_by_ran_unique_ue_id(ran_unique_ue_id)
         if ue_id is None:
             # Create a new UE context
-            self.context_create(plmn, pci, crnti, cucp_index=cucp_index)
+            self.context_create(ran_unique_ue_id, cucp_index=cucp_index)
         else:
             if self.contexts[ue_id].cucp_index is not None:
                 if self.dbg:
-                    print(f"Unexpected UE context with [plmn={plmn} pci={pci} crnti={crnti}] already exists.  Stale UE will be deleted")
+                    print(f"Unexpected UE context with [ran_unique_ue_id={ran_unique_ue_id}] already exists.  Stale UE will be deleted")
                 self.context_delete(ue_id)
                 # Create a new UE context
-                self.context_create(plmn, pci, crnti, cucp_index=cucp_index)
+                self.context_create(ran_unique_ue_id, cucp_index=cucp_index)
             else:
                 if self.dbg:
-                    print(f"UE context with [plmn={plmn} pci={pci} crnti={crnti}] already exists.  Setting cucp index")
+                    print(f"UE context with [ran_unique_ue_id={ran_unique_ue_id}] already exists.  Setting cucp index")
                 self.set_cucp_index(ue_id, cucp_index)
                 if self.dbg:
                     print(f"UE context updated: {self.contexts[ue_id]}")
@@ -665,7 +740,7 @@ class ue_contexts_map:
             print("-------------------------------------------------")
             print(f"hook_e1_cuup_bearer_context_setup success={success}, cuup_src={cuup_src} cuup_index={cuup_index}  gnb_cu_cp_ue_e1ap_id={gnb_cucp_ue_e1ap_id} gnb_cu_up_ue_e1ap_id={gnb_cuup_ue_e1ap_id}")
 
-        cuup_index = unique_index(cuup_src, cuup_index)
+        cuup_index = UniqueIndex(cuup_src, cuup_index)
         gnb_cuup_ue_e1ap_id_tup = (cuup_src, gnb_cuup_ue_e1ap_id)
 
         # Check if a UE context with the gnb_cuup_ue_e1ap_id already exists
@@ -716,7 +791,7 @@ class ue_contexts_map:
             print("-------------------------------------------------")
             print(f"hook_e1_cuup_bearer_context_release success {success} cuup_src {cuup_src} cuup_index {cuup_index} gnb_cucp_ue_e1ap_id={cucp_ue_e1ap_id} gnb_cuup_ue_e1ap_id={cuup_ue_e1ap_id}")
 
-        cuup_index = unique_index(cuup_src, cuup_index)
+        cuup_index = UniqueIndex(cuup_src, cuup_index)
 
         if success is False:
             return
@@ -742,6 +817,98 @@ class ue_contexts_map:
             return
         self.contexts[ue_id].tmsi = tmsi
 
+    #####################################################################
+    def hook_ngap_procedure_started(self, cucp_src: str, cucp_index: int, ngap_ran_ue_id, ngap_amf_ue_id: int = None) -> None:
+        if self.dbg:
+            print("-------------------------------------------------")
+            print(f"hook_ngap_procedure_started: cucp_src={cucp_src} cucp_index={cucp_index} ngap_ran_ue_id={ngap_ran_ue_id} ngap_amf_ue_id={ngap_amf_ue_id}")
+
+        # get by ran_ue_id
+        # if a UE has this already, and it is a different index, delete it from that UE
+        ue_id = self.getid_by_ngap_ran_ue_id(cucp_src, ngap_ran_ue_id)
+        if ue_id is not None and self.contexts[ue_id].cucp_index != UniqueIndex(cucp_src, cucp_index):
+            self.contexts[ue_id].ngap_ids = None
+                
+        # get by amf_ue_id
+        # if a UE has this already, and it is a different index, delete it from that UE
+        if ngap_amf_ue_id is not None:
+            ue_id = self.getid_by_ngap_amf_ue_id(cucp_src, ngap_amf_ue_id)
+            if ue_id is not None and self.contexts[ue_id].cucp_index != UniqueIndex(cucp_src, cucp_index):
+                self.contexts[ue_id].ngap_ids = None
+
+        ue_id = self.getid_by_cucp_index(cucp_src, cucp_index)
+        if ue_id is None:
+            if self.dbg:
+                print(f"UE context with cucp_src {cucp_src} cucp_index {cucp_index} not found. !!")
+            return
+        self.contexts[ue_id].ngap_ids = RanNgapUeIds(ngap_ran_ue_id, ngap_amf_ue_id)
+
+    #####################################################################
+    def hook_ngap_procedure_completed(self, cucp_src: str, cucp_index: int, success: bool, ngap_ran_ue_id: int, ngap_amf_ue_id: int) -> None:
+        if self.dbg:
+            print("-------------------------------------------------")
+            print(f"hook_ngap_procedure_completed: cucp_src={cucp_src} cucp_index={cucp_index} success={success} ngap_ran_ue_id={ngap_ran_ue_id} ngap_amf_ue_id={ngap_amf_ue_id}")
+
+        # get by ran_ue_id
+        # if a UE has this already, and it is a different index, delete it from that UE
+        ue_id = self.getid_by_ngap_ran_ue_id(cucp_src, ngap_ran_ue_id)
+        if ue_id is not None and self.contexts[ue_id].cucp_index != UniqueIndex(cucp_src, cucp_index):
+            self.contexts[ue_id].ngap_ids = None
+                
+        # get by amf_ue_id
+        # if a UE has this already, and it is a different index, delete it from that UE
+        ue_id = self.getid_by_ngap_amf_ue_id(cucp_src, ngap_amf_ue_id)
+        if ue_id is not None and self.contexts[ue_id].cucp_index != UniqueIndex(cucp_src, cucp_index):
+            self.contexts[ue_id].ngap_ids = None
+
+        ue_id = self.getid_by_cucp_index(cucp_src, cucp_index)
+        if ue_id is None:
+            if self.dbg:
+                print(f"UE context with cucp_src {cucp_src} cucp_index {cucp_index} not found. !!")
+            return
+        
+        if not success:
+            # if the procedure failed, clear the ngap_ids
+            self.contexts[ue_id].ngap_ids = None
+            
+        else:
+
+            self.contexts[ue_id].ngap_ids = RanNgapUeIds(ngap_ran_ue_id, ngap_amf_ue_id)
+
+    #####################################################################
+    def hook_ngap_reset(self, cucp_src: str, ngap_ran_ue_id: int = None, ngap_amf_ue_id: int = None) -> None:
+        if self.dbg:
+            print("-------------------------------------------------")
+            print(f"hook_ngap_reset: cucp_src={cucp_src} cucp_index={cucp_index} ngap_ran_ue_id={ngap_ran_ue_id} ngap_amf_ue_id={ngap_amf_ue_id}")
+
+        if ngap_ran_ue_id is None and ngap_amf_ue_id is None:
+            # reset all contexts for this cucp
+
+            if self.dbg:
+                print(f"Resetting ngap_ids for all UEs with cucp_src '{cucp_src}'")
+
+            # get all contexts with this cucp_src
+            for ue_id, context in self.contexts.items():
+                if context.cucp_index is not None and context.cucp_index.src == cucp_src:
+                    context.ngap_ids = None
+            return
+            
+        # get by ran_ue_id
+        ue_id = self.getid_by_ngap_ran_ue_id(cucp_src, ngap_ran_ue_id)
+        if ue_id is not None:
+            if self.dbg:
+                print(f"Resetting ngap_ids for UE context with cucp_src '{cucp_src}' ngap_ran_ue_id {ngap_ran_ue_id}")
+            self.contexts[ue_id].ngap_ids = None     
+            return
+    
+        # get by amf_ue_id
+        ue_id = self.getid_by_ngap_amf_ue_id(cucp_src, ngap_amf_ue_id)
+        if ue_id is not None:
+            if self.dbg:
+                print(f"Resetting ngap_ids for UE context with cucp_src '{cucp_src}' ngap_amf_ue_id {ngap_amf_ue_id}")
+            self.contexts[ue_id].ngap_ids = None     
+            return
+
     ####################################################################
     def get_num_contexts(self) -> int:
         return len(self.contexts)
@@ -749,7 +916,7 @@ class ue_contexts_map:
     ####################################################################
     def __str__(self):
         return (
-            f"ue_contexts_map(\n"
+            f"UeContextsMap(\n"
             f"  contexts={self.contexts},\n"
             f"  contexts_by_du_index={self.contexts_by_du_index},\n"
             f"  contexts_by_cucp_index={self.contexts_by_cucp_index},\n"
@@ -765,7 +932,7 @@ if __name__ == "__main__":
 
     dbg = False
 
-    s = ue_contexts_map(dbg=dbg)
+    s = UeContextsMap(dbg=dbg)
 
     du1_src="du1"
     cucp1_src="cucp1"
@@ -796,10 +963,9 @@ if __name__ == "__main__":
     assert ue_id == 1
     ue = s.getue_by_id(ue_id)
     print(ue)
-    assert ue is not None and ue.du_index == unique_index("du1", 0) \
+    assert ue is not None and ue.du_index == UniqueIndex("du1", 0) \
         and ue.cucp_index is None and ue.cuup_index is None \
-        and ue.plmn==101 and ue.nci==201 and ue.pci==401 and ue.tac==12 and ue.crnti==20000
-
+        and ue.ran_unique_ue_id==RanUniqueUeId(plmn=101, pci=401, crnti=20000) and ue.nci==201 and ue.tac==12
 
     print("############################################################################")
     print("# Use same plmn, pci, crnti.  This will overwrite the previous context")
@@ -814,8 +980,8 @@ if __name__ == "__main__":
     ue_id = s.getid_by_du_index(du1_src, 1) 
     assert ue_id == 2
     ue = s.getue_by_id(ue_id)
-    assert ue is not None and ue.du_index==unique_index(du1_src,1) and ue.cucp_index is None and ue.cuup_index is None \
-           and ue.plmn==101 and ue.nci==201 and ue.pci==401 and ue.tac==12 and ue.crnti==20000
+    assert ue is not None and ue.du_index==UniqueIndex(du1_src,1) and ue.cucp_index is None and ue.cuup_index is None \
+           and ue.ran_unique_ue_id==RanUniqueUeId(plmn=101, pci=401, crnti=20000) and ue.nci==201 and ue.tac==12
 
 
     print("###########################################################################")
@@ -831,13 +997,13 @@ if __name__ == "__main__":
     ue_id = s.getid_by_du_index(du1_src, 1) 
     assert ue_id == 2
     ue = s.getue_by_id(ue_id)
-    assert ue is not None and ue.du_index==unique_index(du1_src,1) and ue.cucp_index is None and ue.cuup_index is None \
-           and ue.plmn==101 and ue.nci==201 and ue.pci==401 and ue.tac==12 and ue.crnti==20000
+    assert ue is not None and ue.du_index==UniqueIndex(du1_src,1) and ue.cucp_index is None and ue.cuup_index is None \
+           and ue.ran_unique_ue_id==RanUniqueUeId(plmn=101, pci=401, crnti=20000) and ue.nci==201 and ue.tac==12
     ue_id = s.getid_by_du_index(du1_src, 2) 
     assert ue_id == 3
     ue = s.getue_by_id(ue_id)
-    assert ue is not None and ue.du_index==unique_index(du1_src,2) and ue.cucp_index is None and ue.cuup_index is None \
-           and ue.plmn==101 and ue.nci==201 and ue.pci==401 and ue.tac==12 and ue.crnti==20001
+    assert ue is not None and ue.du_index==UniqueIndex(du1_src,2) and ue.cucp_index is None and ue.cuup_index is None \
+           and ue.ran_unique_ue_id==RanUniqueUeId(plmn=101, pci=401, crnti=20001) and ue.nci==201 and ue.tac==12
 
     
     
@@ -852,8 +1018,8 @@ if __name__ == "__main__":
     ue_id = s.getid_by_cucp_index(cucp1_src, 0)
     assert ue_id == 4
     ue = s.getue_by_id(ue_id)
-    assert ue is not None and ue.du_index is None and ue.cucp_index==unique_index(cucp1_src, 0) and ue.cuup_index is None \
-           and ue.plmn==101 and ue.nci is None and ue.pci==499 and ue.tac is None and ue.crnti==20000
+    assert ue is not None and ue.du_index is None and ue.cucp_index==UniqueIndex(cucp1_src, 0) and ue.cuup_index is None \
+           and ue.ran_unique_ue_id==RanUniqueUeId(plmn=101, pci=499, crnti=20000) and ue.nci is None and ue.tac is None
 
 
     print("############################################################################")
@@ -867,8 +1033,8 @@ if __name__ == "__main__":
     ue_id = s.getid_by_cucp_index(cucp1_src, 1)
     assert ue_id == 2
     ue = s.getue_by_id(ue_id)
-    assert ue is not None and ue.du_index==unique_index(du1_src,1) and ue.cucp_index==unique_index(cucp1_src, 1) and ue.cuup_index is None \
-           and ue.plmn==101 and ue.nci==201 and ue.pci==401 and ue.tac==12 and ue.crnti==20000
+    assert ue is not None and ue.du_index==UniqueIndex(du1_src,1) and ue.cucp_index==UniqueIndex(cucp1_src, 1) and ue.cuup_index is None \
+           and ue.ran_unique_ue_id==RanUniqueUeId(plmn=101, pci=401, crnti=20000) and ue.nci==201 and ue.tac==12
 
 
     print("############################################################################")
@@ -882,8 +1048,8 @@ if __name__ == "__main__":
     ue_id = s.getid_by_cucp_index(cucp1_src, 1)
     assert ue_id == 5
     ue = s.getue_by_id(ue_id)
-    assert ue is not None and ue.du_index is None and ue.cucp_index==unique_index(cucp1_src, 1) and ue.cuup_index is None \
-           and ue.plmn==101 and ue.nci is None and ue.pci==401 and ue.tac is None and ue.crnti==20000
+    assert ue is not None and ue.du_index is None and ue.cucp_index==UniqueIndex(cucp1_src, 1) and ue.cuup_index is None \
+           and ue.ran_unique_ue_id==RanUniqueUeId(plmn=101, pci=401, crnti=20000) and ue.nci is None and ue.tac is None \
 
 
     print("############################################################################")
@@ -897,8 +1063,8 @@ if __name__ == "__main__":
     ue_id = s.getid_by_cucp_ue_e1ap_id(cucp1_src, 2000)
     assert ue_id == 5
     ue = s.getue_by_id(ue_id)
-    assert ue is not None and ue.du_index is None and ue.cucp_index==unique_index(cucp1_src, 1) and ue.cuup_index is None \
-           and ue.plmn==101 and ue.nci is None and ue.pci==401 and ue.tac is None and ue.crnti==20000 \
+    assert ue is not None and ue.du_index is None and ue.cucp_index==UniqueIndex(cucp1_src, 1) and ue.cuup_index is None \
+           and ue.ran_unique_ue_id==RanUniqueUeId(plmn=101, pci=401, crnti=20000) and ue.nci is None and ue.tac is None \
            and len(ue.e1_bearers)==1 and ue.e1_bearers[0][0]==(cucp1_src,2000) and ue.e1_bearers[0][1] is None
     
     
@@ -912,7 +1078,7 @@ if __name__ == "__main__":
 
     print("#############################################################################")
     print("# delete s and start fresh")
-    s = ue_contexts_map(dbg=dbg)
+    s = UeContextsMap(dbg=dbg)
 
 
     print("#############################################################################")
@@ -942,8 +1108,8 @@ if __name__ == "__main__":
     ue_id = s.getid_by_cucp_ue_e1ap_id(cucp1_src, 2000)
     assert ue_id == 0
     ue = s.getue_by_id(ue_id)
-    assert ue is not None and ue.du_index==unique_index(du1_src,0) and ue.cucp_index==unique_index(cucp1_src, 1) and ue.cuup_index is None \
-           and ue.plmn==101 and ue.nci==201 and ue.pci==400 and ue.tac==12 and ue.crnti==20000 \
+    assert ue is not None and ue.du_index==UniqueIndex(du1_src,0) and ue.cucp_index==UniqueIndex(cucp1_src, 1) and ue.cuup_index is None \
+           and ue.ran_unique_ue_id==RanUniqueUeId(plmn=101, pci=400, crnti=20000) and ue.nci==201 and ue.tac==12 \
            and len(ue.e1_bearers)==1 and ue.e1_bearers[0][0]==(cucp1_src, 2000) and ue.e1_bearers[0][1] is None
 
 
@@ -963,8 +1129,8 @@ if __name__ == "__main__":
     ue_id = s.getid_by_cucp_ue_e1ap_id(cucp1_src, 2000)
     assert ue_id == 0
     ue = s.getue_by_id(ue_id)
-    assert ue is not None and ue.du_index==unique_index(du1_src,0) and ue.cucp_index==unique_index(cucp1_src, 1) and ue.cuup_index==unique_index(cuup1_src,10) \
-           and ue.plmn==101 and ue.nci==201 and ue.pci==400 and ue.tac==12 and ue.crnti==20000 \
+    assert ue is not None and ue.du_index==UniqueIndex(du1_src,0) and ue.cucp_index==UniqueIndex(cucp1_src, 1) and ue.cuup_index==UniqueIndex(cuup1_src,10) \
+           and ue.ran_unique_ue_id==RanUniqueUeId(plmn=101, pci=400, crnti=20000) and ue.nci==201 and ue.tac==12 \
            and len(ue.e1_bearers)==1 and ue.e1_bearers[0][0]==(cucp1_src,2000) and ue.e1_bearers[0][1]==(cuup1_src,12000)
 
 
@@ -980,7 +1146,7 @@ if __name__ == "__main__":
     
     print("#############################################################################")
     print("# delete s and start fresh")
-    s = ue_contexts_map(dbg=dbg)
+    s = UeContextsMap(dbg=dbg)
 
 
     print("#############################################################################")
@@ -1036,8 +1202,8 @@ if __name__ == "__main__":
             ue_id = s.getid_by_cuup_ue_e1ap_id(cuup1_src, cuup_e1Off+e1off)
             assert ue_id == ue
         ctx = s.getue_by_id(ue_id)
-        assert ctx is not None and ctx.du_index==unique_index(du1_src,du_off+ue) and ctx.cucp_index==unique_index(cucp1_src, cucp_off+ue) and ctx.cuup_index==unique_index(cuup1_src,cuup_off+ue) \
-               and ctx.plmn==101 and ctx.nci==201 and ctx.pci==400 and ctx.tac==12 and ctx.crnti==crnti_off+ue \
+        assert ctx is not None and ctx.du_index==UniqueIndex(du1_src,du_off+ue) and ctx.cucp_index==UniqueIndex(cucp1_src, cucp_off+ue) and ctx.cuup_index==UniqueIndex(cuup1_src,cuup_off+ue) \
+               and ctx.ran_unique_ue_id==RanUniqueUeId(plmn=101, pci=400, crnti=crnti_off+ue) and ctx.nci==201 and ctx.tac==12 \
                and len(ctx.e1_bearers)==num_e1 and \
                all(ctx.e1_bearers[i][0]==(cucp1_src, cucp_e1Off+(ue*num_e1)+i) and ctx.e1_bearers[i][1]==(cuup1_src, cuup_e1Off+(ue*num_e1)+i) for i in range(0, num_e1))
 
@@ -1075,14 +1241,14 @@ if __name__ == "__main__":
     ue = s.getid_by_du_index(du1_src, du_off+ue_to_delete)
     s.hook_du_ue_ctx_deletion(du1_src, du_off+ue_to_delete)
     ctx = s.getue_by_id(ue)
-    assert ctx is not None and ctx.du_index is None and ctx.cucp_index==unique_index(cucp1_src, cucp_off+ue) and ctx.cuup_index==unique_index(cuup1_src,cuup_off+ue) \
-            and ctx.plmn==101 and ctx.nci==201 and ctx.pci==400 and ctx.tac==12 and ctx.crnti==crnti_off+ue \
+    assert ctx is not None and ctx.du_index is None and ctx.cucp_index==UniqueIndex(cucp1_src, cucp_off+ue) and ctx.cuup_index==UniqueIndex(cuup1_src,cuup_off+ue) \
+            and ctx.ran_unique_ue_id==RanUniqueUeId(plmn=101, pci=400, crnti=crnti_off+ue) and ctx.nci==201 and ctx.tac==12 \
             and len(ctx.e1_bearers)==num_e1 and \
             all(ctx.e1_bearers[i][0]==(cucp1_src, cucp_e1Off+(ue*num_e1)+i) and ctx.e1_bearers[i][1]==(cuup1_src, cuup_e1Off+(ue*num_e1)+i) for i in range(0, num_e1))
     s.hook_cucp_uemgr_ue_remove(cucp1_src, cucp_off+ue)
     ctx = s.getue_by_id(ue)
-    assert ctx is not None and ctx.du_index is None and ctx.cucp_index is None and ctx.cuup_index==unique_index(cuup1_src,cuup_off+ue) \
-            and ctx.plmn==101 and ctx.nci==201 and ctx.pci==400 and ctx.tac==12 and ctx.crnti==crnti_off+ue \
+    assert ctx is not None and ctx.du_index is None and ctx.cucp_index is None and ctx.cuup_index==UniqueIndex(cuup1_src,cuup_off+ue) \
+            and ctx.ran_unique_ue_id==RanUniqueUeId(plmn=101, pci=400, crnti=crnti_off+ue) and ctx.nci==201 and ctx.tac==12 \
             and len(ctx.e1_bearers)==num_e1 and \
             all(ctx.e1_bearers[i][0]==(cucp1_src, cucp_e1Off+(ue*num_e1)+i) and ctx.e1_bearers[i][1]==(cuup1_src, cuup_e1Off+(ue*num_e1)+i) for i in range(0, num_e1))
     for e1 in range(0, num_e1):
@@ -1107,13 +1273,13 @@ if __name__ == "__main__":
         s.hook_e1_cuup_bearer_context_release(cuup1_src, cuup_off+ue, cucp_e1Off+e1off, cuup_e1Off+e1off, True)
         assert s.get_num_contexts() == num_ue
     ctx = s.getue_by_id(ue)
-    assert ctx is not None and ctx.du_index==unique_index(du1_src,du_off+ue) and ctx.cucp_index==unique_index(cucp1_src, cucp_off+ue) and ctx.cuup_index is None \
-        and ctx.plmn==101 and ctx.nci==201 and ctx.pci==400 and ctx.tac==12 and ctx.crnti==crnti_off+ue \
+    assert ctx is not None and ctx.du_index==UniqueIndex(du1_src,du_off+ue) and ctx.cucp_index==UniqueIndex(cucp1_src, cucp_off+ue) and ctx.cuup_index is None \
+        and ctx.ran_unique_ue_id==RanUniqueUeId(plmn=101, pci=400, crnti=crnti_off+ue) and ctx.nci==201 and ctx.tac==12 \
         and len(ctx.e1_bearers)==0 
     s.hook_cucp_uemgr_ue_remove(cucp1_src, cucp_off+ue)
     ctx = s.getue_by_id(ue)
-    assert ctx is not None and ctx.du_index==unique_index(du1_src,du_off+ue) and ctx.cucp_index is None and ctx.cuup_index is None \
-        and ctx.plmn==101 and ctx.nci==201 and ctx.pci==400 and ctx.tac==12 and ctx.crnti==crnti_off+ue \
+    assert ctx is not None and ctx.du_index==UniqueIndex(du1_src,du_off+ue) and ctx.cucp_index is None and ctx.cuup_index is None \
+        and ctx.ran_unique_ue_id==RanUniqueUeId(plmn=101, pci=400, crnti=crnti_off+ue) and ctx.nci==201 and ctx.tac==12 \
         and len(ctx.e1_bearers)==0 
     s.hook_du_ue_ctx_deletion(du1_src, du_off+ue)
     ctx = s.getue_by_id(ue)
@@ -1122,7 +1288,7 @@ if __name__ == "__main__":
 
     print("#############################################################################")
     print("# delete s and start fresh")
-    s = ue_contexts_map(dbg=dbg)
+    s = UeContextsMap(dbg=dbg)
 
 
     print("###############################################################################")
@@ -1185,18 +1351,18 @@ if __name__ == "__main__":
 
     # assert the expected contexts
     expected_contexts = [
-        {'du_index': {'src':'du0', 'idx':0}, 'cucp_index': {'src':'cucp0', 'idx':0}, 'cuup_index': {'src':'cuup0', 'idx':0}, 'plmn': 101, 'nci': 201, 'pci': 400, 'tac': 12, 'crnti': 30000, 'tmsi': None, 'e1_bearers': [(('cucp0', 0), ('cuup0', 0)), (('cucp0', 1), ('cuup0', 1))]},
-        {'du_index': {'src':'du0', 'idx':1}, 'cucp_index': {'src':'cucp0', 'idx':1}, 'cuup_index': {'src':'cuup0', 'idx':1}, 'plmn': 101, 'nci': 201, 'pci': 400, 'tac': 12, 'crnti': 30001, 'tmsi': None, 'e1_bearers': [(('cucp0', 2), ('cuup0', 2)), (('cucp0', 3), ('cuup0', 3))]},
-        {'du_index': {'src':'du0', 'idx':2}, 'cucp_index': {'src':'cucp0', 'idx':2}, 'cuup_index': {'src':'cuup0', 'idx':2}, 'plmn': 101, 'nci': 201, 'pci': 400, 'tac': 12, 'crnti': 30002, 'tmsi': None, 'e1_bearers': [(('cucp0', 4), ('cuup0', 4)), (('cucp0', 5), ('cuup0', 5))]},
-        {'du_index': {'src':'du0', 'idx':3}, 'cucp_index': {'src':'cucp0', 'idx':3}, 'cuup_index': {'src':'cuup0', 'idx':3}, 'plmn': 101, 'nci': 201, 'pci': 400, 'tac': 12, 'crnti': 30003, 'tmsi': None, 'e1_bearers': [(('cucp0', 6), ('cuup0', 6)), (('cucp0', 7), ('cuup0', 7))]},
-        {'du_index': {'src':'du1', 'idx':0}, 'cucp_index': {'src':'cucp0', 'idx':4}, 'cuup_index': {'src':'cuup0', 'idx':4}, 'plmn': 101, 'nci': 202, 'pci': 401, 'tac': 13, 'crnti': 30000, 'tmsi': None, 'e1_bearers': [(('cucp0', 8), ('cuup0', 8)), (('cucp0', 9), ('cuup0', 9))]},
-        {'du_index': {'src':'du1', 'idx':1}, 'cucp_index': {'src':'cucp0', 'idx':5}, 'cuup_index': {'src':'cuup0', 'idx':5}, 'plmn': 101, 'nci': 202, 'pci': 401, 'tac': 13, 'crnti': 30001, 'tmsi': None, 'e1_bearers': [(('cucp0', 10), ('cuup0', 10)), (('cucp0', 11), ('cuup0', 11))]},
-        {'du_index': {'src':'du1', 'idx':2}, 'cucp_index': {'src':'cucp0', 'idx':6}, 'cuup_index': {'src':'cuup1', 'idx':0}, 'plmn': 101, 'nci': 202, 'pci': 401, 'tac': 13, 'crnti': 30002, 'tmsi': None, 'e1_bearers': [(('cucp0', 12), ('cuup1', 0)), (('cucp0', 13), ('cuup1', 1))]},
-        {'du_index': {'src':'du1', 'idx':3}, 'cucp_index': {'src':'cucp0', 'idx':7}, 'cuup_index': {'src':'cuup1', 'idx':1}, 'plmn': 101, 'nci': 202, 'pci': 401, 'tac': 13, 'crnti': 30003, 'tmsi': None, 'e1_bearers': [(('cucp0', 14), ('cuup1', 2)), (('cucp0', 15), ('cuup1', 3))]},
-        {'du_index': {'src':'du2', 'idx':0}, 'cucp_index': {'src':'cucp0', 'idx':8}, 'cuup_index': {'src':'cuup1', 'idx':2}, 'plmn': 101, 'nci': 203, 'pci': 402, 'tac': 14, 'crnti': 30000, 'tmsi': None, 'e1_bearers': [(('cucp0', 16), ('cuup1', 4)), (('cucp0', 17), ('cuup1', 5))]},
-        {'du_index': {'src':'du2', 'idx':1}, 'cucp_index': {'src':'cucp0', 'idx':9}, 'cuup_index': {'src':'cuup1', 'idx':3}, 'plmn': 101, 'nci': 203, 'pci': 402, 'tac': 14, 'crnti': 30001, 'tmsi': None, 'e1_bearers': [(('cucp0', 18), ('cuup1', 6)), (('cucp0', 19), ('cuup1', 7))]},
-        {'du_index': {'src':'du2', 'idx':2}, 'cucp_index': {'src':'cucp0', 'idx':10}, 'cuup_index': {'src':'cuup1', 'idx':4}, 'plmn': 101, 'nci': 203, 'pci': 402, 'tac': 14, 'crnti': 30002, 'tmsi': None, 'e1_bearers': [(('cucp0', 20), ('cuup1', 8)), (('cucp0', 21), ('cuup1', 9))]},
-        {'du_index': {'src':'du2', 'idx':3}, 'cucp_index': {'src':'cucp0', 'idx':11}, 'cuup_index': {'src':'cuup1', 'idx':5}, 'plmn': 101, 'nci': 203, 'pci': 402, 'tac': 14, 'crnti': 30003, 'tmsi': None, 'e1_bearers': [(('cucp0', 22), ('cuup1', 10)), (('cucp0', 23), ('cuup1', 11))]}
+        {'du_index': {'src':'du0', 'idx':0}, 'cucp_index': {'src':'cucp0', 'idx':0}, 'cuup_index': {'src':'cuup0', 'idx':0}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 30000}, 'nci': 201, 'tac': 12, 'tmsi': None, 'ngap_ids': None, 'e1_bearers': [(('cucp0', 0), ('cuup0', 0)), (('cucp0', 1), ('cuup0', 1))]},
+        {'du_index': {'src': 'du0', 'idx': 1}, 'cucp_index': {'src': 'cucp0', 'idx': 1}, 'cuup_index': {'src': 'cuup0', 'idx': 1}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 30001}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp0', 2), ('cuup0', 2)), (('cucp0', 3), ('cuup0', 3))], 'tmsi': None, 'ngap_ids': None},
+        {'du_index': {'src': 'du0', 'idx': 2}, 'cucp_index': {'src': 'cucp0', 'idx': 2}, 'cuup_index': {'src': 'cuup0', 'idx': 2}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 30002}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp0', 4), ('cuup0', 4)), (('cucp0', 5), ('cuup0', 5))], 'tmsi': None, 'ngap_ids': None},
+        {'du_index': {'src': 'du0', 'idx': 3}, 'cucp_index': {'src': 'cucp0', 'idx': 3}, 'cuup_index': {'src': 'cuup0', 'idx': 3}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 30003}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp0', 6), ('cuup0', 6)), (('cucp0', 7), ('cuup0', 7))], 'tmsi': None, 'ngap_ids': None},
+        {'du_index': {'src': 'du1', 'idx': 0}, 'cucp_index': {'src': 'cucp0', 'idx': 4}, 'cuup_index': {'src': 'cuup0', 'idx': 4}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 401, 'crnti': 30000}, 'nci': 202, 'tac': 13, 'e1_bearers': [(('cucp0', 8), ('cuup0', 8)), (('cucp0', 9), ('cuup0', 9))], 'tmsi': None, 'ngap_ids': None},
+        {'du_index': {'src': 'du1', 'idx': 1}, 'cucp_index': {'src': 'cucp0', 'idx': 5}, 'cuup_index': {'src': 'cuup0', 'idx': 5}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 401, 'crnti': 30001}, 'nci': 202, 'tac': 13, 'e1_bearers': [(('cucp0', 10), ('cuup0', 10)), (('cucp0', 11), ('cuup0', 11))], 'tmsi': None, 'ngap_ids': None},
+        {'du_index': {'src': 'du1', 'idx': 2}, 'cucp_index': {'src': 'cucp0', 'idx': 6}, 'cuup_index': {'src': 'cuup1', 'idx': 0}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 401, 'crnti': 30002}, 'nci': 202, 'tac': 13, 'e1_bearers': [(('cucp0', 12), ('cuup1', 0)), (('cucp0', 13), ('cuup1', 1))], 'tmsi': None, 'ngap_ids': None},
+        {'du_index': {'src': 'du1', 'idx': 3}, 'cucp_index': {'src': 'cucp0', 'idx': 7}, 'cuup_index': {'src': 'cuup1', 'idx': 1}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 401, 'crnti': 30003}, 'nci': 202, 'tac': 13, 'e1_bearers': [(('cucp0', 14), ('cuup1', 2)), (('cucp0', 15), ('cuup1', 3))], 'tmsi': None, 'ngap_ids': None},
+        {'du_index': {'src': 'du2', 'idx': 0}, 'cucp_index': {'src': 'cucp0', 'idx': 8}, 'cuup_index': {'src': 'cuup1', 'idx': 2}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 402, 'crnti': 30000}, 'nci': 203, 'tac': 14, 'e1_bearers': [(('cucp0', 16), ('cuup1', 4)), (('cucp0', 17), ('cuup1', 5))], 'tmsi': None, 'ngap_ids': None},
+        {'du_index': {'src': 'du2', 'idx': 1}, 'cucp_index': {'src': 'cucp0', 'idx': 9}, 'cuup_index': {'src': 'cuup1', 'idx': 3}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 402, 'crnti': 30001}, 'nci': 203, 'tac': 14, 'e1_bearers': [(('cucp0', 18), ('cuup1', 6)), (('cucp0', 19), ('cuup1', 7))], 'tmsi': None, 'ngap_ids': None},
+        {'du_index': {'src': 'du2', 'idx': 2}, 'cucp_index': {'src': 'cucp0', 'idx': 10}, 'cuup_index': {'src': 'cuup1', 'idx': 4}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 402, 'crnti': 30002}, 'nci': 203, 'tac': 14, 'e1_bearers': [(('cucp0', 20), ('cuup1', 8)), (('cucp0', 21), ('cuup1', 9))], 'tmsi': None, 'ngap_ids': None},
+        {'du_index': {'src': 'du2', 'idx': 3}, 'cucp_index': {'src': 'cucp0', 'idx': 11}, 'cuup_index': {'src': 'cuup1', 'idx': 5}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 402, 'crnti': 30003}, 'nci': 203, 'tac': 14, 'e1_bearers': [(('cucp0', 22), ('cuup1', 10)), (('cucp0', 23), ('cuup1', 11))], 'tmsi': None, 'ngap_ids': None}
     ]
     expected_contexts_by_du_index = {'du0::0': 0, 'du0::1': 1, 'du0::2': 2, 'du0::3': 3, 'du1::0': 4, 'du1::1': 5, 'du1::2': 6, 'du1::3': 7, 'du2::0': 8, 'du2::1': 9, 'du2::2': 10, 'du2::3': 11}
     expected_contexts_by_cucp_index= {'cucp0::0': 0, 'cucp0::1': 1, 'cucp0::2': 2, 'cucp0::3': 3, 'cucp0::4': 4, 'cucp0::5': 5, 'cucp0::6': 6, 'cucp0::7': 7, 'cucp0::8': 8, 'cucp0::9': 9, 'cucp0::10': 10, 'cucp0::11': 11}
@@ -1299,31 +1465,31 @@ if __name__ == "__main__":
     ue = s.getid_by_du_index('du2', 3)
     s.hook_du_ue_ctx_deletion('du2', 3)
     ctx = s.getue_by_id(ue)
-    assert ctx is not None and ctx.du_index is None and ctx.cucp_index==unique_index('cucp0', 11) and ctx.cuup_index==unique_index('cuup1', 5) \
-            and ctx.plmn==101 and ctx.nci==203 and ctx.pci==402 and ctx.tac==14 and ctx.crnti==30003 \
+    assert ctx is not None and ctx.du_index is None and ctx.cucp_index==UniqueIndex('cucp0', 11) and ctx.cuup_index==UniqueIndex('cuup1', 5) \
+            and ctx.ran_unique_ue_id==RanUniqueUeId(plmn=101, pci=402, crnti=30003) and ctx.nci==203 and ctx.tac==14 \
             and len(ctx.e1_bearers)==2 \
             and ctx.e1_bearers[0][0]==('cucp0', 22) and ctx.e1_bearers[0][1]==('cuup1', 10) and ctx.e1_bearers[1][0]==('cucp0', 23) and ctx.e1_bearers[1][1]==('cuup1', 11)
     
     s.hook_cucp_uemgr_ue_remove('cucp0', 11)
     ctx = s.getue_by_id(ue)
-    assert ctx is not None and ctx.du_index is None and ctx.cucp_index is None and ctx.cuup_index==unique_index('cuup1', 5) \
-            and ctx.plmn==101 and ctx.nci==203 and ctx.pci==402 and ctx.tac==14 and ctx.crnti==30003 \
+    assert ctx is not None and ctx.du_index is None and ctx.cucp_index is None and ctx.cuup_index==UniqueIndex('cuup1', 5) \
+            and ctx.ran_unique_ue_id==RanUniqueUeId(plmn=101, pci=402, crnti=30003) and ctx.nci==203 and ctx.tac==14 \
             and len(ctx.e1_bearers)==2 \
             and ctx.e1_bearers[0][0]==('cucp0', 22) and ctx.e1_bearers[0][1]==('cuup1', 10) and ctx.e1_bearers[1][0]==('cucp0', 23) and ctx.e1_bearers[1][1]==('cuup1', 11)
    
     # try an e1ap_ids=22/13.   e1ap_id=13 is not known so nothing should happen
     s.hook_e1_cuup_bearer_context_release('cuup1', 5, 22, 13, True)
     ctx = s.getue_by_id(ue)
-    assert ctx is not None and ctx.du_index is None and ctx.cucp_index is None and ctx.cuup_index==unique_index('cuup1', 5) \
-            and ctx.plmn==101 and ctx.nci==203 and ctx.pci==402 and ctx.tac==14 and ctx.crnti==30003 \
+    assert ctx is not None and ctx.du_index is None and ctx.cucp_index is None and ctx.cuup_index==UniqueIndex('cuup1', 5) \
+            and ctx.ran_unique_ue_id==RanUniqueUeId(plmn=101, pci=402, crnti=30003) and ctx.nci==203 and ctx.tac==14 \
             and len(ctx.e1_bearers)==2 \
             and ctx.e1_bearers[0][0]==('cucp0', 22) and ctx.e1_bearers[0][1]==('cuup1', 10) and ctx.e1_bearers[1][0]==('cucp0', 23) and ctx.e1_bearers[1][1]==('cuup1', 11)
 
     # delete 22/10. 
     s.hook_e1_cuup_bearer_context_release('cuup1', 5, 22, 10, True)
     ctx = s.getue_by_id(ue)
-    assert ctx is not None and ctx.du_index is None and ctx.cucp_index is None and ctx.cuup_index==unique_index('cuup1', 5) \
-            and ctx.plmn==101 and ctx.nci==203 and ctx.pci==402 and ctx.tac==14 and ctx.crnti==30003 \
+    assert ctx is not None and ctx.du_index is None and ctx.cucp_index is None and ctx.cuup_index==UniqueIndex('cuup1', 5) \
+            and ctx.ran_unique_ue_id==RanUniqueUeId(plmn=101, pci=402, crnti=30003) and ctx.nci==203 and ctx.tac==14 \
             and len(ctx.e1_bearers)==1 \
             and ctx.e1_bearers[0][0]==('cucp0', 23) and ctx.e1_bearers[0][1]==('cuup1', 11)
 
@@ -1340,21 +1506,21 @@ if __name__ == "__main__":
 
     s.hook_e1_cuup_bearer_context_release('cuup0', 4, 9, 9, True)
     ctx = s.getue_by_id(ue)
-    assert ctx is not None and ctx.du_index==unique_index('du1', 0) and ctx.cucp_index==unique_index('cucp0', 4) and ctx.cuup_index==unique_index('cuup0', 4) \
-            and ctx.plmn==101 and ctx.nci==202 and ctx.pci==401 and ctx.tac==13 and ctx.crnti==30000 \
+    assert ctx is not None and ctx.du_index==UniqueIndex('du1', 0) and ctx.cucp_index==UniqueIndex('cucp0', 4) and ctx.cuup_index==UniqueIndex('cuup0', 4) \
+            and ctx.ran_unique_ue_id==RanUniqueUeId(plmn=101, pci=401, crnti=30000) and ctx.nci==202 and ctx.tac==13 \
             and len(ctx.e1_bearers)==1 \
             and ctx.e1_bearers[0][0]==('cucp0', 8) and ctx.e1_bearers[0][1]==('cuup0', 8)
 
     s.hook_e1_cuup_bearer_context_release('cuup0', 4, 8, 8, True)
     ctx = s.getue_by_id(ue)
-    assert ctx is not None and ctx.du_index==unique_index('du1', 0) and ctx.cucp_index==unique_index('cucp0', 4) and ctx.cuup_index is None \
-            and ctx.plmn==101 and ctx.nci==202 and ctx.pci==401 and ctx.tac==13 and ctx.crnti==30000 \
+    assert ctx is not None and ctx.du_index==UniqueIndex('du1', 0) and ctx.cucp_index==UniqueIndex('cucp0', 4) and ctx.cuup_index is None \
+            and ctx.ran_unique_ue_id==RanUniqueUeId(plmn=101, pci=401, crnti=30000) and ctx.nci==202 and ctx.tac==13 \
             and len(ctx.e1_bearers)==0
              
     s.hook_cucp_uemgr_ue_remove('cucp0', 4)
     ctx = s.getue_by_id(ue)
-    assert ctx is not None and ctx.du_index==unique_index('du1', 0) and ctx.cucp_index is None and ctx.cuup_index is None \
-            and ctx.plmn==101 and ctx.nci==202 and ctx.pci==401 and ctx.tac==13 and ctx.crnti==30000 \
+    assert ctx is not None and ctx.du_index==UniqueIndex('du1', 0) and ctx.cucp_index is None and ctx.cuup_index is None \
+            and ctx.ran_unique_ue_id==RanUniqueUeId(plmn=101, pci=401, crnti=30000) and ctx.nci==202 and ctx.tac==13 \
             and len(ctx.e1_bearers)==0
 
     s.hook_du_ue_ctx_deletion('du1', 0)
@@ -1365,7 +1531,7 @@ if __name__ == "__main__":
 
     print("#############################################################################")
     print("# delete s and start fresh")
-    s = ue_contexts_map(dbg=dbg)
+    s = UeContextsMap(dbg=dbg)
 
 
     print("#############################################################################")
@@ -1429,23 +1595,23 @@ if __name__ == "__main__":
 
     ue = s.getid_by_du_index(du_src, du_index)
     ctx = s.getue_by_id(ue)
-    assert ctx is not None and ctx.du_index==unique_index(du_src, du_index) and ctx.cucp_index==unique_index(cucp_src, cucp_index) and ctx.cuup_index==unique_index(cuup_src, cuup_index) \
-        and ctx.plmn==plmn and ctx.nci==nci and ctx.pci==pci and ctx.tac==tac and ctx.crnti==crnti \
+    assert ctx is not None and ctx.du_index==UniqueIndex(du_src, du_index) and ctx.cucp_index==UniqueIndex(cucp_src, cucp_index) and ctx.cuup_index==UniqueIndex(cuup_src, cuup_index) \
+        and ctx.ran_unique_ue_id==RanUniqueUeId(plmn=plmn, pci=pci, crnti=crnti) and ctx.nci==nci and ctx.tac==tac \
         and len(ctx.e1_bearers)==1 \
         and ctx.e1_bearers[0][0]==(cucp_src, cucp_ue_e1ap_id) and ctx.e1_bearers[0][1]==(cuup_src, cuup_ue_e1ap_id) 
     assert s.get_num_contexts() == 1
 
     s.hook_e1_cuup_bearer_context_release(cuup_src, cuup_index, cucp_ue_e1ap_id, cuup_ue_e1ap_id, True)
     ctx = s.getue_by_id(ue)
-    assert ctx is not None and ctx.du_index==unique_index(du_src, du_index) and ctx.cucp_index==unique_index(cucp_src, cucp_index) and ctx.cuup_index is None \
-        and ctx.plmn==plmn and ctx.nci==nci and ctx.pci==pci and ctx.tac==tac and ctx.crnti==crnti \
+    assert ctx is not None and ctx.du_index==UniqueIndex(du_src, du_index) and ctx.cucp_index==UniqueIndex(cucp_src, cucp_index) and ctx.cuup_index is None \
+        and ctx.ran_unique_ue_id==RanUniqueUeId(plmn=plmn, pci=pci, crnti=crnti) and ctx.nci==nci and ctx.tac==tac \
         and len(ctx.e1_bearers)==0
     assert s.get_num_contexts() == 1
 
     s.hook_du_ue_ctx_deletion(du_src, du_index)
     ctx = s.getue_by_id(ue)
-    assert ctx is not None and ctx.du_index is None and ctx.cucp_index==unique_index(cucp_src, cucp_index) and ctx.cuup_index is None \
-        and ctx.plmn==plmn and ctx.nci==nci and ctx.pci==pci and ctx.tac==tac and ctx.crnti==crnti \
+    assert ctx is not None and ctx.du_index is None and ctx.cucp_index==UniqueIndex(cucp_src, cucp_index) and ctx.cuup_index is None \
+        and ctx.ran_unique_ue_id==RanUniqueUeId(plmn=plmn, pci=pci, crnti=crnti) and ctx.nci==nci and ctx.tac==tac \
         and len(ctx.e1_bearers)==0
     assert s.get_num_contexts() == 1
 
@@ -1479,8 +1645,8 @@ if __name__ == "__main__":
                                             True)  # succees
     ue = s.getid_by_du_index(du_src, du_index)
     ctx = s.getue_by_id(ue)
-    assert ctx is not None and ctx.du_index==unique_index(du_src, du_index) and ctx.cucp_index==unique_index(cucp_src, cucp_index) and ctx.cuup_index==unique_index(cuup_src, cuup_index) \
-        and ctx.plmn==plmn and ctx.nci==nci and ctx.pci==pci and ctx.tac==tac and ctx.crnti==crnti \
+    assert ctx is not None and ctx.du_index==UniqueIndex(du_src, du_index) and ctx.cucp_index==UniqueIndex(cucp_src, cucp_index) and ctx.cuup_index==UniqueIndex(cuup_src, cuup_index) \
+        and ctx.ran_unique_ue_id==RanUniqueUeId(plmn=plmn, pci=pci, crnti=crnti) and ctx.nci==nci and ctx.tac==tac \
         and len(ctx.e1_bearers)==1 \
         and ctx.e1_bearers[0][0]==(cucp_src, cucp_ue_e1ap_id) and ctx.e1_bearers[0][1]==(cuup_src, cuup_ue_e1ap_id) 
     assert s.get_num_contexts() == 1
@@ -1490,8 +1656,8 @@ if __name__ == "__main__":
     # this one should fail as the du_index is unknown
     s.hook_du_ue_ctx_update_crnti(du_src, du_index+1, new_crnti)
     ctx = s.getue_by_id(ue)
-    assert ctx is not None and ctx.du_index==unique_index(du_src, du_index) and ctx.cucp_index==unique_index(cucp_src, cucp_index) and ctx.cuup_index==unique_index(cuup_src, cuup_index) \
-        and ctx.plmn==plmn and ctx.nci==nci and ctx.pci==pci and ctx.tac==tac and ctx.crnti==crnti \
+    assert ctx is not None and ctx.du_index==UniqueIndex(du_src, du_index) and ctx.cucp_index==UniqueIndex(cucp_src, cucp_index) and ctx.cuup_index==UniqueIndex(cuup_src, cuup_index) \
+        and ctx.ran_unique_ue_id==RanUniqueUeId(plmn=plmn, pci=pci, crnti=crnti) and ctx.nci==nci and ctx.tac==tac \
         and len(ctx.e1_bearers)==1 \
         and ctx.e1_bearers[0][0]==(cucp_src, cucp_ue_e1ap_id) and ctx.e1_bearers[0][1]==(cuup_src, cuup_ue_e1ap_id) 
     assert s.get_num_contexts() == 1
@@ -1499,8 +1665,8 @@ if __name__ == "__main__":
     # this one should change the crnti
     s.hook_du_ue_ctx_update_crnti(du_src, du_index, new_crnti)
     ctx = s.getue_by_id(ue)
-    assert ctx is not None and ctx.du_index==unique_index(du_src, du_index) and ctx.cucp_index==unique_index(cucp_src, cucp_index) and ctx.cuup_index==unique_index(cuup_src, cuup_index) \
-        and ctx.plmn==plmn and ctx.nci==nci and ctx.pci==pci and ctx.tac==tac and ctx.crnti==new_crnti \
+    assert ctx is not None and ctx.du_index==UniqueIndex(du_src, du_index) and ctx.cucp_index==UniqueIndex(cucp_src, cucp_index) and ctx.cuup_index==UniqueIndex(cuup_src, cuup_index) \
+        and ctx.ran_unique_ue_id==RanUniqueUeId(plmn=plmn, pci=pci, crnti=new_crnti) and ctx.nci==nci and ctx.tac==tac \
         and len(ctx.e1_bearers)==1 \
         and ctx.e1_bearers[0][0]==(cucp_src, cucp_ue_e1ap_id) and ctx.e1_bearers[0][1]==(cuup_src, cuup_ue_e1ap_id) 
     assert s.get_num_contexts() == 1
@@ -1519,8 +1685,285 @@ if __name__ == "__main__":
     assert s.get_num_contexts() == 1
     s.add_tmsi('cucp0', 1, 1234)  
     u = s.getuectx(1)
-    assert asdict(u) == {'du_index': {'src':'du0', 'idx':0}, 'cucp_index': {'src':'cucp0', 'idx':1}, 'cuup_index': {'src':'cuup0', 'idx':0}, 'plmn': 61712, 'nci': 6733824, 'pci': 1, 'tac': 1, 'crnti': 40000, 'tmsi': 1234, 'e1_bearers': [(('cucp0', 1), ('cuup0', 1))]}
+    assert asdict(u) == {'du_index': {'src': 'du0', 'idx': 0}, 'cucp_index': {'src': 'cucp0', 'idx': 1}, 'cuup_index': {'src': 'cuup0', 'idx': 0}, 'ran_unique_ue_id': {'plmn': 61712, 'pci': 1, 'crnti': 40000}, 'nci': 6733824, 'tac': 1, 'e1_bearers': [(('cucp0', 1), ('cuup0', 1))], 'tmsi': 1234, 'ngap_ids': None}
          
+    print("#############################################################################")
+    print("# Test NGAP Ids")
+    s = UeContextsMap(dbg=dbg)
+
+    num_ue = 10
+    num_e1 = 3
+    crnti_off = 20000
+    du_off = 100
+    cucp_off = 200
+    cuup_off = 300
+    cucp_e1Off = 20000
+    cuup_e1Off = 30000
+
+    for ue in range(0, num_ue):
+        s.hook_du_ue_ctx_creation(  du1_src, 
+                                    du_off+ue,   # du_index
+                                    101,   # plmn
+                                    400,   # pci
+                                    crnti_off+ue, # crnti
+                                    12,    # tac
+                                    201)   # nci
+        # create cucp context
+        s.hook_cucp_uemgr_ue_add(   cucp1_src, 
+                                    cucp_off+ue,     # cucp_index
+                                    101,   # plmn
+                                    400,   # pci
+                                    crnti_off+ue), # crnti
+        for e1 in range(0, num_e1):
+            # create cucp e1ap id
+            e1off = (ue * num_e1) + e1
+            s.hook_e1_cucp_bearer_context_setup(    cucp1_src, 
+                                                    cucp_off+ue,    # cucp_index
+                                                    cucp_e1Off+e1off) # cucp_ue_e1ap_id
+            s.hook_e1_cuup_bearer_context_setup(    cuup1_src,
+                                                    cuup_off+ue,    # cuup_index
+                                                    cucp_e1Off+e1off,  # gnb_cucp_ue_e1ap_id,
+                                                    cuup_e1Off+e1off, # gnb_cuup_ue_e1ap_id
+                                                    True)  # succees
+    
+    assert s.get_num_contexts() == 10
+    ue = s.getue_by_id(0)
+    assert ue is not None and ue.du_index==UniqueIndex('du1', 100) and ue.cucp_index==UniqueIndex('cucp1', 200) and ue.cuup_index==UniqueIndex('cuup1', 300)\
+        and ue.ran_unique_ue_id==RanUniqueUeId(plmn=101, pci=400, crnti=20000) and ue.nci==201 and ue.tac==12 \
+        and len(ue.e1_bearers)==3 and ue.ngap_ids is None
+
+    ###########################################
+    # Set ue=0 with ran_ue_id only
+    ue = s.getue_by_id(0)
+    ue0_ngap_ran_ue_id = 4000
+    s.hook_ngap_procedure_started( ue.cucp_index.src, ue.cucp_index.idx,
+                                  ngap_ran_ue_id=ue0_ngap_ran_ue_id, ngap_amf_ue_id=None)
+    assert s.get_num_contexts() == 10
+    ue = s.getue_by_id(0)
+    assert ue is not None and ue.du_index==UniqueIndex('du1', 100) and ue.cucp_index==UniqueIndex('cucp1', 200) and ue.cuup_index==UniqueIndex('cuup1', 300)\
+        and ue.ran_unique_ue_id==RanUniqueUeId(plmn=101, pci=400, crnti=20000) and ue.nci==201 and ue.tac==12 \
+        and len(ue.e1_bearers)==3 and ue.ngap_ids==RanNgapUeIds(ue0_ngap_ran_ue_id, None)
+
+    # Set ue=1 with ran_ue_id only
+    ue = s.getue_by_id(1)
+    ue1_ngap_ran_ue_id = 4001
+    s.hook_ngap_procedure_started( ue.cucp_index.src, ue.cucp_index.idx,
+                                  ngap_ran_ue_id=ue1_ngap_ran_ue_id, ngap_amf_ue_id=None)
+    ue = s.getue_by_id(1)
+    assert ue is not None and ue.du_index==UniqueIndex('du1', 101) and ue.cucp_index==UniqueIndex('cucp1', 201) and ue.cuup_index==UniqueIndex('cuup1', 301)\
+        and ue.ran_unique_ue_id==RanUniqueUeId(plmn=101, pci=400, crnti=20001) and ue.nci==201 and ue.tac==12 \
+        and len(ue.e1_bearers)==3 and ue.ngap_ids==RanNgapUeIds(ue1_ngap_ran_ue_id, None)
+
+    # Set ue=0 with ran_ue_id of ue1
+    ue = s.getue_by_id(0)
+    s.hook_ngap_procedure_started( ue.cucp_index.src, ue.cucp_index.idx,
+                                  ngap_ran_ue_id=ue1_ngap_ran_ue_id, ngap_amf_ue_id=None)
+    assert s.get_num_contexts() == 10
+    ue = s.getue_by_id(0)
+    assert ue is not None and ue.du_index==UniqueIndex('du1', 100) and ue.cucp_index==UniqueIndex('cucp1', 200) and ue.cuup_index==UniqueIndex('cuup1', 300)\
+        and ue.ran_unique_ue_id==RanUniqueUeId(plmn=101, pci=400, crnti=20000) and ue.nci==201 and ue.tac==12 \
+        and len(ue.e1_bearers)==3 and ue.ngap_ids==RanNgapUeIds(ue1_ngap_ran_ue_id, None)
+    ue = s.getue_by_id(1)
+    assert ue is not None and ue.du_index==UniqueIndex('du1', 101) and ue.cucp_index==UniqueIndex('cucp1', 201) and ue.cuup_index==UniqueIndex('cuup1', 301)\
+        and ue.ran_unique_ue_id==RanUniqueUeId(plmn=101, pci=400, crnti=20001) and ue.nci==201 and ue.tac==12 \
+        and len(ue.e1_bearers)==3 and ue.ngap_ids is None
+    
+
+
+    # Set ue=0 with amf_ue_id 
+    ue = s.getue_by_id(0)
+    ue0_ngap_amf_ue_id = 14000
+    s.hook_ngap_procedure_started( ue.cucp_index.src, ue.cucp_index.idx,
+                                  ngap_ran_ue_id=1, ngap_amf_ue_id=ue0_ngap_amf_ue_id)
+    assert s.get_num_contexts() == 10
+    ue = s.getue_by_id(0)
+    assert ue is not None and ue.du_index==UniqueIndex('du1', 100) and ue.cucp_index==UniqueIndex('cucp1', 200) and ue.cuup_index==UniqueIndex('cuup1', 300)\
+        and ue.ran_unique_ue_id==RanUniqueUeId(plmn=101, pci=400, crnti=20000) and ue.nci==201 and ue.tac==12 \
+        and len(ue.e1_bearers)==3 and ue.ngap_ids==RanNgapUeIds(1, ue0_ngap_amf_ue_id)
+
+    # Set ue=1 with amf_ue_id
+    ue = s.getue_by_id(1)
+    ue1_ngap_amf_ue_id = 14001
+    s.hook_ngap_procedure_started( ue.cucp_index.src, ue.cucp_index.idx,
+                                  ngap_ran_ue_id=2, ngap_amf_ue_id=ue1_ngap_amf_ue_id)
+    ue = s.getue_by_id(1)
+    assert ue is not None and ue.du_index==UniqueIndex('du1', 101) and ue.cucp_index==UniqueIndex('cucp1', 201) and ue.cuup_index==UniqueIndex('cuup1', 301)\
+        and ue.ran_unique_ue_id==RanUniqueUeId(plmn=101, pci=400, crnti=20001) and ue.nci==201 and ue.tac==12 \
+        and len(ue.e1_bearers)==3 and ue.ngap_ids==RanNgapUeIds(2, ue1_ngap_amf_ue_id)
+
+    # Set ue=0 with amf_ue_id of ue1
+    ue = s.getue_by_id(0)
+    s.hook_ngap_procedure_started( ue.cucp_index.src, ue.cucp_index.idx,
+                                  ngap_ran_ue_id=2, ngap_amf_ue_id=ue1_ngap_amf_ue_id)
+    assert s.get_num_contexts() == 10
+    ue = s.getue_by_id(0)
+    assert ue is not None and ue.du_index==UniqueIndex('du1', 100) and ue.cucp_index==UniqueIndex('cucp1', 200) and ue.cuup_index==UniqueIndex('cuup1', 300)\
+        and ue.ran_unique_ue_id==RanUniqueUeId(plmn=101, pci=400, crnti=20000) and ue.nci==201 and ue.tac==12 \
+        and len(ue.e1_bearers)==3 and ue.ngap_ids==RanNgapUeIds(2, ue1_ngap_amf_ue_id)
+    ue = s.getue_by_id(1)
+    assert ue is not None and ue.du_index==UniqueIndex('du1', 101) and ue.cucp_index==UniqueIndex('cucp1', 201) and ue.cuup_index==UniqueIndex('cuup1', 301)\
+        and ue.ran_unique_ue_id==RanUniqueUeId(plmn=101, pci=400, crnti=20001) and ue.nci==201 and ue.tac==12 \
+        and len(ue.e1_bearers)==3 and ue.ngap_ids is None
+
+    ######################################################
+    # try setting to an unknown cucp/cupp index
+    s.hook_ngap_procedure_started( 'cucp1', 900,
+                                  ngap_ran_ue_id=800, ngap_amf_ue_id=800)
+    assert s.get_num_contexts() == 10
+
+    ###########################################
+    #  set all UES with ngap Ids
+
+
+    # Set ue=0 with ran_ue_id only
+    ue = s.getue_by_id(0)
+    ue0_ngap_ran_ue_id = 4000
+    s.hook_ngap_procedure_started( ue.cucp_index.src, ue.cucp_index.idx,
+                                  ngap_ran_ue_id=ue0_ngap_ran_ue_id, ngap_amf_ue_id=None)
+    assert s.get_num_contexts() == 10
+    ue = s.getue_by_id(0)
+    assert ue is not None and ue.du_index==UniqueIndex('du1', 100) and ue.cucp_index==UniqueIndex('cucp1', 200) and ue.cuup_index==UniqueIndex('cuup1', 300)\
+        and ue.ran_unique_ue_id==RanUniqueUeId(plmn=101, pci=400, crnti=20000) and ue.nci==201 and ue.tac==12 \
+        and len(ue.e1_bearers)==3 and ue.ngap_ids==RanNgapUeIds(ue0_ngap_ran_ue_id, None)
+
+
+    num_ue = 10
+    cucp_off = 200
+    ngap_ran_ue_id_off = 4000
+    ngap_amf_ue_id_off = 14000
+
+    for ue in range(0, num_ue):
+        # create cucp context
+        s.hook_ngap_procedure_started(  cucp1_src, 
+                                        cucp_off+ue,
+                                        ngap_ran_ue_id=ngap_ran_ue_id_off+ue, 
+                                        ngap_amf_ue_id=None)
+    # assert the expected contexts
+    expected_contexts = [
+        {'du_index': {'src': 'du1', 'idx': 100}, 'cucp_index': {'src': 'cucp1', 'idx': 200}, 'cuup_index': {'src': 'cuup1', 'idx': 300}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20000}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20000), ('cuup1', 30000)), (('cucp1', 20001), ('cuup1', 30001)), (('cucp1', 20002), ('cuup1', 30002))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4000, 'amf_ue_ngap_id': None}},
+        {'du_index': {'src': 'du1', 'idx': 101}, 'cucp_index': {'src': 'cucp1', 'idx': 201}, 'cuup_index': {'src': 'cuup1', 'idx': 301}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20001}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20003), ('cuup1', 30003)), (('cucp1', 20004), ('cuup1', 30004)), (('cucp1', 20005), ('cuup1', 30005))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4001, 'amf_ue_ngap_id': None}},
+        {'du_index': {'src': 'du1', 'idx': 102}, 'cucp_index': {'src': 'cucp1', 'idx': 202}, 'cuup_index': {'src': 'cuup1', 'idx': 302}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20002}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20006), ('cuup1', 30006)), (('cucp1', 20007), ('cuup1', 30007)), (('cucp1', 20008), ('cuup1', 30008))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4002, 'amf_ue_ngap_id': None}},
+        {'du_index': {'src': 'du1', 'idx': 103}, 'cucp_index': {'src': 'cucp1', 'idx': 203}, 'cuup_index': {'src': 'cuup1', 'idx': 303}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20003}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20009), ('cuup1', 30009)), (('cucp1', 20010), ('cuup1', 30010)), (('cucp1', 20011), ('cuup1', 30011))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4003, 'amf_ue_ngap_id': None}},
+        {'du_index': {'src': 'du1', 'idx': 104}, 'cucp_index': {'src': 'cucp1', 'idx': 204}, 'cuup_index': {'src': 'cuup1', 'idx': 304}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20004}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20012), ('cuup1', 30012)), (('cucp1', 20013), ('cuup1', 30013)), (('cucp1', 20014), ('cuup1', 30014))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4004, 'amf_ue_ngap_id': None}},
+        {'du_index': {'src': 'du1', 'idx': 105}, 'cucp_index': {'src': 'cucp1', 'idx': 205}, 'cuup_index': {'src': 'cuup1', 'idx': 305}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20005}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20015), ('cuup1', 30015)), (('cucp1', 20016), ('cuup1', 30016)), (('cucp1', 20017), ('cuup1', 30017))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4005, 'amf_ue_ngap_id': None}},
+        {'du_index': {'src': 'du1', 'idx': 106}, 'cucp_index': {'src': 'cucp1', 'idx': 206}, 'cuup_index': {'src': 'cuup1', 'idx': 306}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20006}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20018), ('cuup1', 30018)), (('cucp1', 20019), ('cuup1', 30019)), (('cucp1', 20020), ('cuup1', 30020))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4006, 'amf_ue_ngap_id': None}},
+        {'du_index': {'src': 'du1', 'idx': 107}, 'cucp_index': {'src': 'cucp1', 'idx': 207}, 'cuup_index': {'src': 'cuup1', 'idx': 307}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20007}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20021), ('cuup1', 30021)), (('cucp1', 20022), ('cuup1', 30022)), (('cucp1', 20023), ('cuup1', 30023))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4007, 'amf_ue_ngap_id': None}},
+        {'du_index': {'src': 'du1', 'idx': 108}, 'cucp_index': {'src': 'cucp1', 'idx': 208}, 'cuup_index': {'src': 'cuup1', 'idx': 308}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20008}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20024), ('cuup1', 30024)), (('cucp1', 20025), ('cuup1', 30025)), (('cucp1', 20026), ('cuup1', 30026))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4008, 'amf_ue_ngap_id': None}},
+        {'du_index': {'src': 'du1', 'idx': 109}, 'cucp_index': {'src': 'cucp1', 'idx': 209}, 'cuup_index': {'src': 'cuup1', 'idx': 309}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20009}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20027), ('cuup1', 30027)), (('cucp1', 20028), ('cuup1', 30028)), (('cucp1', 20029), ('cuup1', 30029))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4009, 'amf_ue_ngap_id': None}}]
+    for ue in range(0, num_ue):
+        ctx = s.getue_by_id(ue)
+        assert asdict(ctx) == expected_contexts[ue]
+
+    for ue in range(0, num_ue):
+        assert s.getid_by_ngap_ue_ids(ngap_ran_ue_id_off+ue, None) == ue
+
+    
+    ###########################################################################
+    # Handle case where procedure completes with success = False
+    for ue in range(0, 5):
+        s.hook_ngap_procedure_completed( cucp1_src, 
+                                         cucp_off+ue,
+                                         False,  # success
+                                         ngap_ran_ue_id=ngap_ran_ue_id_off+ue, 
+                                         ngap_amf_ue_id=ngap_amf_ue_id_off+ue)
+    expected_contexts = [
+        {'du_index': {'src': 'du1', 'idx': 100}, 'cucp_index': {'src': 'cucp1', 'idx': 200}, 'cuup_index': {'src': 'cuup1', 'idx': 300}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20000}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20000), ('cuup1', 30000)), (('cucp1', 20001), ('cuup1', 30001)), (('cucp1', 20002), ('cuup1', 30002))], 'tmsi': None, 'ngap_ids': None},
+        {'du_index': {'src': 'du1', 'idx': 101}, 'cucp_index': {'src': 'cucp1', 'idx': 201}, 'cuup_index': {'src': 'cuup1', 'idx': 301}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20001}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20003), ('cuup1', 30003)), (('cucp1', 20004), ('cuup1', 30004)), (('cucp1', 20005), ('cuup1', 30005))], 'tmsi': None, 'ngap_ids': None},
+        {'du_index': {'src': 'du1', 'idx': 102}, 'cucp_index': {'src': 'cucp1', 'idx': 202}, 'cuup_index': {'src': 'cuup1', 'idx': 302}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20002}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20006), ('cuup1', 30006)), (('cucp1', 20007), ('cuup1', 30007)), (('cucp1', 20008), ('cuup1', 30008))], 'tmsi': None, 'ngap_ids': None},
+        {'du_index': {'src': 'du1', 'idx': 103}, 'cucp_index': {'src': 'cucp1', 'idx': 203}, 'cuup_index': {'src': 'cuup1', 'idx': 303}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20003}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20009), ('cuup1', 30009)), (('cucp1', 20010), ('cuup1', 30010)), (('cucp1', 20011), ('cuup1', 30011))], 'tmsi': None, 'ngap_ids': None},
+        {'du_index': {'src': 'du1', 'idx': 104}, 'cucp_index': {'src': 'cucp1', 'idx': 204}, 'cuup_index': {'src': 'cuup1', 'idx': 304}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20004}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20012), ('cuup1', 30012)), (('cucp1', 20013), ('cuup1', 30013)), (('cucp1', 20014), ('cuup1', 30014))], 'tmsi': None, 'ngap_ids': None},
+        {'du_index': {'src': 'du1', 'idx': 105}, 'cucp_index': {'src': 'cucp1', 'idx': 205}, 'cuup_index': {'src': 'cuup1', 'idx': 305}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20005}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20015), ('cuup1', 30015)), (('cucp1', 20016), ('cuup1', 30016)), (('cucp1', 20017), ('cuup1', 30017))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4005, 'amf_ue_ngap_id': None}},
+        {'du_index': {'src': 'du1', 'idx': 106}, 'cucp_index': {'src': 'cucp1', 'idx': 206}, 'cuup_index': {'src': 'cuup1', 'idx': 306}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20006}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20018), ('cuup1', 30018)), (('cucp1', 20019), ('cuup1', 30019)), (('cucp1', 20020), ('cuup1', 30020))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4006, 'amf_ue_ngap_id': None}},
+        {'du_index': {'src': 'du1', 'idx': 107}, 'cucp_index': {'src': 'cucp1', 'idx': 207}, 'cuup_index': {'src': 'cuup1', 'idx': 307}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20007}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20021), ('cuup1', 30021)), (('cucp1', 20022), ('cuup1', 30022)), (('cucp1', 20023), ('cuup1', 30023))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4007, 'amf_ue_ngap_id': None}},
+        {'du_index': {'src': 'du1', 'idx': 108}, 'cucp_index': {'src': 'cucp1', 'idx': 208}, 'cuup_index': {'src': 'cuup1', 'idx': 308}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20008}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20024), ('cuup1', 30024)), (('cucp1', 20025), ('cuup1', 30025)), (('cucp1', 20026), ('cuup1', 30026))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4008, 'amf_ue_ngap_id': None}},
+        {'du_index': {'src': 'du1', 'idx': 109}, 'cucp_index': {'src': 'cucp1', 'idx': 209}, 'cuup_index': {'src': 'cuup1', 'idx': 309}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20009}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20027), ('cuup1', 30027)), (('cucp1', 20028), ('cuup1', 30028)), (('cucp1', 20029), ('cuup1', 30029))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4009, 'amf_ue_ngap_id': None}}]
+    for ue in range(0, num_ue):
+        ctx = s.getue_by_id(ue)
+        assert asdict(ctx) == expected_contexts[ue]
+
+    ###########################################################################
+    # Handle case where procedure completes with success = Success
+    for ue in range(5, 10):
+        s.hook_ngap_procedure_completed( cucp1_src, 
+                                         cucp_off+ue,
+                                         True,  # success
+                                         ngap_ran_ue_id=ngap_ran_ue_id_off+ue, 
+                                         ngap_amf_ue_id=ngap_amf_ue_id_off+ue)
+    expected_contexts = [
+        {'du_index': {'src': 'du1', 'idx': 100}, 'cucp_index': {'src': 'cucp1', 'idx': 200}, 'cuup_index': {'src': 'cuup1', 'idx': 300}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20000}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20000), ('cuup1', 30000)), (('cucp1', 20001), ('cuup1', 30001)), (('cucp1', 20002), ('cuup1', 30002))], 'tmsi': None, 'ngap_ids': None},
+        {'du_index': {'src': 'du1', 'idx': 101}, 'cucp_index': {'src': 'cucp1', 'idx': 201}, 'cuup_index': {'src': 'cuup1', 'idx': 301}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20001}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20003), ('cuup1', 30003)), (('cucp1', 20004), ('cuup1', 30004)), (('cucp1', 20005), ('cuup1', 30005))], 'tmsi': None, 'ngap_ids': None},
+        {'du_index': {'src': 'du1', 'idx': 102}, 'cucp_index': {'src': 'cucp1', 'idx': 202}, 'cuup_index': {'src': 'cuup1', 'idx': 302}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20002}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20006), ('cuup1', 30006)), (('cucp1', 20007), ('cuup1', 30007)), (('cucp1', 20008), ('cuup1', 30008))], 'tmsi': None, 'ngap_ids': None},
+        {'du_index': {'src': 'du1', 'idx': 103}, 'cucp_index': {'src': 'cucp1', 'idx': 203}, 'cuup_index': {'src': 'cuup1', 'idx': 303}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20003}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20009), ('cuup1', 30009)), (('cucp1', 20010), ('cuup1', 30010)), (('cucp1', 20011), ('cuup1', 30011))], 'tmsi': None, 'ngap_ids': None},
+        {'du_index': {'src': 'du1', 'idx': 104}, 'cucp_index': {'src': 'cucp1', 'idx': 204}, 'cuup_index': {'src': 'cuup1', 'idx': 304}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20004}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20012), ('cuup1', 30012)), (('cucp1', 20013), ('cuup1', 30013)), (('cucp1', 20014), ('cuup1', 30014))], 'tmsi': None, 'ngap_ids': None},
+        {'du_index': {'src': 'du1', 'idx': 105}, 'cucp_index': {'src': 'cucp1', 'idx': 205}, 'cuup_index': {'src': 'cuup1', 'idx': 305}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20005}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20015), ('cuup1', 30015)), (('cucp1', 20016), ('cuup1', 30016)), (('cucp1', 20017), ('cuup1', 30017))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4005, 'amf_ue_ngap_id': 14005}},
+        {'du_index': {'src': 'du1', 'idx': 106}, 'cucp_index': {'src': 'cucp1', 'idx': 206}, 'cuup_index': {'src': 'cuup1', 'idx': 306}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20006}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20018), ('cuup1', 30018)), (('cucp1', 20019), ('cuup1', 30019)), (('cucp1', 20020), ('cuup1', 30020))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4006, 'amf_ue_ngap_id': 14006}},
+        {'du_index': {'src': 'du1', 'idx': 107}, 'cucp_index': {'src': 'cucp1', 'idx': 207}, 'cuup_index': {'src': 'cuup1', 'idx': 307}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20007}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20021), ('cuup1', 30021)), (('cucp1', 20022), ('cuup1', 30022)), (('cucp1', 20023), ('cuup1', 30023))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4007, 'amf_ue_ngap_id': 14007}},
+        {'du_index': {'src': 'du1', 'idx': 108}, 'cucp_index': {'src': 'cucp1', 'idx': 208}, 'cuup_index': {'src': 'cuup1', 'idx': 308}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20008}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20024), ('cuup1', 30024)), (('cucp1', 20025), ('cuup1', 30025)), (('cucp1', 20026), ('cuup1', 30026))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4008, 'amf_ue_ngap_id': 14008}},
+        {'du_index': {'src': 'du1', 'idx': 109}, 'cucp_index': {'src': 'cucp1', 'idx': 209}, 'cuup_index': {'src': 'cuup1', 'idx': 309}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20009}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20027), ('cuup1', 30027)), (('cucp1', 20028), ('cuup1', 30028)), (('cucp1', 20029), ('cuup1', 30029))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4009, 'amf_ue_ngap_id': 14009}}]
+    for ue in range(0, num_ue):
+        ctx = s.getue_by_id(ue)
+        assert asdict(ctx) == expected_contexts[ue]
+
+    ###########################################################################
+    # Handle RESET using ngap ran ue id
+    ue = 6
+    s.hook_ngap_reset( cucp1_src,
+                       ngap_ran_ue_id=ngap_ran_ue_id_off+ue, 
+                       ngap_amf_ue_id=None)
+    uectx = s.getue_by_id(ue)
+    assert uectx is not None and uectx.du_index==UniqueIndex('du1', 106) and uectx.cucp_index==UniqueIndex('cucp1', 206) and uectx.cuup_index==UniqueIndex('cuup1', 306)\
+        and uectx.ran_unique_ue_id==RanUniqueUeId(plmn=101, pci=400, crnti=20006) and uectx.nci==201 and uectx.tac==12 \
+        and len(uectx.e1_bearers)==3 and uectx.ngap_ids is None
+
+    ###########################################################################
+    # Handle RESET using ngap amf ue id
+    ue = 7
+    s.hook_ngap_reset( cucp1_src,
+                       ngap_ran_ue_id=None, 
+                       ngap_amf_ue_id=ngap_amf_ue_id_off+ue)
+    uectx = s.getue_by_id(ue)
+    assert uectx is not None and uectx.du_index==UniqueIndex('du1', 107) and uectx.cucp_index==UniqueIndex('cucp1', 207) and uectx.cuup_index==UniqueIndex('cuup1', 307)\
+        and uectx.ran_unique_ue_id==RanUniqueUeId(plmn=101, pci=400, crnti=20007) and uectx.nci==201 and uectx.tac==12 \
+        and len(uectx.e1_bearers)==3 and uectx.ngap_ids is None
+
+    expected_contexts = [
+        {'du_index': {'src': 'du1', 'idx': 100}, 'cucp_index': {'src': 'cucp1', 'idx': 200}, 'cuup_index': {'src': 'cuup1', 'idx': 300}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20000}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20000), ('cuup1', 30000)), (('cucp1', 20001), ('cuup1', 30001)), (('cucp1', 20002), ('cuup1', 30002))], 'tmsi': None, 'ngap_ids': None},
+        {'du_index': {'src': 'du1', 'idx': 101}, 'cucp_index': {'src': 'cucp1', 'idx': 201}, 'cuup_index': {'src': 'cuup1', 'idx': 301}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20001}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20003), ('cuup1', 30003)), (('cucp1', 20004), ('cuup1', 30004)), (('cucp1', 20005), ('cuup1', 30005))], 'tmsi': None, 'ngap_ids': None},
+        {'du_index': {'src': 'du1', 'idx': 102}, 'cucp_index': {'src': 'cucp1', 'idx': 202}, 'cuup_index': {'src': 'cuup1', 'idx': 302}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20002}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20006), ('cuup1', 30006)), (('cucp1', 20007), ('cuup1', 30007)), (('cucp1', 20008), ('cuup1', 30008))], 'tmsi': None, 'ngap_ids': None},
+        {'du_index': {'src': 'du1', 'idx': 103}, 'cucp_index': {'src': 'cucp1', 'idx': 203}, 'cuup_index': {'src': 'cuup1', 'idx': 303}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20003}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20009), ('cuup1', 30009)), (('cucp1', 20010), ('cuup1', 30010)), (('cucp1', 20011), ('cuup1', 30011))], 'tmsi': None, 'ngap_ids': None},
+        {'du_index': {'src': 'du1', 'idx': 104}, 'cucp_index': {'src': 'cucp1', 'idx': 204}, 'cuup_index': {'src': 'cuup1', 'idx': 304}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20004}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20012), ('cuup1', 30012)), (('cucp1', 20013), ('cuup1', 30013)), (('cucp1', 20014), ('cuup1', 30014))], 'tmsi': None, 'ngap_ids': None},
+        {'du_index': {'src': 'du1', 'idx': 105}, 'cucp_index': {'src': 'cucp1', 'idx': 205}, 'cuup_index': {'src': 'cuup1', 'idx': 305}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20005}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20015), ('cuup1', 30015)), (('cucp1', 20016), ('cuup1', 30016)), (('cucp1', 20017), ('cuup1', 30017))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4005, 'amf_ue_ngap_id': 14005}},
+        {'du_index': {'src': 'du1', 'idx': 106}, 'cucp_index': {'src': 'cucp1', 'idx': 206}, 'cuup_index': {'src': 'cuup1', 'idx': 306}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20006}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20018), ('cuup1', 30018)), (('cucp1', 20019), ('cuup1', 30019)), (('cucp1', 20020), ('cuup1', 30020))], 'tmsi': None, 'ngap_ids': None},
+        {'du_index': {'src': 'du1', 'idx': 107}, 'cucp_index': {'src': 'cucp1', 'idx': 207}, 'cuup_index': {'src': 'cuup1', 'idx': 307}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20007}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20021), ('cuup1', 30021)), (('cucp1', 20022), ('cuup1', 30022)), (('cucp1', 20023), ('cuup1', 30023))], 'tmsi': None, 'ngap_ids': None},
+        {'du_index': {'src': 'du1', 'idx': 108}, 'cucp_index': {'src': 'cucp1', 'idx': 208}, 'cuup_index': {'src': 'cuup1', 'idx': 308}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20008}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20024), ('cuup1', 30024)), (('cucp1', 20025), ('cuup1', 30025)), (('cucp1', 20026), ('cuup1', 30026))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4008, 'amf_ue_ngap_id': 14008}},
+        {'du_index': {'src': 'du1', 'idx': 109}, 'cucp_index': {'src': 'cucp1', 'idx': 209}, 'cuup_index': {'src': 'cuup1', 'idx': 309}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20009}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20027), ('cuup1', 30027)), (('cucp1', 20028), ('cuup1', 30028)), (('cucp1', 20029), ('cuup1', 30029))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4009, 'amf_ue_ngap_id': 14009}}]
+    for ue in range(0, num_ue):
+        ctx = s.getue_by_id(ue)
+        assert asdict(ctx) == expected_contexts[ue]
+
+
+    ###########################################################################
+    # Handle RESET of all contexts on a specific cucp src
+    s.hook_ngap_reset( cucp1_src,
+                       ngap_ran_ue_id=None, 
+                       ngap_amf_ue_id=None)
+    expected_contexts = [
+        {'du_index': {'src': 'du1', 'idx': 100}, 'cucp_index': {'src': 'cucp1', 'idx': 200}, 'cuup_index': {'src': 'cuup1', 'idx': 300}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20000}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20000), ('cuup1', 30000)), (('cucp1', 20001), ('cuup1', 30001)), (('cucp1', 20002), ('cuup1', 30002))], 'tmsi': None, 'ngap_ids': None},
+        {'du_index': {'src': 'du1', 'idx': 101}, 'cucp_index': {'src': 'cucp1', 'idx': 201}, 'cuup_index': {'src': 'cuup1', 'idx': 301}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20001}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20003), ('cuup1', 30003)), (('cucp1', 20004), ('cuup1', 30004)), (('cucp1', 20005), ('cuup1', 30005))], 'tmsi': None, 'ngap_ids': None},
+        {'du_index': {'src': 'du1', 'idx': 102}, 'cucp_index': {'src': 'cucp1', 'idx': 202}, 'cuup_index': {'src': 'cuup1', 'idx': 302}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20002}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20006), ('cuup1', 30006)), (('cucp1', 20007), ('cuup1', 30007)), (('cucp1', 20008), ('cuup1', 30008))], 'tmsi': None, 'ngap_ids': None},
+        {'du_index': {'src': 'du1', 'idx': 103}, 'cucp_index': {'src': 'cucp1', 'idx': 203}, 'cuup_index': {'src': 'cuup1', 'idx': 303}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20003}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20009), ('cuup1', 30009)), (('cucp1', 20010), ('cuup1', 30010)), (('cucp1', 20011), ('cuup1', 30011))], 'tmsi': None, 'ngap_ids': None},
+        {'du_index': {'src': 'du1', 'idx': 104}, 'cucp_index': {'src': 'cucp1', 'idx': 204}, 'cuup_index': {'src': 'cuup1', 'idx': 304}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20004}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20012), ('cuup1', 30012)), (('cucp1', 20013), ('cuup1', 30013)), (('cucp1', 20014), ('cuup1', 30014))], 'tmsi': None, 'ngap_ids': None},
+        {'du_index': {'src': 'du1', 'idx': 105}, 'cucp_index': {'src': 'cucp1', 'idx': 205}, 'cuup_index': {'src': 'cuup1', 'idx': 305}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20005}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20015), ('cuup1', 30015)), (('cucp1', 20016), ('cuup1', 30016)), (('cucp1', 20017), ('cuup1', 30017))], 'tmsi': None, 'ngap_ids': None},
+        {'du_index': {'src': 'du1', 'idx': 106}, 'cucp_index': {'src': 'cucp1', 'idx': 206}, 'cuup_index': {'src': 'cuup1', 'idx': 306}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20006}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20018), ('cuup1', 30018)), (('cucp1', 20019), ('cuup1', 30019)), (('cucp1', 20020), ('cuup1', 30020))], 'tmsi': None, 'ngap_ids': None},
+        {'du_index': {'src': 'du1', 'idx': 107}, 'cucp_index': {'src': 'cucp1', 'idx': 207}, 'cuup_index': {'src': 'cuup1', 'idx': 307}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20007}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20021), ('cuup1', 30021)), (('cucp1', 20022), ('cuup1', 30022)), (('cucp1', 20023), ('cuup1', 30023))], 'tmsi': None, 'ngap_ids': None},
+        {'du_index': {'src': 'du1', 'idx': 108}, 'cucp_index': {'src': 'cucp1', 'idx': 208}, 'cuup_index': {'src': 'cuup1', 'idx': 308}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20008}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20024), ('cuup1', 30024)), (('cucp1', 20025), ('cuup1', 30025)), (('cucp1', 20026), ('cuup1', 30026))], 'tmsi': None, 'ngap_ids': None},
+        {'du_index': {'src': 'du1', 'idx': 109}, 'cucp_index': {'src': 'cucp1', 'idx': 209}, 'cuup_index': {'src': 'cuup1', 'idx': 309}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20009}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20027), ('cuup1', 30027)), (('cucp1', 20028), ('cuup1', 30028)), (('cucp1', 20029), ('cuup1', 30029))], 'tmsi': None, 'ngap_ids': None}]
+    for ue in range(0, num_ue):
+        ctx = s.getue_by_id(ue)
+        assert asdict(ctx) == expected_contexts[ue]
+
+
     print("\n\n------ All tests passed ---------")
+
 
     sys.exit(0)
