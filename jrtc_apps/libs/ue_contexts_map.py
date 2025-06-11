@@ -109,8 +109,27 @@
 import sys
 from dataclasses import dataclass, asdict, replace
 from typing import List, Tuple, Dict
+from enum import IntEnum
 
 
+##########################################
+class JbpfNgapProcedure(IntEnum):
+    NGAP_PROCEDURE_INITIAL_CONTEXT_SETUP = 1
+    NGAP_PROCEDURE_UE_CONTEXT_RELEASE = 2
+    NGAP_PROCEDURE_PDU_SESSION_SETUP = 3
+    NGAP_PROCEDURE_PDU_SESSION_MODIFY = 4
+    NGAP_PROCEDURE_PDU_SESSION_RELEASE = 5
+    NGAP_PROCEDURE_RESOURCE_ALLOCATION = 6
+    NGAP_PROCEDURE_MAX = 7
+
+
+##########################################
+class JbpRrcProcedure(IntEnum):
+    RRC_PROCEDURE_SETUP = 1
+    RRC_PROCEDURE_RECONFIGURATION = 1
+    RRC_PROCEDURE_REESTABLISHMENT = 1
+    RRC_PROCEDURE_UE_CAPABILITY = 1
+    
 
 ##########################################
 @dataclass(frozen=True)
@@ -1083,7 +1102,7 @@ class UeContextsMap:
         self.contexts[ue_id].tmsi = tmsi
 
     #####################################################################
-    def hook_ngap_procedure_started(self, cucp_src: str, cucp_index: int, ngap_ran_ue_id, ngap_amf_ue_id: int = None) -> None:
+    def hook_ngap_procedure_started(self, cucp_src: str, cucp_index: int, procedure: int, ngap_ran_ue_id, ngap_amf_ue_id: int = None) -> None:
         if self.dbg:
             print("-------------------------------------------------")
             print(f"hook_ngap_procedure_started: cucp_src={cucp_src} cucp_index={cucp_index} ngap_ran_ue_id={ngap_ran_ue_id} ngap_amf_ue_id={ngap_amf_ue_id}")
@@ -1109,7 +1128,7 @@ class UeContextsMap:
         self.contexts[ue_id].ngap_ids = RanNgapUeIds(ngap_ran_ue_id, ngap_amf_ue_id)
 
     #####################################################################
-    def hook_ngap_procedure_completed(self, cucp_src: str, cucp_index: int, success: bool, ngap_ran_ue_id: int, ngap_amf_ue_id: int) -> None:
+    def hook_ngap_procedure_completed(self, cucp_src: str, cucp_index: int, procedure: int, success: bool, ngap_ran_ue_id: int, ngap_amf_ue_id: int) -> None:
         if self.dbg:
             print("-------------------------------------------------")
             print(f"hook_ngap_procedure_completed: cucp_src={cucp_src} cucp_index={cucp_index} success={success} ngap_ran_ue_id={ngap_ran_ue_id} ngap_amf_ue_id={ngap_amf_ue_id}")
@@ -1133,13 +1152,20 @@ class UeContextsMap:
             return
         
         if not success:
-            # if the procedure failed, clear the ngap_ids
-            self.contexts[ue_id].ngap_ids = None
+
+            # if the procedure was the context setup, clear the ngap_ids
+            if procedure == JbpfNgapProcedure.NGAP_PROCEDURE_INITIAL_CONTEXT_SETUP:
+                self.contexts[ue_id].ngap_ids = None
             
         else:
 
-            self.contexts[ue_id].ngap_ids = RanNgapUeIds(ngap_ran_ue_id, ngap_amf_ue_id)
-            self.associate_ue_context_with_amf(ue_id)
+            # the procedure was a release, clear the ngap_ids
+            if procedure == JbpfNgapProcedure.NGAP_PROCEDURE_UE_CONTEXT_RELEASE:
+                 self.contexts[ue_id].ngap_ids = None
+
+            else:
+                self.contexts[ue_id].ngap_ids = RanNgapUeIds(ngap_ran_ue_id, ngap_amf_ue_id)
+                self.associate_ue_context_with_amf(ue_id)
 
 
     #####################################################################

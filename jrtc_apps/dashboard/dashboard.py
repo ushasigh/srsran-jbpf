@@ -39,7 +39,7 @@ from la_logger import LaLogger, LaLoggerConfig
 
 # always include the ue_contexts_map module
 ue_contexts_map = sys.modules.get('ue_contexts_map')    
-from ue_contexts_map import UeContextsMap
+from ue_contexts_map import UeContextsMap, JbpfNgapProcedure, JbpRrcProcedure
 
 # Import the protobuf py modules
 if include_ue_contexts:
@@ -107,30 +107,31 @@ app_lock = threading.Lock()
 
 ##########################################################################
 def rrc_procedure_to_str(procedure: int) -> str:
-    if procedure == 1:
+    if procedure == JbpRrcProcedure.RRC_PROCEDURE_SETUP:
         return "RRC_SETUP"
-    elif procedure == 2:
+    elif procedure == JbpRrcProcedure.RRC_PROCEDURE_RECONFIGURATION:
         return "RRC_RECONFIGURATION"
-    elif procedure == 3:
+    elif procedure == JbpRrcProcedure.RRC_PROCEDURE_REESTABLISHMENT:
         return "RRC_REESTABLISHMENT"
-    elif procedure == 4:
+    elif procedure == JbpRrcProcedure.RRC_PROCEDURE_UE_CAPABILITY:
         return "RRC_UE_CAPABILITY"
     else:
         return "UNKNOWN"
 
+
 ##########################################################################
 def ngap_procedure_to_str(procedure: int) -> str:
-    if procedure == 1:
+    if procedure == JbpfNgapProcedure.NGAP_PROCEDURE_INITIAL_CONTEXT_SETUP:
         return "INITIAL_CONTEXT_SETUP"
-    elif procedure == 2:
+    elif procedure == JbpfNgapProcedure.NGAP_PROCEDURE_UE_CONTEXT_RELEASE:
         return "UE_CONTEXT_RELEASE"
-    elif procedure == 3:
+    elif procedure == JbpfNgapProcedure.NGAP_PROCEDURE_PDU_SESSION_SETUP:
         return "PDU_SESSION_SETUP"
-    elif procedure == 4:
+    elif procedure == JbpfNgapProcedure.NGAP_PROCEDURE_PDU_SESSION_MODIFY:
         return "PDU_SESSION_MODIFY"
-    elif procedure == 5:
+    elif procedure == JbpfNgapProcedure.NGAP_PROCEDURE_PDU_SESSION_RELEASE:
         return "PDU_SESSION_RELEASE"
-    elif procedure == 6:
+    elif procedure == JbpfNgapProcedure.NGAP_PROCEDURE_RESOURCE_ALLOCATION:
         return "RESOURCE_ALLOCATION"
     else:
         return "UNKNOWN"
@@ -676,6 +677,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                 deviceid = str(jrtc_app_router_stream_id_get_device_id(state.app, NGAP_PROCEDURE_STARTED_SIDX))
                 
                 state.ue_map.hook_ngap_procedure_started(deviceid, data.ue_ctx.cucp_ue_index, 
+                                                     data.procedure,
                                                      data.ue_ctx.ran_ue_id, 
                                                      ngap_amf_ue_id = None if data.ue_ctx.has_amf_ue_id is False else data.ue_ctx.amf_ue_id)
 
@@ -703,10 +705,14 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
 
                 deviceid = str(jrtc_app_router_stream_id_get_device_id(state.app, NGAP_PROCEDURE_COMPLETED_SIDX))
 
-                state.ue_map.hook_ngap_procedure_completed(deviceid, data.ue_ctx.cucp_ue_index, 
-                                                           data.success,
-                                                           data.ue_ctx.ran_ue_id, 
-                                                           data.ue_ctx.amf_ue_id)
+
+                # if the procedure is not a context release, run it first, so that the UE will be updated
+                if data.procedure != JbpfNgapProcedure.NGAP_PROCEDURE_UE_CONTEXT_RELEASE:
+                    state.ue_map.hook_ngap_procedure_completed(deviceid, data.ue_ctx.cucp_ue_index,
+                                                            data.procedure,
+                                                            data.success,
+                                                            data.ue_ctx.ran_ue_id, 
+                                                            data.ue_ctx.amf_ue_id)
                 
                 output = {
                     "timestamp": data.timestamp,
@@ -722,6 +728,15 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                 if uectx is not None:
                     output["ue_id"] = ueid
                     output["ue_ctx"] = None if uectx is None else uectx.concise_dict()
+
+
+                # if the procedure is a context release, run it now
+                if data.procedure == JbpfNgapProcedure.NGAP_PROCEDURE_UE_CONTEXT_RELEASE:
+                    state.ue_map.hook_ngap_procedure_completed(deviceid, data.ue_ctx.cucp_ue_index,
+                                                            data.procedure,
+                                                            data.success,
+                                                            data.ue_ctx.ran_ue_id, 
+                                                            data.ue_ctx.amf_ue_id)
 
                 state.logger.log_msg(True, True, "Dashboard", f"{output}")
 
