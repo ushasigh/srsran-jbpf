@@ -104,6 +104,38 @@ if include_xran:
 app_lock = threading.Lock()
 
 
+
+##########################################################################
+def rrc_procedure_to_str(procedure: int) -> str:
+    if procedure == 1:
+        return "RRC_SETUP"
+    elif procedure == 2:
+        return "RRC_RECONFIGURATION"
+    elif procedure == 3:
+        return "RRC_REESTABLISHMENT"
+    elif procedure == 4:
+        return "RRC_UE_CAPABILITY"
+    else:
+        return "UNKNOWN"
+
+##########################################################################
+def ngap_procedure_to_str(procedure: int) -> str:
+    if procedure == 1:
+        return "INITIAL_CONTEXT_SETUP"
+    elif procedure == 2:
+        return "UE_CONTEXT_RELEASE"
+    elif procedure == 3:
+        return "PDU_SESSION_SETUP"
+    elif procedure == 4:
+        return "PDU_SESSION_MODIFY"
+    elif procedure == 5:
+        return "PDU_SESSION_RELEASE"
+    elif procedure == 6:
+        return "RESOURCE_ALLOCATION"
+    else:
+        return "UNKNOWN"
+
+
 ##########################################################################
 # Define the state variables for the application
 @dataclass
@@ -144,7 +176,7 @@ class JsonUDPServer:
                     data, addr = self.sock.recvfrom(1024)
                     self.json_handler_func(data.decode())
                 except Exception as e:
-                    print(f"JsonUDPServer: udp_server: error: {e}")
+                    print(f"JsonUDPServer: udp_server: error: {e}", flush=True)
         finally:
             if self.sock:
                 self.sock.close()
@@ -170,8 +202,6 @@ class JsonUDPServer:
 
             j = json.loads(json_str)
 
-            print(f"JsonUDPServer: json_handler_func: received message: {json_str}")
-
             context_type = j.get("context_type", None)
             event = j.get("event", None)
             if context_type is None or event is None:
@@ -180,31 +210,15 @@ class JsonUDPServer:
             
             if context_type == "amf-ue":
 
+                output = {
+                    "timestamp": j.get("timestamp", 0),
+                    "stream_index": "CORE-AMF-UE",
+                    "core-msg": j
+                }   
+
+                self.state.logger.log_msg(True, True, "Dashboard", f"{output}")
+
                 if event == "ran-ue-remove":
-
-                    ngap_ran_ue_id = event = j.get("context", {}).get("ran_ue", {}).get("ran_ue_ngap_id", None)
-                    ngap_amf_ue_id = event = j.get("context", {}).get("ran_ue", {}).get("amf_ue_ngap_id", None)
-
-                    ueid = self.state.ue_map.getid_by_core_amf_info(
-                        suci=j.get("context", {}).get("suci", None),
-                        supi=j.get("context", {}).get("supi", None),
-                        current_guti_plmn=j.get("context", {}).get("current-guti", {}).get("plmn_id", None),
-                        current_guti_amf_id=j.get("context", {}).get("current-guti", {}).get("amf_id", None),
-                        current_guti_m_tmsi=j.get("context", {}).get("current-guti", {}).get("m_tmsi", None),
-                        next_guti_plmn=j.get("context", {}).get("next-guti", {}).get("plmn_id", None),
-                        next_guti_amf_id=j.get("context", {}).get("next-guti", {}).get("amf_id", None),
-                        next_guti_m_tmsi=j.get("context", {}).get("next-guti", {}).get("m_tmsi", None))
-                    uectx = self.state.ue_map.getuectx(ueid)
-
-                    output = {
-                        "timestamp": j.get("timestamp", 0),
-                        "stream_index": "CORE-AMF-UE",
-                        "ueid": ueid,
-                        "ue_ctx": None if uectx is None else uectx.concise_dict(),
-                        "core-msg": j
-                    }   
-
-                    self.state.logger.log_msg(True, True, "Dashboard", f"{output}")    
 
                     self.state.ue_map.hook_core_amf_info_remove(
                         suci=j.get("context", {}).get("suci", None),
@@ -223,6 +237,7 @@ class JsonUDPServer:
                     )
 
                 else:
+
                     self.state.ue_map.hook_core_amf_info(
                         ran_ue_ngap_id=j.get("context", {}).get("ran_ue", {}).get("ran_ue_ngap_id", None),
                         amf_ue_ngap_id=j.get("context", {}).get("ran_ue", {}).get("amf_ue_ngap_id", None),
@@ -241,41 +256,11 @@ class JsonUDPServer:
                         cgi_cellid=j.get("context", {}).get("nr_cgi", {}).get("cell_id", None)
                     )
 
-                    ngap_ran_ue_id = event = j.get("context", {}).get("ran_ue", {}).get("ran_ue_ngap_id", None)
-                    ngap_amf_ue_id = event = j.get("context", {}).get("ran_ue", {}).get("amf_ue_ngap_id", None)
-                    ueid = self.state.ue_map.getid_by_ngap_ue_ids(ngap_ran_ue_id, ngap_amf_ue_id)
-                    uectx = self.state.ue_map.getuectx(ueid)
-
-                    output = {
-                        "timestamp": j.get("timestamp", 0),
-                        "stream_index": "CORE-AMF-UE",
-                        "ueid": ueid,
-                        "ue_ctx": None if uectx is None else uectx.concise_dict(),
-                        "core-msg": j
-                    }   
-
-                    self.state.logger.log_msg(True, True, "Dashboard", f"{output}")
-
 
 ##########################################################################
 def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_data_entry, state: AppStateVars):
 
     with app_lock:
-
-        ###########################################################################
-        def report_uectx_info(uectx) -> Dict:
-            if uectx is None:
-                return None
-            d = asdict(uectx)
-
-            # Remove keys with None values
-            [d.pop(k) for k in list(d) if d[k] is None]
-
-            # remove e1_beaerss if it is empty
-            if "e1_bearers" in d and len(d["e1_bearers"]) == 0:
-                d.pop("e1_bearers")
-
-            return d
 
         ##########################################################################
         # main part of function
@@ -313,7 +298,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     "timestamp": data.timestamp,
                     "stream_index": "UECTX_DU_ADD",
                     "ueid": ueid,
-                    "ue_ctx": report_uectx_info(uectx)
+                    "ue_ctx": None if uectx is None else uectx.concise_dict()
                 }            
 
                 state.logger.log_msg(True, True, "Dashboard", f"{output}")
@@ -333,7 +318,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     "timestamp": data.timestamp,
                     "stream_index": "UECTX_DU_UPDATE_CRNTI",
                     "ueid": ueid,
-                    "ue_ctx": report_uectx_info(uectx)
+                    "ue_ctx": None if uectx is None else uectx.concise_dict()
                 }            
 
                 if uectx is None:
@@ -356,7 +341,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     "timestamp": data.timestamp,
                     "stream_index": "UECTX_DU_DEL",
                     "ueid": ueid,
-                    "ue_ctx": report_uectx_info(uectx)
+                    "ue_ctx": None if uectx is None else uectx.concise_dict()
                 }            
 
                 if uectx is None:
@@ -388,7 +373,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     "timestamp": data.timestamp,
                     "stream_index": "UECTX_CUCP_ADD",
                     "ueid": ueid,
-                    "ue_ctx": report_uectx_info(uectx)
+                    "ue_ctx": None if uectx is None else uectx.concise_dict()
                 }            
 
                 if uectx is None:
@@ -413,7 +398,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     "timestamp": data.timestamp,
                     "stream_index": "UECTX_CUCP_UPDATE_CRNTI",
                     "ueid": ueid,
-                    "ue_ctx": report_uectx_info(uectx)
+                    "ue_ctx": None if uectx is None else uectx.concise_dict()
                 }            
 
                 state.logger.log_msg(True, True, "Dashboard", f"{output}")
@@ -432,7 +417,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     "timestamp": data.timestamp,
                     "stream_index": "UECTX_CUCP_DEL",
                     "ueid": ueid,
-                    "ue_ctx": report_uectx_info(uectx)
+                    "ue_ctx": None if uectx is None else uectx.concise_dict()
                 }            
 
                 if uectx is None:
@@ -460,7 +445,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     "timestamp": data.timestamp,
                     "stream_index": "UECTX_CUCP_E1AP_BEARER_SETUP",
                     "ueid": ueid,
-                    "ue_ctx": report_uectx_info(uectx)
+                    "ue_ctx": None if uectx is None else uectx.concise_dict()
                 }            
 
                 if uectx is None:
@@ -488,7 +473,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     "timestamp": data.timestamp,
                     "stream_index": "UECTX_CUUP_E1AP_BEARER_SETUP",
                     "ueid": ueid,
-                    "ue_ctx": report_uectx_info(uectx),
+                    "ue_ctx": None if uectx is None else uectx.concise_dict(),
                     "success": data.success,
                 }            
 
@@ -511,7 +496,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     "timestamp": data.timestamp,
                     "stream_index": "UECTX_CUUP_E1AP_BEARER_DEL_SIDX",
                     "ueid": ueid,
-                    "ue_ctx": report_uectx_info(uectx),
+                    "ue_ctx": None if uectx is None else uectx.concise_dict(),
                     "success": data.success,
                 }            
 
@@ -575,7 +560,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     "timestamp": data.timestamp,
                     "stream_index": "RRC_UE_ADD",
                     "ueid": ueid,
-                    "ue_ctx": report_uectx_info(uectx)
+                    "ue_ctx": None if uectx is None else uectx.concise_dict()
                 }
 
                 if uectx is None:
@@ -597,8 +582,8 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     "timestamp": data.timestamp,
                     "stream_index": "RRC_UE_PROCEDURE",
                     "ueid": ueid,
-                    "ue_ctx": report_uectx_info(uectx),
-                    "procedure": data.procedure,
+                    "ue_ctx": None if uectx is None else uectx.concise_dict(),
+                    "procedure": rrc_procedure_to_str(data.procedure),
                     "success": data.success,
                     "meta": data.meta
                 }
@@ -622,7 +607,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     "timestamp": data.timestamp,
                     "stream_index": "RRC_UE_REMOVE",
                     "ueid": ueid,
-                    "ue_ctx": report_uectx_info(uectx)
+                    "ue_ctx": None if uectx is None else uectx.concise_dict()
                 }
 
                 if uectx is None:
@@ -644,7 +629,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     "timestamp": data.timestamp,
                     "stream_index": "RRC_UE_UPDATE_CONTEXT",
                     "ueid": ueid,
-                    "ue_ctx": report_uectx_info(uectx),
+                    "ue_ctx": None if uectx is None else uectx.concise_dict(),
                     "cucp_ue_index": data.cucp_ue_index,
                     "old_ue_index": data.old_ue_index,
                     "rnti": data.c_rnti,
@@ -670,7 +655,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     "timestamp": data.timestamp,
                     "stream_index": "RRC_UE_UPDATE_ID",
                     "ueid": ueid,
-                    "ue_ctx": report_uectx_info(uectx)
+                    "ue_ctx": None if uectx is None else uectx.concise_dict()
                 }
 
                 if uectx is None:
@@ -698,14 +683,15 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     "timestamp": data.timestamp,
                     "stream_index": "NGAP_PROCEDURE_STARTED",
                     "ngap_ran_ue_id": None if data.ue_ctx.has_ran_ue_id is False else data.ue_ctx.ran_ue_id,
-                    "ngap_amf_ue_id": None if data.ue_ctx.has_amf_ue_id is False else data.ue_ctx.amf_ue_id
+                    "ngap_amf_ue_id": None if data.ue_ctx.has_amf_ue_id is False else data.ue_ctx.amf_ue_id,
+                    "procedure": ngap_procedure_to_str(data.procedure)
                 }
 
                 ueid = state.ue_map.getid_by_cucp_index(deviceid, data.ue_ctx.cucp_ue_index)
                 uectx = state.ue_map.getuectx(ueid)
                 if uectx is not None:
                     output["ue_id"] = ueid
-                    output["ue_ctx"] = report_uectx_info(uectx)
+                    output["ue_ctx"] = None if uectx is None else uectx.concise_dict()
 
                 state.logger.log_msg(True, True, "Dashboard", f"{output}")
 
@@ -726,14 +712,16 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     "timestamp": data.timestamp,
                     "stream_index": "NGAP_PROCEDURE_COMPLETED",
                     "ngap_ran_ue_id": None if data.ue_ctx.has_ran_ue_id is False else data.ue_ctx.ran_ue_id,
-                    "ngap_amf_ue_id": None if data.ue_ctx.has_amf_ue_id is False else data.ue_ctx.amf_ue_id
+                    "ngap_amf_ue_id": None if data.ue_ctx.has_amf_ue_id is False else data.ue_ctx.amf_ue_id,
+                    "procedure": ngap_procedure_to_str(data.procedure),
+                    "success": data.success
                 }
 
                 ueid = state.ue_map.getid_by_cucp_index(deviceid, data.ue_ctx.cucp_ue_index)
                 uectx = state.ue_map.getuectx(ueid)
                 if uectx is not None:
                     output["ue_id"] = ueid
-                    output["ue_ctx"] = report_uectx_info(uectx)
+                    output["ue_ctx"] = None if uectx is None else uectx.concise_dict()
 
                 state.logger.log_msg(True, True, "Dashboard", f"{output}")
 
@@ -758,7 +746,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                 uectx = state.ue_map.getuectx(ueid)
                 if uectx is not None:
                     output["ue_id"] = ueid
-                    output["ue_ctx"] = report_uectx_info(uectx)
+                    output["ue_ctx"] = None if uectx is None else uectx.concise_dict()
 
                 state.ue_map.hook_ngap_reset(deviceid, data.ue_ctx.cucp_ue_index, 
                                              ngap_ran_ue_id = None if data.ue_ctx.has_ran_ue_id is False else data.ue_ctx.ran_ue_id,
@@ -786,12 +774,12 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
 
                     report_stat = False
 
-                    ueid = state.ue_map.getid_by_cucp_index(deviceid, stat.du_ue_index) 
+                    ueid = state.ue_map.getid_by_du_index(deviceid, stat.du_ue_index) 
                     uectx = state.ue_map.getuectx(ueid)
 
                     s = {
                         "ueid": ueid,
-                        "ue_ctx": report_uectx_info(uectx),
+                        "ue_ctx": None if uectx is None else uectx.concise_dict(),
                         "is_srb": stat.is_srb,
                         "rb_id": stat.rb_id
                     }
@@ -830,12 +818,12 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
 
                     report_stat = False
 
-                    ueid = state.ue_map.getid_by_cucp_index(deviceid, stat.du_ue_index) 
+                    ueid = state.ue_map.getid_by_du_index(deviceid, stat.du_ue_index) 
                     uectx = state.ue_map.getuectx(ueid)
 
                     s = {
                         "ueid": ueid,
-                        "ue_ctx": report_uectx_info(uectx),
+                        "ue_ctx": None if uectx is None else uectx.concise_dict(),
                         "is_srb": stat.is_srb,
                         "rb_id": stat.rb_id
                     }
@@ -910,12 +898,12 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
 
                     report_stat = False
 
-                    ueid = state.ue_map.getid_by_cucp_index(deviceid, stat.du_ue_index) 
+                    ueid = state.ue_map.getid_by_du_index(deviceid, stat.du_ue_index) 
                     uectx = state.ue_map.getuectx(ueid)
 
                     s = {
                         "ueid": ueid,
-                        "ue_ctx": report_uectx_info(uectx),
+                        "ue_ctx": None if uectx is None else uectx.concise_dict(),
                         "is_srb": stat.is_srb,
                         "rb_id": stat.rb_id
                     }
@@ -987,7 +975,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
 
                     s = {
                         "ueid": ueid,
-                        "ue_ctx": report_uectx_info(uectx),
+                        "ue_ctx": None if uectx is None else uectx.concise_dict(),
                         "is_srb": stat.is_srb,
                         "rb_id": stat.rb_id
                     }
@@ -1050,7 +1038,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
 
                     s = {
                         "ueid": ueid,
-                        "ue_ctx": report_uectx_info(uectx),
+                        "ue_ctx": None if uectx is None else uectx.concise_dict(),
                         "is_srb": stat.is_srb,
                         "rb_id": stat.rb_id
                     }
@@ -1188,7 +1176,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
 
                     s = {
                         "ueid": ueid,
-                        "ue_ctx": report_uectx_info(uectx),
+                        "ue_ctx": None if uectx is None else uectx.concise_dict(),
                         "is_srb": stat.is_srb,
                         "rb_id": stat.rb_id
                     }
@@ -1251,7 +1239,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                         uectx = state.ue_map.getuectx(ueid)
                         s ={
                             "ueid": ueid,
-                            "ue_ctx": report_uectx_info(uectx),
+                            "ue_ctx": None if uectx is None else uectx.concise_dict(),
                             "cons_min": stat.cons_min,
                             "cons_max": stat.cons_max,
                             "succ_rate": stat.succ_tx / stat.cnt_tx,
@@ -1292,7 +1280,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                         uectx = state.ue_map.getuectx(ueid)
                         s = {
                             "ueid": ueid,
-                            "ue_ctx": report_uectx_info(uectx),
+                            "ue_ctx": None if uectx is None else uectx.concise_dict(),
                             "cnt": stat.cnt
                         }
                         if uectx is None:
@@ -1325,7 +1313,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                         uectx = state.ue_map.getuectx(ueid)
                         s = {
                             "ueid": ueid,
-                            "ue_ctx": report_uectx_info(uectx),
+                            "ue_ctx": None if uectx is None else uectx.concise_dict(),
                             "serv_cell_id": stat.serv_cell_id,
                             "ph_min": stat.ph_min,
                             "ph_max": stat.ph_max,
@@ -1368,7 +1356,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                         s = {
                             "cell_id": stat.cell_id,
                             "ueid": ueid,
-                            "ue_ctx": report_uectx_info(uectx),
+                            "ue_ctx": None if uectx is None else uectx.concise_dict(),
                             "l1_dlc_tx": stat.l1_dlc_tx,
                             "l1_prb_min": stat.l1_prb_min,
                             "l1_prb_max": stat.l1_prb_max,
@@ -1411,7 +1399,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                         s = {
                             "cell_id": stat.cell_id,
                             "ueid": ueid,
-                            "ue_ctx": report_uectx_info(uectx),
+                            "ue_ctx": None if uectx is None else uectx.concise_dict(),
                             "l1_ulc_tx": stat.l1_ulc_tx,
                             "l1_prb_min": stat.l1_prb_min,
                             "l1_prb_max": stat.l1_prb_max,
@@ -1455,7 +1443,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                         s = {
                             "cell_id": stat.cell_id,
                             "ueid": ueid,
-                            "ue_ctx": report_uectx_info(uectx),
+                            "ue_ctx": None if uectx is None else uectx.concise_dict(),
                             "l1_crc_ta_hist": list(stat.l1_crc_ta_hist),
                             "l1_crc_snr_hist": list(stat.l1_crc_snr_hist),
                             "l1_ta_min": stat.l1_ta_min,
@@ -1619,10 +1607,10 @@ def jrtc_start_app(capsule):
     la_primary_key = os.environ.get("LA_PRIMARY_KEY", "")
 
     if la_workspace_id == "" or la_primary_key == "":
-        print("Log Analytics workspace ID or primary key not set. Using local logger only.")
+        print("Log Analytics workspace ID or primary key not set. Using local logger only.", flush=True)
         la_logger = None
     else:
-        print("Log Analytics workspace ID and primary key are set. Will do remote logging to Log Analytics.")
+        print("Log Analytics workspace ID and primary key are set. Will do remote logging to Log Analytics.", flush=True)
         # Create the Log Analytics logger
         la_logger = LaLogger(
             LaLoggerConfig(
@@ -1646,7 +1634,7 @@ def jrtc_start_app(capsule):
     
     state = AppStateVars(
         logger=Logger(hostname, stream_id, stream_type, remote_logger=la_logger),
-        ue_map=UeContextsMap(dbg=True) if include_ue_contexts else None, 
+        ue_map=UeContextsMap(dbg=False) if include_ue_contexts else None, 
         app=None)
     
 
