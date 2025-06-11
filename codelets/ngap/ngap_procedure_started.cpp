@@ -50,9 +50,11 @@ uint64_t jbpf_main(void* state)
     out->ue_ctx.cucp_ue_index = ngap_ctx.cucp_ue_index;
     if (ngap_ctx.ran_ue_ngap_id_set) {
         out->ue_ctx.ran_ue_id = ngap_ctx.ran_ue_ngap_id;
+        out->ue_ctx.has_ran_ue_id = true;
     }
     if (ngap_ctx.amf_ue_ngap_id_set) {
         out->ue_ctx.amf_ue_id = ngap_ctx.amf_ue_ngap_id;
+        out->ue_ctx.has_amf_ue_id = true;
     }
     out->procedure = ctx->srs_meta_data1 & 0xffffffff;
 

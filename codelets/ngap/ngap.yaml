@@ -13,7 +13,7 @@ codelet_descriptor:
       - name: output_map
         forward_destination: DestinationUDP
         serde:
-          file_path: ${JBPF_CODELETS}/ngap/ngap:ngap_procedure_started.so
+          file_path: ${JBPF_CODELETS}/ngap/ngap:ngap_procedure_started_serializer.so
           protobuf:
             package_path: ${JBPF_CODELETS}/ngap/ngap.pb
             msg_name: ngap_procedure_started
@@ -26,7 +26,7 @@ codelet_descriptor:
       - name: output_map
         forward_destination: DestinationUDP
         serde:
-          file_path: ${JBPF_CODELETS}/ngap/ngap:ngap_procedure_completed.so
+          file_path: ${JBPF_CODELETS}/ngap/ngap:ngap_procedure_completed_serializer.so
           protobuf:
             package_path: ${JBPF_CODELETS}/ngap/ngap.pb
             msg_name: ngap_procedure_completed
@@ -39,7 +39,7 @@ codelet_descriptor:
       - name: output_map
         forward_destination: DestinationUDP
         serde:
-          file_path: ${JBPF_CODELETS}/ngap/ngap:ngap_reset.so
+          file_path: ${JBPF_CODELETS}/ngap/ngap:ngap_reset_serializer.so
           protobuf:
             package_path: ${JBPF_CODELETS}/ngap/ngap.pb
             msg_name: ngap_reset
