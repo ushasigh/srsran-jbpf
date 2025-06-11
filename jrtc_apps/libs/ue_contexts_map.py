@@ -102,9 +102,13 @@
 #
 
 
+
+
+
+
 import sys
 from dataclasses import dataclass, asdict, replace
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 
 
 
@@ -136,6 +140,31 @@ class RanNgapUeIds:
     def __str__(self):
         return f'{{"ran_ue_ngap_id":"{self.ran_ue_ngap_id}", "amf_ue_ngap_id":{self.amf_ue_ngap_id}}}'
 
+@dataclass(frozen=True)
+class CoreGUTI:
+    plmn_id: str
+    amf_id: str
+    mtmsi: int 
+
+@dataclass(frozen=True)
+class CoreCGI:
+    plmn_id: str
+    cell_id: str
+
+@dataclass(frozen=True)
+class CoreTAI:
+    plmn_id: str
+    tac: str
+
+@dataclass(frozen=True)
+class CoreAMFInfo:  
+    suci: str = None 
+    supi: str = None
+    home_plmn_id: str = None
+    current_guti: CoreGUTI = None
+    next_guti: CoreGUTI = None
+    tai: CoreTAI = None
+    cgi: CoreCGI = None
 
 @dataclass
 class UeContext:
@@ -148,9 +177,10 @@ class UeContext:
     e1_bearers: List[Tuple[int, int]]     # tuple of (cucp_ue_e1ap_id, cuup_ue_e1ap_id)
     tmsi: int = None  
     ngap_ids: RanNgapUeIds = None 
-    
+    core_amf_info: CoreAMFInfo = None
+
     def __init__(self, ran_unique_ue_id: RanUniqueUeId, du_index: UniqueIndex = None, cucp_index: UniqueIndex = None, cuup_index: UniqueIndex = None,
-                 nci: int=None, tac: int=None):
+                 nci: int = None, tac: int = None):
         self.ran_unique_ue_id = ran_unique_ue_id
         # optional
         self.nci = nci
@@ -194,7 +224,18 @@ class UeContext:
                 f"e1_bearers={self.e1_bearers}, "
                 f"ngap_ids={self.ngap_ids})")
 
+    def concise_dict(self) -> Dict:
 
+        d = asdict(uectx)
+
+        # Remove keys with None values
+        [d.pop(k) for k in list(d) if d[k] is None]
+
+        # remove e1_beaerss if it is empty
+        if "e1_bearers" in d and len(d["e1_bearers"]) == 0:
+            d.pop("e1_bearers")
+
+        return d
 
 ###########################################################################################################
 class UeContextsMap:
@@ -556,6 +597,55 @@ class UeContextsMap:
             return None
         else:
             return list(filtered_contexts.keys())[0]
+        
+    #####################################################################
+    def getid_by_core_amf_info(self, suci: str = None, supi: str = None, 
+                               current_guti_plmn: str = None, current_guti_amf_id: str = None, current_guti_m_tmsi: int = None,
+                               next_guti_plmn: str = None, next_guti_amf_id: str = None, next_guti_m_tmsi: int = None) -> int:
+
+        # get UE by any of the unique identifying parameters
+        ue_id = None
+        if suci is not None:
+            filtered_contexts = {
+                k: v for k, v in self.contexts.items()
+                if v.core_amf_info is not None and v.core_amf_info.suci == suci
+            }
+            if len(filtered_contexts) > 0:
+                ue_id = list(filtered_contexts.keys())[0]
+        elif ue_id is None and supi is not None:
+            filtered_contexts = {
+                k: v for k, v in self.contexts.items()
+                if v.core_amf_info is not None and v.core_amf_info.supi == supi
+            }
+            if len(filtered_contexts) > 0:
+                ue_id = list(filtered_contexts.keys())[0]
+        elif ue_id is None and current_guti_plmn is not None:
+            filtered_contexts = {
+                k: v for k, v in self.contexts.items()
+                if v.core_amf_info is not None and v.core_amf_info.current_guti is not None and \
+                   v.core_amf_info.current_guti.plmn_id == current_guti_plmn and \
+                   v.core_amf_info.current_guti.amf_id == current_guti_amf_id and \
+                   v.core_amf_info.current_guti.mtmsi == current_guti_m_tmsi
+            }
+            if len(filtered_contexts) > 0:
+                ue_id = list(filtered_contexts.keys())[0]
+        elif ue_id is None and next_guti_plmn is not None:
+            filtered_contexts = {
+                k: v for k, v in self.contexts.items()
+                if v.core_amf_info is not None and v.core_amf_info.next_guti is not None and \
+                   v.core_amf_info.next_guti.plmn_id == next_guti_plmn and \
+                   v.core_amf_info.next_guti.amf_id == next_guti_amf_id and \
+                   v.core_amf_info.next_guti.mtmsi == next_guti_m_tmsi
+            }
+            if len(filtered_contexts) > 0:
+                ue_id = list(filtered_contexts.keys())[0]
+        else:
+            # UE not found
+            return None
+        
+        return ue_id
+
+
 
     ####################################################################
     def get_e1_bearer_NoSrcCheck(self, cucp_ue_e1ap_id: int) -> (int, Tuple[Tuple[str, int], Tuple[str, int]]):
@@ -908,6 +998,83 @@ class UeContextsMap:
                 print(f"Resetting ngap_ids for UE context with cucp_src '{cucp_src}' ngap_amf_ue_id {ngap_amf_ue_id}")
             self.contexts[ue_id].ngap_ids = None     
             return
+
+
+    #####################################################################
+    def hook_core_amf_info(self, ran_ue_ngap_id: int = None, amf_ue_ngap_id: int = None,
+                              suci: str = None, supi: str = None, home_plmn_id: str = None,
+                              current_guti_plmn: str = None, current_guti_amf_id: str = None, current_guti_m_tmsi: int = None,
+                              next_guti_plmn: str = None, next_guti_amf_id: str = None, next_guti_m_tmsi: int = None,
+                              tai_plmn: str = None, tai_tac: str = None,
+                              cgi_plmn: str = None, cgi_cellid: str = None) -> None:
+
+        if self.dbg:
+            print(f"hook_core_amf_info: ran_ue_ngap_id={ran_ue_ngap_id}, amf_ue_ngap_id={amf_ue_ngap_id}, "
+                                f"suci={suci}, supi={supi}, home_plmn_id={home_plmn_id}, "
+                                f"current_guti_plmn={current_guti_plmn}, current_guti_amf_id={current_guti_amf_id}, "
+                                f"current_guti_m_tmsi={current_guti_m_tmsi}, "
+                                f"next_guti_plmn={next_guti_plmn}, next_guti_amf_id={next_guti_amf_id}, "
+                                f"next_guti_m_tmsi={next_guti_m_tmsi}, "
+                                f"tai_plmn={tai_plmn}, tai_tac={tai_tac}, "
+                                f"cgi_plmn={cgi_plmn}, cgi_cellid={cgi_cellid}")
+            
+        # get the UE context by ran_ue_ngap_id & amf_ue_ngap_id
+        if ran_ue_ngap_id is None or amf_ue_ngap_id is None:
+            # NGAP pair not present
+            return
+
+        ue_id = self.getid_by_ngap_ue_ids(ran_ue_ngap_id, amf_ue_ngap_id)
+        if ue_id is None:
+            # NGAP pair not known
+            return
+
+        if suci is None and supi is None and home_plmn_id is None and \
+           current_guti_plmn is None and current_guti_amf_id is None and current_guti_m_tmsi is None and \
+           next_guti_plmn is None and next_guti_amf_id is None and next_guti_m_tmsi is None and \
+           tai_plmn is None and tai_tac is None and \
+           cgi_plmn is None and cgi_cellid is None:
+            # No AMF info present
+            amf_info = None
+        else:
+            amf_info = CoreAMFInfo(
+                suci=suci,
+                supi=supi,
+                home_plmn_id=home_plmn_id,
+                current_guti=None if current_guti_plmn is None or current_guti_amf_id is None or current_guti_m_tmsi is None else  \
+                            CoreGUTI(plmn_id=current_guti_plmn, amf_id=current_guti_amf_id, mtmsi=current_guti_m_tmsi),
+                next_guti=None if next_guti_plmn is None or next_guti_amf_id is None or next_guti_m_tmsi is None else  \
+                            CoreGUTI(plmn_id=next_guti_plmn, amf_id=next_guti_amf_id, mtmsi=next_guti_m_tmsi),
+                tai=None if tai_plmn is None or tai_tac is None else CoreTAI(plmn_id=tai_plmn, tac=tai_tac), 
+                cgi=None if cgi_plmn is None or cgi_cellid is None else CoreCGI(plmn_id=cgi_plmn, cell_id=cgi_cellid)
+            )
+
+        self.contexts[ue_id].core_amf_info = amf_info
+
+    #####################################################################
+    def hook_core_amf_info_remove(self, suci: str = None, supi: str = None, home_plmn_id: str = None,
+                              current_guti_plmn: str = None, current_guti_amf_id: str = None, current_guti_m_tmsi: int = None,
+                              next_guti_plmn: str = None, next_guti_amf_id: str = None, next_guti_m_tmsi: int = None,
+                              tai_plmn: str = None, tai_tac: str = None,
+                              cgi_plmn: str = None, cgi_cellid: str = None) -> None:
+
+        if self.dbg:
+            print(f"hook_core_amf_info_remove: suci={suci}, supi={supi}, home_plmn_id={home_plmn_id}, "
+                                f"current_guti_plmn={current_guti_plmn}, current_guti_amf_id={current_guti_amf_id}, "
+                                f"current_guti_m_tmsi={current_guti_m_tmsi}, "
+                                f"next_guti_plmn={next_guti_plmn}, next_guti_amf_id={next_guti_amf_id}, "
+                                f"next_guti_m_tmsi={next_guti_m_tmsi}, "
+                                f"tai_plmn={tai_plmn}, tai_tac={tai_tac}, "
+                                f"cgi_plmn={cgi_plmn}, cgi_cellid={cgi_cellid}")
+            
+        # get UE by any of the unique identifying parameters
+        ue_id = self.getid_by_core_amf_info(suci, supi, 
+                               current_guti_plmn, current_guti_amf_id, current_guti_m_tmsi,
+                               next_guti_plmn, next_guti_amf_id, next_guti_m_tmsi)
+        if ue_id is None:
+            return
+            
+        # we have the UE, so delete the core info
+        self.contexts[ue_id].core_amf_info = None
 
     ####################################################################
     def get_num_contexts(self) -> int:
@@ -1351,19 +1518,18 @@ if __name__ == "__main__":
 
     # assert the expected contexts
     expected_contexts = [
-        {'du_index': {'src':'du0', 'idx':0}, 'cucp_index': {'src':'cucp0', 'idx':0}, 'cuup_index': {'src':'cuup0', 'idx':0}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 30000}, 'nci': 201, 'tac': 12, 'tmsi': None, 'ngap_ids': None, 'e1_bearers': [(('cucp0', 0), ('cuup0', 0)), (('cucp0', 1), ('cuup0', 1))]},
-        {'du_index': {'src': 'du0', 'idx': 1}, 'cucp_index': {'src': 'cucp0', 'idx': 1}, 'cuup_index': {'src': 'cuup0', 'idx': 1}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 30001}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp0', 2), ('cuup0', 2)), (('cucp0', 3), ('cuup0', 3))], 'tmsi': None, 'ngap_ids': None},
-        {'du_index': {'src': 'du0', 'idx': 2}, 'cucp_index': {'src': 'cucp0', 'idx': 2}, 'cuup_index': {'src': 'cuup0', 'idx': 2}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 30002}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp0', 4), ('cuup0', 4)), (('cucp0', 5), ('cuup0', 5))], 'tmsi': None, 'ngap_ids': None},
-        {'du_index': {'src': 'du0', 'idx': 3}, 'cucp_index': {'src': 'cucp0', 'idx': 3}, 'cuup_index': {'src': 'cuup0', 'idx': 3}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 30003}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp0', 6), ('cuup0', 6)), (('cucp0', 7), ('cuup0', 7))], 'tmsi': None, 'ngap_ids': None},
-        {'du_index': {'src': 'du1', 'idx': 0}, 'cucp_index': {'src': 'cucp0', 'idx': 4}, 'cuup_index': {'src': 'cuup0', 'idx': 4}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 401, 'crnti': 30000}, 'nci': 202, 'tac': 13, 'e1_bearers': [(('cucp0', 8), ('cuup0', 8)), (('cucp0', 9), ('cuup0', 9))], 'tmsi': None, 'ngap_ids': None},
-        {'du_index': {'src': 'du1', 'idx': 1}, 'cucp_index': {'src': 'cucp0', 'idx': 5}, 'cuup_index': {'src': 'cuup0', 'idx': 5}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 401, 'crnti': 30001}, 'nci': 202, 'tac': 13, 'e1_bearers': [(('cucp0', 10), ('cuup0', 10)), (('cucp0', 11), ('cuup0', 11))], 'tmsi': None, 'ngap_ids': None},
-        {'du_index': {'src': 'du1', 'idx': 2}, 'cucp_index': {'src': 'cucp0', 'idx': 6}, 'cuup_index': {'src': 'cuup1', 'idx': 0}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 401, 'crnti': 30002}, 'nci': 202, 'tac': 13, 'e1_bearers': [(('cucp0', 12), ('cuup1', 0)), (('cucp0', 13), ('cuup1', 1))], 'tmsi': None, 'ngap_ids': None},
-        {'du_index': {'src': 'du1', 'idx': 3}, 'cucp_index': {'src': 'cucp0', 'idx': 7}, 'cuup_index': {'src': 'cuup1', 'idx': 1}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 401, 'crnti': 30003}, 'nci': 202, 'tac': 13, 'e1_bearers': [(('cucp0', 14), ('cuup1', 2)), (('cucp0', 15), ('cuup1', 3))], 'tmsi': None, 'ngap_ids': None},
-        {'du_index': {'src': 'du2', 'idx': 0}, 'cucp_index': {'src': 'cucp0', 'idx': 8}, 'cuup_index': {'src': 'cuup1', 'idx': 2}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 402, 'crnti': 30000}, 'nci': 203, 'tac': 14, 'e1_bearers': [(('cucp0', 16), ('cuup1', 4)), (('cucp0', 17), ('cuup1', 5))], 'tmsi': None, 'ngap_ids': None},
-        {'du_index': {'src': 'du2', 'idx': 1}, 'cucp_index': {'src': 'cucp0', 'idx': 9}, 'cuup_index': {'src': 'cuup1', 'idx': 3}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 402, 'crnti': 30001}, 'nci': 203, 'tac': 14, 'e1_bearers': [(('cucp0', 18), ('cuup1', 6)), (('cucp0', 19), ('cuup1', 7))], 'tmsi': None, 'ngap_ids': None},
-        {'du_index': {'src': 'du2', 'idx': 2}, 'cucp_index': {'src': 'cucp0', 'idx': 10}, 'cuup_index': {'src': 'cuup1', 'idx': 4}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 402, 'crnti': 30002}, 'nci': 203, 'tac': 14, 'e1_bearers': [(('cucp0', 20), ('cuup1', 8)), (('cucp0', 21), ('cuup1', 9))], 'tmsi': None, 'ngap_ids': None},
-        {'du_index': {'src': 'du2', 'idx': 3}, 'cucp_index': {'src': 'cucp0', 'idx': 11}, 'cuup_index': {'src': 'cuup1', 'idx': 5}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 402, 'crnti': 30003}, 'nci': 203, 'tac': 14, 'e1_bearers': [(('cucp0', 22), ('cuup1', 10)), (('cucp0', 23), ('cuup1', 11))], 'tmsi': None, 'ngap_ids': None}
-    ]
+        {'du_index': {'src': 'du0', 'idx': 0}, 'cucp_index': {'src': 'cucp0', 'idx': 0}, 'cuup_index': {'src': 'cuup0', 'idx': 0}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 30000}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp0', 0), ('cuup0', 0)), (('cucp0', 1), ('cuup0', 1))], 'tmsi': None, 'ngap_ids': None, 'core_amf_info': None},
+        {'du_index': {'src': 'du0', 'idx': 1}, 'cucp_index': {'src': 'cucp0', 'idx': 1}, 'cuup_index': {'src': 'cuup0', 'idx': 1}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 30001}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp0', 2), ('cuup0', 2)), (('cucp0', 3), ('cuup0', 3))], 'tmsi': None, 'ngap_ids': None, 'core_amf_info': None},
+        {'du_index': {'src': 'du0', 'idx': 2}, 'cucp_index': {'src': 'cucp0', 'idx': 2}, 'cuup_index': {'src': 'cuup0', 'idx': 2}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 30002}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp0', 4), ('cuup0', 4)), (('cucp0', 5), ('cuup0', 5))], 'tmsi': None, 'ngap_ids': None, 'core_amf_info': None},
+        {'du_index': {'src': 'du0', 'idx': 3}, 'cucp_index': {'src': 'cucp0', 'idx': 3}, 'cuup_index': {'src': 'cuup0', 'idx': 3}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 30003}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp0', 6), ('cuup0', 6)), (('cucp0', 7), ('cuup0', 7))], 'tmsi': None, 'ngap_ids': None, 'core_amf_info': None},
+        {'du_index': {'src': 'du1', 'idx': 0}, 'cucp_index': {'src': 'cucp0', 'idx': 4}, 'cuup_index': {'src': 'cuup0', 'idx': 4}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 401, 'crnti': 30000}, 'nci': 202, 'tac': 13, 'e1_bearers': [(('cucp0', 8), ('cuup0', 8)), (('cucp0', 9), ('cuup0', 9))], 'tmsi': None, 'ngap_ids': None, 'core_amf_info': None},
+        {'du_index': {'src': 'du1', 'idx': 1}, 'cucp_index': {'src': 'cucp0', 'idx': 5}, 'cuup_index': {'src': 'cuup0', 'idx': 5}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 401, 'crnti': 30001}, 'nci': 202, 'tac': 13, 'e1_bearers': [(('cucp0', 10), ('cuup0', 10)), (('cucp0', 11), ('cuup0', 11))], 'tmsi': None, 'ngap_ids': None, 'core_amf_info': None},
+        {'du_index': {'src': 'du1', 'idx': 2}, 'cucp_index': {'src': 'cucp0', 'idx': 6}, 'cuup_index': {'src': 'cuup1', 'idx': 0}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 401, 'crnti': 30002}, 'nci': 202, 'tac': 13, 'e1_bearers': [(('cucp0', 12), ('cuup1', 0)), (('cucp0', 13), ('cuup1', 1))], 'tmsi': None, 'ngap_ids': None, 'core_amf_info': None},
+        {'du_index': {'src': 'du1', 'idx': 3}, 'cucp_index': {'src': 'cucp0', 'idx': 7}, 'cuup_index': {'src': 'cuup1', 'idx': 1}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 401, 'crnti': 30003}, 'nci': 202, 'tac': 13, 'e1_bearers': [(('cucp0', 14), ('cuup1', 2)), (('cucp0', 15), ('cuup1', 3))], 'tmsi': None, 'ngap_ids': None, 'core_amf_info': None},
+        {'du_index': {'src': 'du2', 'idx': 0}, 'cucp_index': {'src': 'cucp0', 'idx': 8}, 'cuup_index': {'src': 'cuup1', 'idx': 2}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 402, 'crnti': 30000}, 'nci': 203, 'tac': 14, 'e1_bearers': [(('cucp0', 16), ('cuup1', 4)), (('cucp0', 17), ('cuup1', 5))], 'tmsi': None, 'ngap_ids': None, 'core_amf_info': None},
+        {'du_index': {'src': 'du2', 'idx': 1}, 'cucp_index': {'src': 'cucp0', 'idx': 9}, 'cuup_index': {'src': 'cuup1', 'idx': 3}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 402, 'crnti': 30001}, 'nci': 203, 'tac': 14, 'e1_bearers': [(('cucp0', 18), ('cuup1', 6)), (('cucp0', 19), ('cuup1', 7))], 'tmsi': None, 'ngap_ids': None, 'core_amf_info': None},
+        {'du_index': {'src': 'du2', 'idx': 2}, 'cucp_index': {'src': 'cucp0', 'idx': 10}, 'cuup_index': {'src': 'cuup1', 'idx': 4}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 402, 'crnti': 30002}, 'nci': 203, 'tac': 14, 'e1_bearers': [(('cucp0', 20), ('cuup1', 8)), (('cucp0', 21), ('cuup1', 9))], 'tmsi': None, 'ngap_ids': None, 'core_amf_info': None},
+        {'du_index': {'src': 'du2', 'idx': 3}, 'cucp_index': {'src': 'cucp0', 'idx': 11}, 'cuup_index': {'src': 'cuup1', 'idx': 5}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 402, 'crnti': 30003}, 'nci': 203, 'tac': 14, 'e1_bearers': [(('cucp0', 22), ('cuup1', 10)), (('cucp0', 23), ('cuup1', 11))], 'tmsi': None, 'ngap_ids': None, 'core_amf_info': None}]
     expected_contexts_by_du_index = {'du0::0': 0, 'du0::1': 1, 'du0::2': 2, 'du0::3': 3, 'du1::0': 4, 'du1::1': 5, 'du1::2': 6, 'du1::3': 7, 'du2::0': 8, 'du2::1': 9, 'du2::2': 10, 'du2::3': 11}
     expected_contexts_by_cucp_index= {'cucp0::0': 0, 'cucp0::1': 1, 'cucp0::2': 2, 'cucp0::3': 3, 'cucp0::4': 4, 'cucp0::5': 5, 'cucp0::6': 6, 'cucp0::7': 7, 'cucp0::8': 8, 'cucp0::9': 9, 'cucp0::10': 10, 'cucp0::11': 11}
     expected_contexts_by_cuup_index= {'cuup0::0': 0, 'cuup0::1': 1, 'cuup0::2': 2, 'cuup0::3': 3, 'cuup0::4': 4, 'cuup0::5': 5, 'cuup1::0': 6, 'cuup1::1': 7, 'cuup1::2': 8, 'cuup1::3': 9, 'cuup1::4': 10, 'cuup1::5': 11}
@@ -1685,7 +1851,7 @@ if __name__ == "__main__":
     assert s.get_num_contexts() == 1
     s.add_tmsi('cucp0', 1, 1234)  
     u = s.getuectx(1)
-    assert asdict(u) == {'du_index': {'src': 'du0', 'idx': 0}, 'cucp_index': {'src': 'cucp0', 'idx': 1}, 'cuup_index': {'src': 'cuup0', 'idx': 0}, 'ran_unique_ue_id': {'plmn': 61712, 'pci': 1, 'crnti': 40000}, 'nci': 6733824, 'tac': 1, 'e1_bearers': [(('cucp0', 1), ('cuup0', 1))], 'tmsi': 1234, 'ngap_ids': None}
+    assert asdict(u) == {'du_index': {'src': 'du0', 'idx': 0}, 'cucp_index': {'src': 'cucp0', 'idx': 1}, 'cuup_index': {'src': 'cuup0', 'idx': 0}, 'ran_unique_ue_id': {'plmn': 61712, 'pci': 1, 'crnti': 40000}, 'nci': 6733824, 'tac': 1, 'e1_bearers': [(('cucp0', 1), ('cuup0', 1))], 'tmsi': 1234, 'ngap_ids': None, 'core_amf_info': None}
          
     print("#############################################################################")
     print("# Test NGAP Ids")
@@ -1840,16 +2006,16 @@ if __name__ == "__main__":
                                         ngap_amf_ue_id=None)
     # assert the expected contexts
     expected_contexts = [
-        {'du_index': {'src': 'du1', 'idx': 100}, 'cucp_index': {'src': 'cucp1', 'idx': 200}, 'cuup_index': {'src': 'cuup1', 'idx': 300}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20000}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20000), ('cuup1', 30000)), (('cucp1', 20001), ('cuup1', 30001)), (('cucp1', 20002), ('cuup1', 30002))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4000, 'amf_ue_ngap_id': None}},
-        {'du_index': {'src': 'du1', 'idx': 101}, 'cucp_index': {'src': 'cucp1', 'idx': 201}, 'cuup_index': {'src': 'cuup1', 'idx': 301}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20001}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20003), ('cuup1', 30003)), (('cucp1', 20004), ('cuup1', 30004)), (('cucp1', 20005), ('cuup1', 30005))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4001, 'amf_ue_ngap_id': None}},
-        {'du_index': {'src': 'du1', 'idx': 102}, 'cucp_index': {'src': 'cucp1', 'idx': 202}, 'cuup_index': {'src': 'cuup1', 'idx': 302}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20002}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20006), ('cuup1', 30006)), (('cucp1', 20007), ('cuup1', 30007)), (('cucp1', 20008), ('cuup1', 30008))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4002, 'amf_ue_ngap_id': None}},
-        {'du_index': {'src': 'du1', 'idx': 103}, 'cucp_index': {'src': 'cucp1', 'idx': 203}, 'cuup_index': {'src': 'cuup1', 'idx': 303}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20003}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20009), ('cuup1', 30009)), (('cucp1', 20010), ('cuup1', 30010)), (('cucp1', 20011), ('cuup1', 30011))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4003, 'amf_ue_ngap_id': None}},
-        {'du_index': {'src': 'du1', 'idx': 104}, 'cucp_index': {'src': 'cucp1', 'idx': 204}, 'cuup_index': {'src': 'cuup1', 'idx': 304}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20004}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20012), ('cuup1', 30012)), (('cucp1', 20013), ('cuup1', 30013)), (('cucp1', 20014), ('cuup1', 30014))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4004, 'amf_ue_ngap_id': None}},
-        {'du_index': {'src': 'du1', 'idx': 105}, 'cucp_index': {'src': 'cucp1', 'idx': 205}, 'cuup_index': {'src': 'cuup1', 'idx': 305}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20005}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20015), ('cuup1', 30015)), (('cucp1', 20016), ('cuup1', 30016)), (('cucp1', 20017), ('cuup1', 30017))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4005, 'amf_ue_ngap_id': None}},
-        {'du_index': {'src': 'du1', 'idx': 106}, 'cucp_index': {'src': 'cucp1', 'idx': 206}, 'cuup_index': {'src': 'cuup1', 'idx': 306}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20006}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20018), ('cuup1', 30018)), (('cucp1', 20019), ('cuup1', 30019)), (('cucp1', 20020), ('cuup1', 30020))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4006, 'amf_ue_ngap_id': None}},
-        {'du_index': {'src': 'du1', 'idx': 107}, 'cucp_index': {'src': 'cucp1', 'idx': 207}, 'cuup_index': {'src': 'cuup1', 'idx': 307}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20007}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20021), ('cuup1', 30021)), (('cucp1', 20022), ('cuup1', 30022)), (('cucp1', 20023), ('cuup1', 30023))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4007, 'amf_ue_ngap_id': None}},
-        {'du_index': {'src': 'du1', 'idx': 108}, 'cucp_index': {'src': 'cucp1', 'idx': 208}, 'cuup_index': {'src': 'cuup1', 'idx': 308}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20008}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20024), ('cuup1', 30024)), (('cucp1', 20025), ('cuup1', 30025)), (('cucp1', 20026), ('cuup1', 30026))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4008, 'amf_ue_ngap_id': None}},
-        {'du_index': {'src': 'du1', 'idx': 109}, 'cucp_index': {'src': 'cucp1', 'idx': 209}, 'cuup_index': {'src': 'cuup1', 'idx': 309}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20009}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20027), ('cuup1', 30027)), (('cucp1', 20028), ('cuup1', 30028)), (('cucp1', 20029), ('cuup1', 30029))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4009, 'amf_ue_ngap_id': None}}]
+        {'du_index': {'src': 'du1', 'idx': 100}, 'cucp_index': {'src': 'cucp1', 'idx': 200}, 'cuup_index': {'src': 'cuup1', 'idx': 300}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20000}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20000), ('cuup1', 30000)), (('cucp1', 20001), ('cuup1', 30001)), (('cucp1', 20002), ('cuup1', 30002))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4000, 'amf_ue_ngap_id': None}, 'core_amf_info': None},
+        {'du_index': {'src': 'du1', 'idx': 101}, 'cucp_index': {'src': 'cucp1', 'idx': 201}, 'cuup_index': {'src': 'cuup1', 'idx': 301}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20001}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20003), ('cuup1', 30003)), (('cucp1', 20004), ('cuup1', 30004)), (('cucp1', 20005), ('cuup1', 30005))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4001, 'amf_ue_ngap_id': None}, 'core_amf_info': None},
+        {'du_index': {'src': 'du1', 'idx': 102}, 'cucp_index': {'src': 'cucp1', 'idx': 202}, 'cuup_index': {'src': 'cuup1', 'idx': 302}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20002}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20006), ('cuup1', 30006)), (('cucp1', 20007), ('cuup1', 30007)), (('cucp1', 20008), ('cuup1', 30008))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4002, 'amf_ue_ngap_id': None}, 'core_amf_info': None},
+        {'du_index': {'src': 'du1', 'idx': 103}, 'cucp_index': {'src': 'cucp1', 'idx': 203}, 'cuup_index': {'src': 'cuup1', 'idx': 303}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20003}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20009), ('cuup1', 30009)), (('cucp1', 20010), ('cuup1', 30010)), (('cucp1', 20011), ('cuup1', 30011))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4003, 'amf_ue_ngap_id': None}, 'core_amf_info': None},
+        {'du_index': {'src': 'du1', 'idx': 104}, 'cucp_index': {'src': 'cucp1', 'idx': 204}, 'cuup_index': {'src': 'cuup1', 'idx': 304}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20004}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20012), ('cuup1', 30012)), (('cucp1', 20013), ('cuup1', 30013)), (('cucp1', 20014), ('cuup1', 30014))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4004, 'amf_ue_ngap_id': None}, 'core_amf_info': None},
+        {'du_index': {'src': 'du1', 'idx': 105}, 'cucp_index': {'src': 'cucp1', 'idx': 205}, 'cuup_index': {'src': 'cuup1', 'idx': 305}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20005}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20015), ('cuup1', 30015)), (('cucp1', 20016), ('cuup1', 30016)), (('cucp1', 20017), ('cuup1', 30017))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4005, 'amf_ue_ngap_id': None}, 'core_amf_info': None},
+        {'du_index': {'src': 'du1', 'idx': 106}, 'cucp_index': {'src': 'cucp1', 'idx': 206}, 'cuup_index': {'src': 'cuup1', 'idx': 306}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20006}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20018), ('cuup1', 30018)), (('cucp1', 20019), ('cuup1', 30019)), (('cucp1', 20020), ('cuup1', 30020))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4006, 'amf_ue_ngap_id': None}, 'core_amf_info': None},
+        {'du_index': {'src': 'du1', 'idx': 107}, 'cucp_index': {'src': 'cucp1', 'idx': 207}, 'cuup_index': {'src': 'cuup1', 'idx': 307}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20007}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20021), ('cuup1', 30021)), (('cucp1', 20022), ('cuup1', 30022)), (('cucp1', 20023), ('cuup1', 30023))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4007, 'amf_ue_ngap_id': None}, 'core_amf_info': None},
+        {'du_index': {'src': 'du1', 'idx': 108}, 'cucp_index': {'src': 'cucp1', 'idx': 208}, 'cuup_index': {'src': 'cuup1', 'idx': 308}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20008}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20024), ('cuup1', 30024)), (('cucp1', 20025), ('cuup1', 30025)), (('cucp1', 20026), ('cuup1', 30026))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4008, 'amf_ue_ngap_id': None}, 'core_amf_info': None},
+        {'du_index': {'src': 'du1', 'idx': 109}, 'cucp_index': {'src': 'cucp1', 'idx': 209}, 'cuup_index': {'src': 'cuup1', 'idx': 309}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20009}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20027), ('cuup1', 30027)), (('cucp1', 20028), ('cuup1', 30028)), (('cucp1', 20029), ('cuup1', 30029))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4009, 'amf_ue_ngap_id': None}, 'core_amf_info': None}]        
     for ue in range(0, num_ue):
         ctx = s.getue_by_id(ue)
         assert asdict(ctx) == expected_contexts[ue]
@@ -1867,16 +2033,16 @@ if __name__ == "__main__":
                                          ngap_ran_ue_id=ngap_ran_ue_id_off+ue, 
                                          ngap_amf_ue_id=ngap_amf_ue_id_off+ue)
     expected_contexts = [
-        {'du_index': {'src': 'du1', 'idx': 100}, 'cucp_index': {'src': 'cucp1', 'idx': 200}, 'cuup_index': {'src': 'cuup1', 'idx': 300}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20000}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20000), ('cuup1', 30000)), (('cucp1', 20001), ('cuup1', 30001)), (('cucp1', 20002), ('cuup1', 30002))], 'tmsi': None, 'ngap_ids': None},
-        {'du_index': {'src': 'du1', 'idx': 101}, 'cucp_index': {'src': 'cucp1', 'idx': 201}, 'cuup_index': {'src': 'cuup1', 'idx': 301}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20001}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20003), ('cuup1', 30003)), (('cucp1', 20004), ('cuup1', 30004)), (('cucp1', 20005), ('cuup1', 30005))], 'tmsi': None, 'ngap_ids': None},
-        {'du_index': {'src': 'du1', 'idx': 102}, 'cucp_index': {'src': 'cucp1', 'idx': 202}, 'cuup_index': {'src': 'cuup1', 'idx': 302}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20002}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20006), ('cuup1', 30006)), (('cucp1', 20007), ('cuup1', 30007)), (('cucp1', 20008), ('cuup1', 30008))], 'tmsi': None, 'ngap_ids': None},
-        {'du_index': {'src': 'du1', 'idx': 103}, 'cucp_index': {'src': 'cucp1', 'idx': 203}, 'cuup_index': {'src': 'cuup1', 'idx': 303}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20003}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20009), ('cuup1', 30009)), (('cucp1', 20010), ('cuup1', 30010)), (('cucp1', 20011), ('cuup1', 30011))], 'tmsi': None, 'ngap_ids': None},
-        {'du_index': {'src': 'du1', 'idx': 104}, 'cucp_index': {'src': 'cucp1', 'idx': 204}, 'cuup_index': {'src': 'cuup1', 'idx': 304}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20004}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20012), ('cuup1', 30012)), (('cucp1', 20013), ('cuup1', 30013)), (('cucp1', 20014), ('cuup1', 30014))], 'tmsi': None, 'ngap_ids': None},
-        {'du_index': {'src': 'du1', 'idx': 105}, 'cucp_index': {'src': 'cucp1', 'idx': 205}, 'cuup_index': {'src': 'cuup1', 'idx': 305}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20005}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20015), ('cuup1', 30015)), (('cucp1', 20016), ('cuup1', 30016)), (('cucp1', 20017), ('cuup1', 30017))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4005, 'amf_ue_ngap_id': None}},
-        {'du_index': {'src': 'du1', 'idx': 106}, 'cucp_index': {'src': 'cucp1', 'idx': 206}, 'cuup_index': {'src': 'cuup1', 'idx': 306}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20006}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20018), ('cuup1', 30018)), (('cucp1', 20019), ('cuup1', 30019)), (('cucp1', 20020), ('cuup1', 30020))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4006, 'amf_ue_ngap_id': None}},
-        {'du_index': {'src': 'du1', 'idx': 107}, 'cucp_index': {'src': 'cucp1', 'idx': 207}, 'cuup_index': {'src': 'cuup1', 'idx': 307}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20007}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20021), ('cuup1', 30021)), (('cucp1', 20022), ('cuup1', 30022)), (('cucp1', 20023), ('cuup1', 30023))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4007, 'amf_ue_ngap_id': None}},
-        {'du_index': {'src': 'du1', 'idx': 108}, 'cucp_index': {'src': 'cucp1', 'idx': 208}, 'cuup_index': {'src': 'cuup1', 'idx': 308}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20008}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20024), ('cuup1', 30024)), (('cucp1', 20025), ('cuup1', 30025)), (('cucp1', 20026), ('cuup1', 30026))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4008, 'amf_ue_ngap_id': None}},
-        {'du_index': {'src': 'du1', 'idx': 109}, 'cucp_index': {'src': 'cucp1', 'idx': 209}, 'cuup_index': {'src': 'cuup1', 'idx': 309}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20009}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20027), ('cuup1', 30027)), (('cucp1', 20028), ('cuup1', 30028)), (('cucp1', 20029), ('cuup1', 30029))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4009, 'amf_ue_ngap_id': None}}]
+        {'du_index': {'src': 'du1', 'idx': 100}, 'cucp_index': {'src': 'cucp1', 'idx': 200}, 'cuup_index': {'src': 'cuup1', 'idx': 300}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20000}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20000), ('cuup1', 30000)), (('cucp1', 20001), ('cuup1', 30001)), (('cucp1', 20002), ('cuup1', 30002))], 'tmsi': None, 'ngap_ids': None, 'core_amf_info': None},
+        {'du_index': {'src': 'du1', 'idx': 101}, 'cucp_index': {'src': 'cucp1', 'idx': 201}, 'cuup_index': {'src': 'cuup1', 'idx': 301}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20001}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20003), ('cuup1', 30003)), (('cucp1', 20004), ('cuup1', 30004)), (('cucp1', 20005), ('cuup1', 30005))], 'tmsi': None, 'ngap_ids': None, 'core_amf_info': None},
+        {'du_index': {'src': 'du1', 'idx': 102}, 'cucp_index': {'src': 'cucp1', 'idx': 202}, 'cuup_index': {'src': 'cuup1', 'idx': 302}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20002}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20006), ('cuup1', 30006)), (('cucp1', 20007), ('cuup1', 30007)), (('cucp1', 20008), ('cuup1', 30008))], 'tmsi': None, 'ngap_ids': None, 'core_amf_info': None},
+        {'du_index': {'src': 'du1', 'idx': 103}, 'cucp_index': {'src': 'cucp1', 'idx': 203}, 'cuup_index': {'src': 'cuup1', 'idx': 303}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20003}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20009), ('cuup1', 30009)), (('cucp1', 20010), ('cuup1', 30010)), (('cucp1', 20011), ('cuup1', 30011))], 'tmsi': None, 'ngap_ids': None, 'core_amf_info': None},
+        {'du_index': {'src': 'du1', 'idx': 104}, 'cucp_index': {'src': 'cucp1', 'idx': 204}, 'cuup_index': {'src': 'cuup1', 'idx': 304}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20004}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20012), ('cuup1', 30012)), (('cucp1', 20013), ('cuup1', 30013)), (('cucp1', 20014), ('cuup1', 30014))], 'tmsi': None, 'ngap_ids': None, 'core_amf_info': None},
+        {'du_index': {'src': 'du1', 'idx': 105}, 'cucp_index': {'src': 'cucp1', 'idx': 205}, 'cuup_index': {'src': 'cuup1', 'idx': 305}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20005}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20015), ('cuup1', 30015)), (('cucp1', 20016), ('cuup1', 30016)), (('cucp1', 20017), ('cuup1', 30017))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4005, 'amf_ue_ngap_id': None}, 'core_amf_info': None},
+        {'du_index': {'src': 'du1', 'idx': 106}, 'cucp_index': {'src': 'cucp1', 'idx': 206}, 'cuup_index': {'src': 'cuup1', 'idx': 306}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20006}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20018), ('cuup1', 30018)), (('cucp1', 20019), ('cuup1', 30019)), (('cucp1', 20020), ('cuup1', 30020))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4006, 'amf_ue_ngap_id': None}, 'core_amf_info': None},
+        {'du_index': {'src': 'du1', 'idx': 107}, 'cucp_index': {'src': 'cucp1', 'idx': 207}, 'cuup_index': {'src': 'cuup1', 'idx': 307}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20007}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20021), ('cuup1', 30021)), (('cucp1', 20022), ('cuup1', 30022)), (('cucp1', 20023), ('cuup1', 30023))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4007, 'amf_ue_ngap_id': None}, 'core_amf_info': None},
+        {'du_index': {'src': 'du1', 'idx': 108}, 'cucp_index': {'src': 'cucp1', 'idx': 208}, 'cuup_index': {'src': 'cuup1', 'idx': 308}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20008}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20024), ('cuup1', 30024)), (('cucp1', 20025), ('cuup1', 30025)), (('cucp1', 20026), ('cuup1', 30026))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4008, 'amf_ue_ngap_id': None}, 'core_amf_info': None},
+        {'du_index': {'src': 'du1', 'idx': 109}, 'cucp_index': {'src': 'cucp1', 'idx': 209}, 'cuup_index': {'src': 'cuup1', 'idx': 309}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20009}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20027), ('cuup1', 30027)), (('cucp1', 20028), ('cuup1', 30028)), (('cucp1', 20029), ('cuup1', 30029))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4009, 'amf_ue_ngap_id': None}, 'core_amf_info': None}]
     for ue in range(0, num_ue):
         ctx = s.getue_by_id(ue)
         assert asdict(ctx) == expected_contexts[ue]
@@ -1890,16 +2056,16 @@ if __name__ == "__main__":
                                          ngap_ran_ue_id=ngap_ran_ue_id_off+ue, 
                                          ngap_amf_ue_id=ngap_amf_ue_id_off+ue)
     expected_contexts = [
-        {'du_index': {'src': 'du1', 'idx': 100}, 'cucp_index': {'src': 'cucp1', 'idx': 200}, 'cuup_index': {'src': 'cuup1', 'idx': 300}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20000}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20000), ('cuup1', 30000)), (('cucp1', 20001), ('cuup1', 30001)), (('cucp1', 20002), ('cuup1', 30002))], 'tmsi': None, 'ngap_ids': None},
-        {'du_index': {'src': 'du1', 'idx': 101}, 'cucp_index': {'src': 'cucp1', 'idx': 201}, 'cuup_index': {'src': 'cuup1', 'idx': 301}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20001}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20003), ('cuup1', 30003)), (('cucp1', 20004), ('cuup1', 30004)), (('cucp1', 20005), ('cuup1', 30005))], 'tmsi': None, 'ngap_ids': None},
-        {'du_index': {'src': 'du1', 'idx': 102}, 'cucp_index': {'src': 'cucp1', 'idx': 202}, 'cuup_index': {'src': 'cuup1', 'idx': 302}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20002}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20006), ('cuup1', 30006)), (('cucp1', 20007), ('cuup1', 30007)), (('cucp1', 20008), ('cuup1', 30008))], 'tmsi': None, 'ngap_ids': None},
-        {'du_index': {'src': 'du1', 'idx': 103}, 'cucp_index': {'src': 'cucp1', 'idx': 203}, 'cuup_index': {'src': 'cuup1', 'idx': 303}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20003}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20009), ('cuup1', 30009)), (('cucp1', 20010), ('cuup1', 30010)), (('cucp1', 20011), ('cuup1', 30011))], 'tmsi': None, 'ngap_ids': None},
-        {'du_index': {'src': 'du1', 'idx': 104}, 'cucp_index': {'src': 'cucp1', 'idx': 204}, 'cuup_index': {'src': 'cuup1', 'idx': 304}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20004}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20012), ('cuup1', 30012)), (('cucp1', 20013), ('cuup1', 30013)), (('cucp1', 20014), ('cuup1', 30014))], 'tmsi': None, 'ngap_ids': None},
-        {'du_index': {'src': 'du1', 'idx': 105}, 'cucp_index': {'src': 'cucp1', 'idx': 205}, 'cuup_index': {'src': 'cuup1', 'idx': 305}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20005}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20015), ('cuup1', 30015)), (('cucp1', 20016), ('cuup1', 30016)), (('cucp1', 20017), ('cuup1', 30017))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4005, 'amf_ue_ngap_id': 14005}},
-        {'du_index': {'src': 'du1', 'idx': 106}, 'cucp_index': {'src': 'cucp1', 'idx': 206}, 'cuup_index': {'src': 'cuup1', 'idx': 306}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20006}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20018), ('cuup1', 30018)), (('cucp1', 20019), ('cuup1', 30019)), (('cucp1', 20020), ('cuup1', 30020))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4006, 'amf_ue_ngap_id': 14006}},
-        {'du_index': {'src': 'du1', 'idx': 107}, 'cucp_index': {'src': 'cucp1', 'idx': 207}, 'cuup_index': {'src': 'cuup1', 'idx': 307}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20007}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20021), ('cuup1', 30021)), (('cucp1', 20022), ('cuup1', 30022)), (('cucp1', 20023), ('cuup1', 30023))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4007, 'amf_ue_ngap_id': 14007}},
-        {'du_index': {'src': 'du1', 'idx': 108}, 'cucp_index': {'src': 'cucp1', 'idx': 208}, 'cuup_index': {'src': 'cuup1', 'idx': 308}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20008}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20024), ('cuup1', 30024)), (('cucp1', 20025), ('cuup1', 30025)), (('cucp1', 20026), ('cuup1', 30026))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4008, 'amf_ue_ngap_id': 14008}},
-        {'du_index': {'src': 'du1', 'idx': 109}, 'cucp_index': {'src': 'cucp1', 'idx': 209}, 'cuup_index': {'src': 'cuup1', 'idx': 309}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20009}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20027), ('cuup1', 30027)), (('cucp1', 20028), ('cuup1', 30028)), (('cucp1', 20029), ('cuup1', 30029))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4009, 'amf_ue_ngap_id': 14009}}]
+        {'du_index': {'src': 'du1', 'idx': 100}, 'cucp_index': {'src': 'cucp1', 'idx': 200}, 'cuup_index': {'src': 'cuup1', 'idx': 300}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20000}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20000), ('cuup1', 30000)), (('cucp1', 20001), ('cuup1', 30001)), (('cucp1', 20002), ('cuup1', 30002))], 'tmsi': None, 'ngap_ids': None, 'core_amf_info': None},
+        {'du_index': {'src': 'du1', 'idx': 101}, 'cucp_index': {'src': 'cucp1', 'idx': 201}, 'cuup_index': {'src': 'cuup1', 'idx': 301}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20001}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20003), ('cuup1', 30003)), (('cucp1', 20004), ('cuup1', 30004)), (('cucp1', 20005), ('cuup1', 30005))], 'tmsi': None, 'ngap_ids': None, 'core_amf_info': None},
+        {'du_index': {'src': 'du1', 'idx': 102}, 'cucp_index': {'src': 'cucp1', 'idx': 202}, 'cuup_index': {'src': 'cuup1', 'idx': 302}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20002}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20006), ('cuup1', 30006)), (('cucp1', 20007), ('cuup1', 30007)), (('cucp1', 20008), ('cuup1', 30008))], 'tmsi': None, 'ngap_ids': None, 'core_amf_info': None},
+        {'du_index': {'src': 'du1', 'idx': 103}, 'cucp_index': {'src': 'cucp1', 'idx': 203}, 'cuup_index': {'src': 'cuup1', 'idx': 303}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20003}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20009), ('cuup1', 30009)), (('cucp1', 20010), ('cuup1', 30010)), (('cucp1', 20011), ('cuup1', 30011))], 'tmsi': None, 'ngap_ids': None, 'core_amf_info': None},
+        {'du_index': {'src': 'du1', 'idx': 104}, 'cucp_index': {'src': 'cucp1', 'idx': 204}, 'cuup_index': {'src': 'cuup1', 'idx': 304}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20004}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20012), ('cuup1', 30012)), (('cucp1', 20013), ('cuup1', 30013)), (('cucp1', 20014), ('cuup1', 30014))], 'tmsi': None, 'ngap_ids': None, 'core_amf_info': None},
+        {'du_index': {'src': 'du1', 'idx': 105}, 'cucp_index': {'src': 'cucp1', 'idx': 205}, 'cuup_index': {'src': 'cuup1', 'idx': 305}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20005}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20015), ('cuup1', 30015)), (('cucp1', 20016), ('cuup1', 30016)), (('cucp1', 20017), ('cuup1', 30017))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4005, 'amf_ue_ngap_id': 14005}, 'core_amf_info': None},
+        {'du_index': {'src': 'du1', 'idx': 106}, 'cucp_index': {'src': 'cucp1', 'idx': 206}, 'cuup_index': {'src': 'cuup1', 'idx': 306}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20006}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20018), ('cuup1', 30018)), (('cucp1', 20019), ('cuup1', 30019)), (('cucp1', 20020), ('cuup1', 30020))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4006, 'amf_ue_ngap_id': 14006}, 'core_amf_info': None},
+        {'du_index': {'src': 'du1', 'idx': 107}, 'cucp_index': {'src': 'cucp1', 'idx': 207}, 'cuup_index': {'src': 'cuup1', 'idx': 307}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20007}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20021), ('cuup1', 30021)), (('cucp1', 20022), ('cuup1', 30022)), (('cucp1', 20023), ('cuup1', 30023))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4007, 'amf_ue_ngap_id': 14007}, 'core_amf_info': None},
+        {'du_index': {'src': 'du1', 'idx': 108}, 'cucp_index': {'src': 'cucp1', 'idx': 208}, 'cuup_index': {'src': 'cuup1', 'idx': 308}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20008}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20024), ('cuup1', 30024)), (('cucp1', 20025), ('cuup1', 30025)), (('cucp1', 20026), ('cuup1', 30026))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4008, 'amf_ue_ngap_id': 14008}, 'core_amf_info': None},
+        {'du_index': {'src': 'du1', 'idx': 109}, 'cucp_index': {'src': 'cucp1', 'idx': 209}, 'cuup_index': {'src': 'cuup1', 'idx': 309}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20009}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20027), ('cuup1', 30027)), (('cucp1', 20028), ('cuup1', 30028)), (('cucp1', 20029), ('cuup1', 30029))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4009, 'amf_ue_ngap_id': 14009}, 'core_amf_info': None}]
     for ue in range(0, num_ue):
         ctx = s.getue_by_id(ue)
         assert asdict(ctx) == expected_contexts[ue]
@@ -1927,16 +2093,16 @@ if __name__ == "__main__":
         and len(uectx.e1_bearers)==3 and uectx.ngap_ids is None
 
     expected_contexts = [
-        {'du_index': {'src': 'du1', 'idx': 100}, 'cucp_index': {'src': 'cucp1', 'idx': 200}, 'cuup_index': {'src': 'cuup1', 'idx': 300}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20000}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20000), ('cuup1', 30000)), (('cucp1', 20001), ('cuup1', 30001)), (('cucp1', 20002), ('cuup1', 30002))], 'tmsi': None, 'ngap_ids': None},
-        {'du_index': {'src': 'du1', 'idx': 101}, 'cucp_index': {'src': 'cucp1', 'idx': 201}, 'cuup_index': {'src': 'cuup1', 'idx': 301}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20001}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20003), ('cuup1', 30003)), (('cucp1', 20004), ('cuup1', 30004)), (('cucp1', 20005), ('cuup1', 30005))], 'tmsi': None, 'ngap_ids': None},
-        {'du_index': {'src': 'du1', 'idx': 102}, 'cucp_index': {'src': 'cucp1', 'idx': 202}, 'cuup_index': {'src': 'cuup1', 'idx': 302}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20002}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20006), ('cuup1', 30006)), (('cucp1', 20007), ('cuup1', 30007)), (('cucp1', 20008), ('cuup1', 30008))], 'tmsi': None, 'ngap_ids': None},
-        {'du_index': {'src': 'du1', 'idx': 103}, 'cucp_index': {'src': 'cucp1', 'idx': 203}, 'cuup_index': {'src': 'cuup1', 'idx': 303}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20003}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20009), ('cuup1', 30009)), (('cucp1', 20010), ('cuup1', 30010)), (('cucp1', 20011), ('cuup1', 30011))], 'tmsi': None, 'ngap_ids': None},
-        {'du_index': {'src': 'du1', 'idx': 104}, 'cucp_index': {'src': 'cucp1', 'idx': 204}, 'cuup_index': {'src': 'cuup1', 'idx': 304}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20004}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20012), ('cuup1', 30012)), (('cucp1', 20013), ('cuup1', 30013)), (('cucp1', 20014), ('cuup1', 30014))], 'tmsi': None, 'ngap_ids': None},
-        {'du_index': {'src': 'du1', 'idx': 105}, 'cucp_index': {'src': 'cucp1', 'idx': 205}, 'cuup_index': {'src': 'cuup1', 'idx': 305}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20005}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20015), ('cuup1', 30015)), (('cucp1', 20016), ('cuup1', 30016)), (('cucp1', 20017), ('cuup1', 30017))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4005, 'amf_ue_ngap_id': 14005}},
-        {'du_index': {'src': 'du1', 'idx': 106}, 'cucp_index': {'src': 'cucp1', 'idx': 206}, 'cuup_index': {'src': 'cuup1', 'idx': 306}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20006}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20018), ('cuup1', 30018)), (('cucp1', 20019), ('cuup1', 30019)), (('cucp1', 20020), ('cuup1', 30020))], 'tmsi': None, 'ngap_ids': None},
-        {'du_index': {'src': 'du1', 'idx': 107}, 'cucp_index': {'src': 'cucp1', 'idx': 207}, 'cuup_index': {'src': 'cuup1', 'idx': 307}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20007}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20021), ('cuup1', 30021)), (('cucp1', 20022), ('cuup1', 30022)), (('cucp1', 20023), ('cuup1', 30023))], 'tmsi': None, 'ngap_ids': None},
-        {'du_index': {'src': 'du1', 'idx': 108}, 'cucp_index': {'src': 'cucp1', 'idx': 208}, 'cuup_index': {'src': 'cuup1', 'idx': 308}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20008}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20024), ('cuup1', 30024)), (('cucp1', 20025), ('cuup1', 30025)), (('cucp1', 20026), ('cuup1', 30026))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4008, 'amf_ue_ngap_id': 14008}},
-        {'du_index': {'src': 'du1', 'idx': 109}, 'cucp_index': {'src': 'cucp1', 'idx': 209}, 'cuup_index': {'src': 'cuup1', 'idx': 309}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20009}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20027), ('cuup1', 30027)), (('cucp1', 20028), ('cuup1', 30028)), (('cucp1', 20029), ('cuup1', 30029))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4009, 'amf_ue_ngap_id': 14009}}]
+        {'du_index': {'src': 'du1', 'idx': 100}, 'cucp_index': {'src': 'cucp1', 'idx': 200}, 'cuup_index': {'src': 'cuup1', 'idx': 300}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20000}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20000), ('cuup1', 30000)), (('cucp1', 20001), ('cuup1', 30001)), (('cucp1', 20002), ('cuup1', 30002))], 'tmsi': None, 'ngap_ids': None, 'core_amf_info': None},
+        {'du_index': {'src': 'du1', 'idx': 101}, 'cucp_index': {'src': 'cucp1', 'idx': 201}, 'cuup_index': {'src': 'cuup1', 'idx': 301}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20001}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20003), ('cuup1', 30003)), (('cucp1', 20004), ('cuup1', 30004)), (('cucp1', 20005), ('cuup1', 30005))], 'tmsi': None, 'ngap_ids': None, 'core_amf_info': None},
+        {'du_index': {'src': 'du1', 'idx': 102}, 'cucp_index': {'src': 'cucp1', 'idx': 202}, 'cuup_index': {'src': 'cuup1', 'idx': 302}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20002}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20006), ('cuup1', 30006)), (('cucp1', 20007), ('cuup1', 30007)), (('cucp1', 20008), ('cuup1', 30008))], 'tmsi': None, 'ngap_ids': None, 'core_amf_info': None},
+        {'du_index': {'src': 'du1', 'idx': 103}, 'cucp_index': {'src': 'cucp1', 'idx': 203}, 'cuup_index': {'src': 'cuup1', 'idx': 303}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20003}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20009), ('cuup1', 30009)), (('cucp1', 20010), ('cuup1', 30010)), (('cucp1', 20011), ('cuup1', 30011))], 'tmsi': None, 'ngap_ids': None, 'core_amf_info': None},
+        {'du_index': {'src': 'du1', 'idx': 104}, 'cucp_index': {'src': 'cucp1', 'idx': 204}, 'cuup_index': {'src': 'cuup1', 'idx': 304}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20004}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20012), ('cuup1', 30012)), (('cucp1', 20013), ('cuup1', 30013)), (('cucp1', 20014), ('cuup1', 30014))], 'tmsi': None, 'ngap_ids': None, 'core_amf_info': None},
+        {'du_index': {'src': 'du1', 'idx': 105}, 'cucp_index': {'src': 'cucp1', 'idx': 205}, 'cuup_index': {'src': 'cuup1', 'idx': 305}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20005}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20015), ('cuup1', 30015)), (('cucp1', 20016), ('cuup1', 30016)), (('cucp1', 20017), ('cuup1', 30017))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4005, 'amf_ue_ngap_id': 14005}, 'core_amf_info': None},
+        {'du_index': {'src': 'du1', 'idx': 106}, 'cucp_index': {'src': 'cucp1', 'idx': 206}, 'cuup_index': {'src': 'cuup1', 'idx': 306}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20006}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20018), ('cuup1', 30018)), (('cucp1', 20019), ('cuup1', 30019)), (('cucp1', 20020), ('cuup1', 30020))], 'tmsi': None, 'ngap_ids': None, 'core_amf_info': None},
+        {'du_index': {'src': 'du1', 'idx': 107}, 'cucp_index': {'src': 'cucp1', 'idx': 207}, 'cuup_index': {'src': 'cuup1', 'idx': 307}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20007}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20021), ('cuup1', 30021)), (('cucp1', 20022), ('cuup1', 30022)), (('cucp1', 20023), ('cuup1', 30023))], 'tmsi': None, 'ngap_ids': None, 'core_amf_info': None},
+        {'du_index': {'src': 'du1', 'idx': 108}, 'cucp_index': {'src': 'cucp1', 'idx': 208}, 'cuup_index': {'src': 'cuup1', 'idx': 308}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20008}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20024), ('cuup1', 30024)), (('cucp1', 20025), ('cuup1', 30025)), (('cucp1', 20026), ('cuup1', 30026))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4008, 'amf_ue_ngap_id': 14008}, 'core_amf_info': None},
+        {'du_index': {'src': 'du1', 'idx': 109}, 'cucp_index': {'src': 'cucp1', 'idx': 209}, 'cuup_index': {'src': 'cuup1', 'idx': 309}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20009}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20027), ('cuup1', 30027)), (('cucp1', 20028), ('cuup1', 30028)), (('cucp1', 20029), ('cuup1', 30029))], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 4009, 'amf_ue_ngap_id': 14009}, 'core_amf_info': None}]
     for ue in range(0, num_ue):
         ctx = s.getue_by_id(ue)
         assert asdict(ctx) == expected_contexts[ue]
@@ -1948,19 +2114,187 @@ if __name__ == "__main__":
                        ngap_ran_ue_id=None, 
                        ngap_amf_ue_id=None)
     expected_contexts = [
-        {'du_index': {'src': 'du1', 'idx': 100}, 'cucp_index': {'src': 'cucp1', 'idx': 200}, 'cuup_index': {'src': 'cuup1', 'idx': 300}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20000}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20000), ('cuup1', 30000)), (('cucp1', 20001), ('cuup1', 30001)), (('cucp1', 20002), ('cuup1', 30002))], 'tmsi': None, 'ngap_ids': None},
-        {'du_index': {'src': 'du1', 'idx': 101}, 'cucp_index': {'src': 'cucp1', 'idx': 201}, 'cuup_index': {'src': 'cuup1', 'idx': 301}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20001}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20003), ('cuup1', 30003)), (('cucp1', 20004), ('cuup1', 30004)), (('cucp1', 20005), ('cuup1', 30005))], 'tmsi': None, 'ngap_ids': None},
-        {'du_index': {'src': 'du1', 'idx': 102}, 'cucp_index': {'src': 'cucp1', 'idx': 202}, 'cuup_index': {'src': 'cuup1', 'idx': 302}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20002}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20006), ('cuup1', 30006)), (('cucp1', 20007), ('cuup1', 30007)), (('cucp1', 20008), ('cuup1', 30008))], 'tmsi': None, 'ngap_ids': None},
-        {'du_index': {'src': 'du1', 'idx': 103}, 'cucp_index': {'src': 'cucp1', 'idx': 203}, 'cuup_index': {'src': 'cuup1', 'idx': 303}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20003}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20009), ('cuup1', 30009)), (('cucp1', 20010), ('cuup1', 30010)), (('cucp1', 20011), ('cuup1', 30011))], 'tmsi': None, 'ngap_ids': None},
-        {'du_index': {'src': 'du1', 'idx': 104}, 'cucp_index': {'src': 'cucp1', 'idx': 204}, 'cuup_index': {'src': 'cuup1', 'idx': 304}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20004}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20012), ('cuup1', 30012)), (('cucp1', 20013), ('cuup1', 30013)), (('cucp1', 20014), ('cuup1', 30014))], 'tmsi': None, 'ngap_ids': None},
-        {'du_index': {'src': 'du1', 'idx': 105}, 'cucp_index': {'src': 'cucp1', 'idx': 205}, 'cuup_index': {'src': 'cuup1', 'idx': 305}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20005}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20015), ('cuup1', 30015)), (('cucp1', 20016), ('cuup1', 30016)), (('cucp1', 20017), ('cuup1', 30017))], 'tmsi': None, 'ngap_ids': None},
-        {'du_index': {'src': 'du1', 'idx': 106}, 'cucp_index': {'src': 'cucp1', 'idx': 206}, 'cuup_index': {'src': 'cuup1', 'idx': 306}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20006}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20018), ('cuup1', 30018)), (('cucp1', 20019), ('cuup1', 30019)), (('cucp1', 20020), ('cuup1', 30020))], 'tmsi': None, 'ngap_ids': None},
-        {'du_index': {'src': 'du1', 'idx': 107}, 'cucp_index': {'src': 'cucp1', 'idx': 207}, 'cuup_index': {'src': 'cuup1', 'idx': 307}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20007}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20021), ('cuup1', 30021)), (('cucp1', 20022), ('cuup1', 30022)), (('cucp1', 20023), ('cuup1', 30023))], 'tmsi': None, 'ngap_ids': None},
-        {'du_index': {'src': 'du1', 'idx': 108}, 'cucp_index': {'src': 'cucp1', 'idx': 208}, 'cuup_index': {'src': 'cuup1', 'idx': 308}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20008}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20024), ('cuup1', 30024)), (('cucp1', 20025), ('cuup1', 30025)), (('cucp1', 20026), ('cuup1', 30026))], 'tmsi': None, 'ngap_ids': None},
-        {'du_index': {'src': 'du1', 'idx': 109}, 'cucp_index': {'src': 'cucp1', 'idx': 209}, 'cuup_index': {'src': 'cuup1', 'idx': 309}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20009}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20027), ('cuup1', 30027)), (('cucp1', 20028), ('cuup1', 30028)), (('cucp1', 20029), ('cuup1', 30029))], 'tmsi': None, 'ngap_ids': None}]
+        {'du_index': {'src': 'du1', 'idx': 100}, 'cucp_index': {'src': 'cucp1', 'idx': 200}, 'cuup_index': {'src': 'cuup1', 'idx': 300}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20000}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20000), ('cuup1', 30000)), (('cucp1', 20001), ('cuup1', 30001)), (('cucp1', 20002), ('cuup1', 30002))], 'tmsi': None, 'ngap_ids': None, 'core_amf_info': None},
+        {'du_index': {'src': 'du1', 'idx': 101}, 'cucp_index': {'src': 'cucp1', 'idx': 201}, 'cuup_index': {'src': 'cuup1', 'idx': 301}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20001}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20003), ('cuup1', 30003)), (('cucp1', 20004), ('cuup1', 30004)), (('cucp1', 20005), ('cuup1', 30005))], 'tmsi': None, 'ngap_ids': None, 'core_amf_info': None},
+        {'du_index': {'src': 'du1', 'idx': 102}, 'cucp_index': {'src': 'cucp1', 'idx': 202}, 'cuup_index': {'src': 'cuup1', 'idx': 302}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20002}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20006), ('cuup1', 30006)), (('cucp1', 20007), ('cuup1', 30007)), (('cucp1', 20008), ('cuup1', 30008))], 'tmsi': None, 'ngap_ids': None, 'core_amf_info': None},
+        {'du_index': {'src': 'du1', 'idx': 103}, 'cucp_index': {'src': 'cucp1', 'idx': 203}, 'cuup_index': {'src': 'cuup1', 'idx': 303}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20003}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20009), ('cuup1', 30009)), (('cucp1', 20010), ('cuup1', 30010)), (('cucp1', 20011), ('cuup1', 30011))], 'tmsi': None, 'ngap_ids': None, 'core_amf_info': None},
+        {'du_index': {'src': 'du1', 'idx': 104}, 'cucp_index': {'src': 'cucp1', 'idx': 204}, 'cuup_index': {'src': 'cuup1', 'idx': 304}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20004}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20012), ('cuup1', 30012)), (('cucp1', 20013), ('cuup1', 30013)), (('cucp1', 20014), ('cuup1', 30014))], 'tmsi': None, 'ngap_ids': None, 'core_amf_info': None},
+        {'du_index': {'src': 'du1', 'idx': 105}, 'cucp_index': {'src': 'cucp1', 'idx': 205}, 'cuup_index': {'src': 'cuup1', 'idx': 305}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20005}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20015), ('cuup1', 30015)), (('cucp1', 20016), ('cuup1', 30016)), (('cucp1', 20017), ('cuup1', 30017))], 'tmsi': None, 'ngap_ids': None, 'core_amf_info': None},
+        {'du_index': {'src': 'du1', 'idx': 106}, 'cucp_index': {'src': 'cucp1', 'idx': 206}, 'cuup_index': {'src': 'cuup1', 'idx': 306}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20006}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20018), ('cuup1', 30018)), (('cucp1', 20019), ('cuup1', 30019)), (('cucp1', 20020), ('cuup1', 30020))], 'tmsi': None, 'ngap_ids': None, 'core_amf_info': None},
+        {'du_index': {'src': 'du1', 'idx': 107}, 'cucp_index': {'src': 'cucp1', 'idx': 207}, 'cuup_index': {'src': 'cuup1', 'idx': 307}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20007}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20021), ('cuup1', 30021)), (('cucp1', 20022), ('cuup1', 30022)), (('cucp1', 20023), ('cuup1', 30023))], 'tmsi': None, 'ngap_ids': None, 'core_amf_info': None},
+        {'du_index': {'src': 'du1', 'idx': 108}, 'cucp_index': {'src': 'cucp1', 'idx': 208}, 'cuup_index': {'src': 'cuup1', 'idx': 308}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20008}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20024), ('cuup1', 30024)), (('cucp1', 20025), ('cuup1', 30025)), (('cucp1', 20026), ('cuup1', 30026))], 'tmsi': None, 'ngap_ids': None, 'core_amf_info': None},
+        {'du_index': {'src': 'du1', 'idx': 109}, 'cucp_index': {'src': 'cucp1', 'idx': 209}, 'cuup_index': {'src': 'cuup1', 'idx': 309}, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20009}, 'nci': 201, 'tac': 12, 'e1_bearers': [(('cucp1', 20027), ('cuup1', 30027)), (('cucp1', 20028), ('cuup1', 30028)), (('cucp1', 20029), ('cuup1', 30029))], 'tmsi': None, 'ngap_ids': None, 'core_amf_info': None}]
     for ue in range(0, num_ue):
         ctx = s.getue_by_id(ue)
         assert asdict(ctx) == expected_contexts[ue]
+
+
+    print("#############################################################################")
+    print("# Test Core info")
+    s = UeContextsMap(dbg=dbg)
+
+    plmn = 101
+    pci =  400
+    crnti = 20000
+    du_src = 'du1'
+    du_index = 100
+    tac = 12
+    nci = 201
+    cucp_src = 'cucp1'
+    cucp_index = 200
+    ngap_ran_ue_id = 5000
+    ngap_amf_ue_id = 15000
+
+    s.hook_du_ue_ctx_creation(  du_src, 
+                                du_index,
+                                plmn,
+                                pci,
+                                crnti,
+                                tac,
+                                nci)
+    s.hook_cucp_uemgr_ue_add(   cucp_src, 
+                                cucp_index,
+                                plmn,
+                                pci,
+                                crnti)
+    s.hook_ngap_procedure_completed( cucp_src, 
+                                     cucp_index,
+                                     True,  # success
+                                     ngap_ran_ue_id,
+                                     ngap_amf_ue_id)    
+    uectx = s.getue_by_id(0)
+    assert uectx is not None and uectx.du_index==UniqueIndex(du_src, du_index) and uectx.cucp_index==UniqueIndex(cucp_src, cucp_index) and uectx.cuup_index is None \
+        and uectx.ran_unique_ue_id==RanUniqueUeId(plmn=plmn, pci=pci, crnti=crnti) and uectx.nci==nci and uectx.tac==tac \
+        and len(uectx.e1_bearers)==0 and uectx.ngap_ids==RanNgapUeIds(ngap_ran_ue_id, ngap_amf_ue_id)
+
+
+    #######################################################
+
+    examples_with_no_ngap = [
+        {},
+        {"suci": "suci-0-001-01-0000-0-0-1230010004"}, 
+        {"suci": "suci-0-001-01-0000-0-0-1230010004", "supi": "imsi-001011230010004", "home_plmn_id": "001F01"}, 
+        {"suci": "suci-0-001-01-0000-0-0-1230010004", "supi": "imsi-001011230010004", "home_plmn_id": "001F01", 
+         "current-guti": { "plmn_id": "999F99", "amf_id": "20040", "m_tmsi": 3221226075 }}, 
+        {"suci": "suci-0-001-01-0000-0-0-1230010004", "supi": "imsi-001011230010004", "home_plmn_id": "001F01", 
+         "current-guti": { "plmn_id": "999F99", "amf_id": "20040", "m_tmsi": 3221226075 }, 
+         "next-guti": { "plmn_id": "999F99", "amf_id": "20040", "m_tmsi": 3221225666 }},
+        {"suci": "suci-0-001-01-0000-0-0-1230010004", "supi": "imsi-001011230010004", "home_plmn_id": "001F01", 
+         "current-guti": { "plmn_id": "999F99", "amf_id": "20040", "m_tmsi": 3221226075 }, 
+         "next-guti": { "plmn_id": "999F99", "amf_id": "20040", "m_tmsi": 3221225666 }, 
+         "nr_tai": { "plmn_id": "00f110", "tac": "1" }},
+        {"suci": "suci-0-001-01-0000-0-0-1230010004", "supi": "imsi-001011230010004", "home_plmn_id": "001F01", 
+         "current-guti": { "plmn_id": "999F99", "amf_id": "20040", "m_tmsi": 3221226075 }, 
+         "next-guti": { "plmn_id": "999F99", "amf_id": "20040", "m_tmsi": 3221225666 }, 
+         "nr_tai": { "plmn_id": "00f110", "tac": "1" }, 
+         "nr_cgi": { "plmn_id": "00f110", "cell_id": "66c000" }}]
+
+    for a in examples_with_no_ngap:
+        s.hook_core_amf_info(
+            ran_ue_ngap_id=a.get("ran_ue", {}).get("ran_ue_ngap_id", None),
+            amf_ue_ngap_id=a.get("ran_ue", {}).get("amf_ue_ngap_id", None),
+            suci=a.get("suci", None),
+            supi=a.get("supi", None),
+            home_plmn_id=a.get("home_plmn_id", None),
+            current_guti_plmn=a.get("current-guti", {}).get("plmn_id", None),
+            current_guti_amf_id=a.get("current-guti", {}).get("amf_id", None),
+            current_guti_m_tmsi=a.get("current-guti", {}).get("m_tmsi", None),
+            next_guti_plmn=a.get("next-guti", {}).get("plmn_id", None),
+            next_guti_amf_id=a.get("next-guti", {}).get("amf_id", None),
+            next_guti_m_tmsi=a.get("next-guti", {}).get("m_tmsi", None),
+            tai_plmn=a.get("nr_tai", {}).get("plmn_id", None),
+            tai_tac=a.get("nr_tai", {}).get("tac", None),
+            cgi_plmn=a.get("nr_cgi", {}).get("plmn_id", None),
+            cgi_cellid=a.get("nr_cgi", {}).get("cell_id", None)
+        )
+        uectx = s.getue_by_id(0)
+        assert uectx is not None and uectx.core_amf_info is None
+
+    examples_with_mismatched_ngap = {
+        "suci": "suci-0-001-01-0000-0-0-1230010004", "supi": "imsi-001011230010004", "home_plmn_id": "001F01", 
+        "current-guti": { "plmn_id": "999F99", "amf_id": "20040", "m_tmsi": 3221226075 }, 
+        "next-guti": { "plmn_id": "999F99", "amf_id": "20040", "m_tmsi": 3221225666 }, 
+        "nr_tai": { "plmn_id": "00f110", "tac": "1" }, 
+        "nr_cgi": { "plmn_id": "00f110", "cell_id": "66c000" }, 
+        "ran_ue": {"ran_ue_id": 36, "ran_ue_ngap_id": 1234, "amf_ue_ngap_id": 4321}}
+    a = examples_with_mismatched_ngap
+    s.hook_core_amf_info(
+        ran_ue_ngap_id=a.get("ran_ue", {}).get("ran_ue_ngap_id", None),
+        amf_ue_ngap_id=a.get("ran_ue", {}).get("amf_ue_ngap_id", None),
+        suci=a.get("suci", None),
+        supi=a.get("supi", None),
+        home_plmn_id=a.get("home_plmn_id", None),
+        current_guti_plmn=a.get("current-guti", {}).get("plmn_id", None),
+        current_guti_amf_id=a.get("current-guti", {}).get("amf_id", None),
+        current_guti_m_tmsi=a.get("current-guti", {}).get("m_tmsi", None),
+        next_guti_plmn=a.get("next-guti", {}).get("plmn_id", None),
+        next_guti_amf_id=a.get("next-guti", {}).get("amf_id", None),
+        next_guti_m_tmsi=a.get("next-guti", {}).get("m_tmsi", None),
+        tai_plmn=a.get("nr_tai", {}).get("plmn_id", None),
+        tai_tac=a.get("nr_tai", {}).get("tac", None),
+        cgi_plmn=a.get("nr_cgi", {}).get("plmn_id", None),
+        cgi_cellid=a.get("nr_cgi", {}).get("cell_id", None)
+    )
+    uectx = s.getue_by_id(0)
+    assert uectx is not None and uectx.core_amf_info is None
+
+    examples_with_matching_ngap = {
+        "suci": "suci-0-001-01-0000-0-0-1230010004", "supi": "imsi-001011230010004", "home_plmn_id": "001F01", 
+        "current-guti": { "plmn_id": "999F99", "amf_id": "20040", "m_tmsi": 3221226075 }, 
+        "next-guti": { "plmn_id": "999F99", "amf_id": "20040", "m_tmsi": 3221225666 }, 
+        "nr_tai": { "plmn_id": "00f110", "tac": "1" }, 
+        "nr_cgi": { "plmn_id": "00f110", "cell_id": "66c000" }, 
+        "ran_ue": {"ran_ue_id": 36, "ran_ue_ngap_id": ngap_ran_ue_id, "amf_ue_ngap_id": ngap_amf_ue_id}}
+    a = examples_with_matching_ngap
+    s.hook_core_amf_info(
+        ran_ue_ngap_id=a.get("ran_ue", {}).get("ran_ue_ngap_id", None),
+        amf_ue_ngap_id=a.get("ran_ue", {}).get("amf_ue_ngap_id", None),
+        suci=a.get("suci", None),
+        supi=a.get("supi", None),
+        home_plmn_id=a.get("home_plmn_id", None),
+        current_guti_plmn=a.get("current-guti", {}).get("plmn_id", None),
+        current_guti_amf_id=a.get("current-guti", {}).get("amf_id", None),
+        current_guti_m_tmsi=a.get("current-guti", {}).get("m_tmsi", None),
+        next_guti_plmn=a.get("next-guti", {}).get("plmn_id", None),
+        next_guti_amf_id=a.get("next-guti", {}).get("amf_id", None),
+        next_guti_m_tmsi=a.get("next-guti", {}).get("m_tmsi", None),
+        tai_plmn=a.get("nr_tai", {}).get("plmn_id", None),
+        tai_tac=a.get("nr_tai", {}).get("tac", None),
+        cgi_plmn=a.get("nr_cgi", {}).get("plmn_id", None),
+        cgi_cellid=a.get("nr_cgi", {}).get("cell_id", None)
+    )
+    uectx = s.getue_by_id(0)
+    assert uectx is not None and asdict(uectx) == {'du_index': {'src': 'du1', 'idx': 100}, 'cucp_index': {'src': 'cucp1', 'idx': 200}, 
+                                                   'cuup_index': None, 
+                                                   'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20000}, 'nci': 201, 'tac': 12, 
+                                                   'e1_bearers': [], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 5000, 'amf_ue_ngap_id': 15000},
+                                                   'core_amf_info': {'suci': 'suci-0-001-01-0000-0-0-1230010004', 'supi': 'imsi-001011230010004', 
+                                                                      'home_plmn_id': '001F01', 
+                                                                      'current_guti': {'plmn_id': '999F99', 'amf_id': '20040', 'mtmsi': 3221226075}, 
+                                                                      'next_guti': {'plmn_id': '999F99', 'amf_id': '20040', 'mtmsi': 3221225666}, 
+                                                                      'tai': {'plmn_id': '00f110', 'tac': '1'}, 
+                                                                      'cgi': {'plmn_id': '00f110', 'cell_id': '66c000'}}}
+    s.hook_core_amf_info_remove(
+        suci=a.get("suci", None),
+        supi=a.get("supi", None),
+        home_plmn_id=a.get("home_plmn_id", None),
+        current_guti_plmn=a.get("current-guti", {}).get("plmn_id", None),
+        current_guti_amf_id=a.get("current-guti", {}).get("amf_id", None),
+        current_guti_m_tmsi=a.get("current-guti", {}).get("m_tmsi", None),
+        next_guti_plmn=a.get("next-guti", {}).get("plmn_id", None),
+        next_guti_amf_id=a.get("next-guti", {}).get("amf_id", None),
+        next_guti_m_tmsi=a.get("next-guti", {}).get("m_tmsi", None),
+        tai_plmn=a.get("nr_tai", {}).get("plmn_id", None),
+        tai_tac=a.get("nr_tai", {}).get("tac", None),
+        cgi_plmn=a.get("nr_cgi", {}).get("plmn_id", None),
+        cgi_cellid=a.get("nr_cgi", {}).get("cell_id", None)
+    )
+    assert uectx is not None and asdict(uectx) == {'du_index': {'src': 'du1', 'idx': 100}, 'cucp_index': {'src': 'cucp1', 'idx': 200}, 
+                                                   'cuup_index': None, 
+                                                   'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20000}, 'nci': 201, 'tac': 12, 
+                                                   'e1_bearers': [], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 5000, 'amf_ue_ngap_id': 15000},
+                                                   'core_amf_info': None}
+    
 
 
     print("\n\n------ All tests passed ---------")
