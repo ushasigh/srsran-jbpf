@@ -1,5 +1,6 @@
 #!/bin/bash
 
+BASE_IMAGE_TAG=latest
 IMAGE_TAG=latest
 
 Usage()
@@ -7,6 +8,7 @@ Usage()
    # Display Help
    echo "Build srsRan=Jbpf base image"
    echo "options:"
+   echo "[-b]    Optional base image tag.  Default='latest'"
    echo "[-s]    Optional srsRan image tag.  Default='latest'"
    echo
 }
@@ -14,6 +16,8 @@ Usage()
 # Get the options
 while getopts "s:c" option; do
 	case $option in
+		b) # Set image tag
+			BASE_IMAGE_TAG="$OPTARG";;
 		s) # Set image tag
 			IMAGE_TAG="$OPTARG";;
 		c) # Set image tag
@@ -45,6 +49,7 @@ popd > /dev/null
 
 
 docker build $CACHE_FLAG \
+  	--build-arg BASE_IMAGE_TAG=${BASE_IMAGE_TAG} \
     --build-arg SRS_JBPF_IMAGE_TAG=${IMAGE_TAG} \
     --build-arg JBPF_PROTOBUF_BUILDER_IMAGE=jbpf_protobuf_cli \
     --build-arg JBPF_PROTOBUF_BUILDER_IMAGE_TAG=latest \
