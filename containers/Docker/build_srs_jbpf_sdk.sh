@@ -14,7 +14,7 @@ Usage()
 }
 
 # Get the options
-while getopts "s:c" option; do
+while getopts "b:s:c" option; do
 	case $option in
 		b) # Set image tag
 			BASE_IMAGE_TAG="$OPTARG";;
@@ -29,8 +29,8 @@ while getopts "s:c" option; do
 	esac
 done
 
+echo BASE_IMAGE_TAG $BASE_IMAGE_TAG
 echo IMAGE_TAG $IMAGE_TAG
-
 
 # First build the jbpf_protobuf image
 
