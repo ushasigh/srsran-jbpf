@@ -2,7 +2,8 @@ import datetime as dt
 import hashlib
 import hmac
 import base64
-import requests
+import subprocess
+
 import atexit
 from dataclasses import dataclass
 
@@ -60,7 +61,7 @@ class LaLogger:
         if ((len(self.batch) + 1) > self.cfg.batch_max_num_packets) or (
             (total_batch_len + len_msg) > self.cfg.batch_max_num_bytes
         ):
-            self.flush_batch()
+            self.flush_batch(batch_len_exceeded=((total_batch_len + len_msg) > self.cfg.batch_max_num_bytes))
 
         if len(self.batch) == 0:
             self.batch_start_time = dt.datetime.now(dt.timezone.utc)
@@ -88,6 +89,7 @@ class LaLogger:
 
     ############################################
     def LA_build_signature(self, date, content_length, method, content_type, resource):
+
         x_headers = "x-ms-date:" + date
         string_to_hash = (
             method
@@ -109,16 +111,30 @@ class LaLogger:
         return authorization
 
     ############################################
-    def post_it(self, uri, data, headers):
-        response = requests.post(uri, data=data, headers=headers)
-        if not (response.status_code >= 200 and response.status_code <= 299):
-            if self.dbg:
+    def post_it(self, uri, data, headers) -> bool:
+        try:
+            # Due to a known issue with using the "requests" module with python sub-interpreters, a curl command is run instead.
+
+            cmd = ["curl", "-X", "POST", uri, "-H", f"Content-Type: {headers['content-type']}", 
+                   "-H", f"Authorization: {headers['Authorization']}", 
+                   "-H", f"Log-Type: {headers['Log-Type']}", 
+                   "-H", f"x-ms-date: {headers['x-ms-date']}", 
+                   "--data-binary", data]
+            
+            result = subprocess.run(cmd, capture_output=True, text=True)
+
+            if result.returncode != 0:
                 print(
-                    f"**** Log Analytics error, response code: {response.status_code}"
+                    f"**** Log Analytics error, curl command failed: code: {result.returncode} error: {result.stderr}", flush=True
                 )
+                return False
+            return True
+        except Exception as e:
+            print(f"**** Log Analytics exception: {e}", flush=True)
+            return False
 
     ############################################
-    def post_data(self, data):
+    def post_data(self, data) -> bool:
     
         method = "POST"
         content_type = "application/json"
@@ -142,29 +158,45 @@ class LaLogger:
             "Log-Type": self.cfg.log_type,
             "x-ms-date": rfc1123date,
         }
-
-        self.post_it(uri, data, headers)
+        return self.post_it(uri, data, headers)
 
     ############################################
-    def flush_batch(self):
+    def flush_batch(self, batch_len_exceeded: bool = False):
         if self.batch_payload_bytes == 0:
             return
 
         if self.dbg:
             print(
-                f"LaLogger():flush_batch: len batch -> {len(self.batch)} bytes={self.batch_payload_bytes} "
+                f"LaLogger():flush_batch: len batch -> {len(self.batch)} bytes={self.batch_payload_bytes} ", flush=True
             )
 
         # create batch message
         s = "[" + ",".join(self.batch) + "]"
 
-        self.post_data(s)
+        result = self.post_data(s)
 
-        # reset batch
-        self.batch = []
-        self.batch_payload_bytes = 0
+        if result is True:
+            # successfully sent, reset batch
 
-        self.batch_start_time = None
+            # reset batch
+            self.batch = []
+            self.batch_payload_bytes = 0
+            self.batch_start_time = None
+
+        else:
+
+            # failed to send
+            
+            # if batch_len_exceeded is True then drop the batch
+            # else keep the batch for next time
+            if batch_len_exceeded:
+                print("**** Log Analytics error:   batch length exceeded, dropping batch", flush=True)
+                self.batch = []
+                self.batch_payload_bytes = 0
+                self.batch_start_time = None
+            else:
+                print("**** Log Analytics error:   keeping batch for next transmission", flush=True)
+
 
     ############################################
     def __close(self):

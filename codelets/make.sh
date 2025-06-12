@@ -15,6 +15,7 @@ Help()
    echo "Syntax: make [-d <directory>|-i <image_tag>|-o <extra_option>]"
    echo "options:"
    echo "[-d]   Run make in <directory> subfolder."
+   echo "[-i]   <image-tag>."
    echo "-o     Add extra options to make (can be repeated multiple times)."
    echo
 }

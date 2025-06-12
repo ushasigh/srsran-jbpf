@@ -39,6 +39,8 @@ app:
       - ${JBPF_CODELETS}/rrc/rrc_ue_update_context.py
       - ${JBPF_CODELETS}/rrc/rrc_ue_update_id.py
 
+      - ${JBPF_CODELETS}/ngap/ngap.py
+
       - ${JBPF_CODELETS}/fapi_dl_conf/fapi_gnb_dl_config_stats.py
       - ${JBPF_CODELETS}/fapi_ul_conf/fapi_gnb_ul_config_stats.py
       - ${JBPF_CODELETS}/fapi_ul_crc/fapi_gnb_crc_stats.py
@@ -70,6 +72,9 @@ jbpf:
 
     - device: 1
       config: ${JBPF_CODELETS}/rrc/rrc.yaml 
+
+    - device: 1
+      config: ${JBPF_CODELETS}/ngap/ngap.yaml 
 
     - device: 1
       config: ${JBPF_CODELETS}/fapi_dl_conf/fapi_gnb_dl_config_stats.yaml
