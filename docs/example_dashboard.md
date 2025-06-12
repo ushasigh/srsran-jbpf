@@ -1,4 +1,17 @@
-# Dashboard application
+- [1. Dashboard application](#1-dashboard-application)
+  - [1.1. Prepare codelets](#11-prepare-codelets)
+  - [1.2. Create the dashboard](#12-create-the-dashboard)
+  - [1.3. Run the example](#13-run-the-example)
+    - [1.3.1. Terminal 1](#131-terminal-1)
+    - [1.3.2. Terminal 2](#132-terminal-2)
+    - [1.3.3. Terminal 3](#133-terminal-3)
+    - [1.3.4. Terminal 4](#134-terminal-4)
+      - [1.3.4.1. Expected output:](#1341-expected-output)
+  - [1.4. View dashboard on Azure](#14-view-dashboard-on-azure)
+  - [1.5. Unloading app](#15-unloading-app)
+
+
+# 1. Dashboard application
 
  
 The dashboard application collects various statistics at different levels of RAN, including throughput and latency at PDCP and RLC level, packet retransmissions at the MAC level, spectrum utilization at the PHY level, etc. 
@@ -6,7 +19,7 @@ The dashboard application collects various statistics at different levels of RAN
 This application consists of multiple codelets and a python application running inside jrt-controller (for details, see [here](../jrtc_apps/dashboard/deployment.yaml)).
 
 
-## Prepare codelets
+## 1.1. Prepare codelets
 
 The dashboard uses most of the sample codelets, so you'll need to build them all:
 ```
@@ -52,7 +65,7 @@ When this starts with "1," it means it is successful.  In failures cases, it wil
 
 
 
-## Create the dashboard
+## 1.2. Create the dashboard
 
 We will use Azure Log Analytics dashboard to vizualize the results. 
 You can create a free Azure account and create a Log Analytics instance on it. 
@@ -61,7 +74,7 @@ Once you created the Log Analytics instance, you will need its credentials.
 On Azure portal, go to the instance, select *Settings/Agents* and then *Log Analytics agent instructions*. 
 There, you will find the workspace ID and primary key. 
 
-Create an additional `azure.yaml` file these credentials. 
+Create an additional `azure.yaml` file with these credentials. 
 ```
 jrtc_controller:
   log_analytics:
@@ -73,35 +86,35 @@ Add `-f azure.yaml` to the command line when loading the Helm chart.
 
 
 
-## Run the example
+## 1.3. Run the example
 
 Open four seperate terminals.
 In each window, set up the environment variables as described [here](../README.md#Preparing-the-Environment).
 
 The srsRAN and JRTC are started as shown [here](../README.md#Start-the-srsRAN).
 
-### Terminal 1
+### 1.3.1. Terminal 1
 
 Monitor the srsRAN logs:
 ```
 kubectl -n ran logs -f srs-gnb-du1-0 -c gnb
 ```
 
-### Terminal 2
+### 1.3.2. Terminal 2
 
 Monitor the jrt-controllerc logs:
 ```
 kubectl -n ran logs -f jrtc-0
 ```
 
-### Terminal 3
+### 1.3.3. Terminal 3
 
 Montor the jrt-decoder logs:
 ```
 kubectl -n ran logs -f jrtc-0 -c jrtc-decoder
 ```
 
-### Terminal 4
+### 1.3.4. Terminal 4
 
 Load the codelet:
 ```
@@ -109,7 +122,7 @@ cd ~/jrtc_apps/jrtc_apps
 ./load.sh -y xran_packets/deployment.yaml
 ```
 
-#### Expected output:
+#### 1.3.4.1. Expected output:
 
 Once the codeletSet is loaded successfully, one should see the following logs in the jrtc log output: 
 ```
@@ -118,7 +131,7 @@ Once the codeletSet is loaded successfully, one should see the following logs in
 Note that there will be different outputs for different types of statistics. 
 
 
-## View dashboard on Azure
+## 1.4. View dashboard on Azure
 
 Log onto your Azure Log Analytics portal and go to the Logs option. 
 Make sure you set KQL in the query type. Then type the following query:
@@ -132,7 +145,7 @@ After that, the data should appear almost instantaneously.
 
 
 
-## Unloading app
+## 1.5. Unloading app
 
 To unload the codelet, run the following command:
 

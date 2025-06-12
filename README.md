@@ -1,40 +1,55 @@
-# Introduction
+- [1. Introduction](#1-introduction)
+- [2. Getting Started](#2-getting-started)
+  - [2.1. Prerequisites](#21-prerequisites)
+  - [2.2. Preparing the Environment](#22-preparing-the-environment)
+    - [2.2.1. Initialize submodules:](#221-initialize-submodules)
+    - [2.2.2. Set required environment variables:](#222-set-required-environment-variables)
+    - [2.2.3. There are two ways to start the srsRAN deployment:](#223-there-are-two-ways-to-start-the-srsran-deployment)
+    - [2.2.4. Start the srsRAN](#224-start-the-srsran)
+      - [2.2.4.1. Deploy RAN without jrtc:](#2241-deploy-ran-without-jrtc)
+      - [2.2.4.2. Deploy RAN with jrtc:](#2242-deploy-ran-with-jrtc)
+  - [2.3. Running the Examples](#23-running-the-examples)
+- [3. Hooks](#3-hooks)
+- [4. License](#4-license)
+
+
+# 1. Introduction
 
 This project provides a collection of sample applications for instrumenting **srsRAN** using the  
 [jbpf](https://github.com/microsoft/jbpf) and [jrt-controller](https://github.com/microsoft/jrt-controller) frameworks.
 
-# Getting Started
+# 2. Getting Started
 
 The simplest way to get started is by using Kubernetes. This is the default installation method and helps eliminate any dependency-related issues.
 However, we also support bare-metal installations.
 For bare-metal setup instructions, please follow [these instructions](docs/baremetal.md) 
 
-## Prerequisites
+## 2.1. Prerequisites
 
 Before starting, ensure that **Kubernetes** and **Helm** are installed and configured. 
 If you are not an expert in Kubernetes, you can try one of the simple, single-node setups, such as [k3d](https://k3s.io/). 
 This guide assumes **srsRAN** will be deployed using **Helm**.
 
-## Preparing the Environment
+## 2.2. Preparing the Environment
 
-### Initialize submodules:
+### 2.2.1. Initialize submodules:
 
 ```bash
 cd ~/jbpf_apps
 ./init_submodules.sh
 ```
 
-### Set required environment variables:
+### 2.2.2. Set required environment variables:
 
 ```bash
 source set_vars.sh
 ```
 
-### There are two ways to start the srsRAN deployment:
-   - with JRTC - this will create pod, one for srsRAN, and one for JRTC.  The JRTC pod has two containers; one for the *jrt-controller* and one running the *jrt-decoder*.
+### 2.2.3. There are two ways to start the srsRAN deployment:
+   - with JRTC - this will create two pods, one for srsRAN, and one for JRTC.  The JRTC pod has two containers; one for the *jrt-controller* and one running the *jrt-decoder*.
    - without JRTC - This will just create a single pod, for srsRAN.
 
-### Start the srsRAN
+### 2.2.4. Start the srsRAN
 
 Move to the ***jrtc-apps/containers/Helm*** directory and make sure that parameters related to local setup, such as Core IP, RRH, Local MAC Address, and VLAN ID are correctly configured.
 These parameters are supplied from the Helm chart `values.yaml` (the default values are [here](./containers/Helm/values.yaml)). 
@@ -66,7 +81,7 @@ The easiest way to configure parameters related to local setup is to supply them
  Once the parameters are configured correctly we can deploy srsRAN
 
   
-#### Deploy RAN without jrtc:
+#### 2.2.4.1. Deploy RAN without jrtc:
 
   ```
   ./install.sh -h . -f config.yaml
@@ -81,7 +96,7 @@ The easiest way to configure parameters related to local setup is to supply them
   srs-gnb-du1-0   3/3     Running   0          11s
   ```
 
-#### Deploy RAN with jrtc:
+#### 2.2.4.2. Deploy RAN with jrtc:
 
   ```
   cd ~/jrtc-apps/containers/Helm
@@ -100,7 +115,7 @@ The easiest way to configure parameters related to local setup is to supply them
 
 ---
 
-## Running the Examples
+## 2.3. Running the Examples
 
 This project includes two examples:
 
@@ -116,7 +131,11 @@ This project includes two examples:
 
 ---
 
-# License
+# 3. Hooks 
+
+The available Jbpf hooks are described [here](./docs/srsran_hooks.md)
+
+# 4. License
 
 This project is licensed under the [MIT License](LICENSE.md).
 
