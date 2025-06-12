@@ -2,7 +2,8 @@ import datetime as dt
 import hashlib
 import hmac
 import base64
-import requests
+import subprocess
+
 import atexit
 from dataclasses import dataclass
 
@@ -112,10 +113,19 @@ class LaLogger:
     ############################################
     def post_it(self, uri, data, headers) -> bool:
         try:
-            response = requests.post(uri, data=data, headers=headers)
-            if not (response.status_code >= 200 and response.status_code <= 299):
+            # Due to a known issue with using the "requests" module with python sub-interpreters, a curl command is run instead.
+
+            cmd = ["curl", "-X", "POST", uri, "-H", f"Content-Type: {headers['content-type']}", 
+                   "-H", f"Authorization: {headers['Authorization']}", 
+                   "-H", f"Log-Type: {headers['Log-Type']}", 
+                   "-H", f"x-ms-date: {headers['x-ms-date']}", 
+                   "--data-binary", data]
+            
+            result = subprocess.run(cmd, capture_output=True, text=True)
+
+            if result.returncode != 0:
                 print(
-                    f"**** Log Analytics error, response code: {response.status_code}, flush=True"
+                    f"**** Log Analytics error, curl command failed: code: {result.returncode} error: {result.stderr}", flush=True
                 )
                 return False
             return True
