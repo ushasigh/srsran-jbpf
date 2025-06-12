@@ -175,7 +175,8 @@ class JsonUDPServer:
             while self.running:
                 try:
                     data, addr = self.sock.recvfrom(1024)
-                    self.json_handler_func(data.decode())
+                    if len(data) > 0:
+                        self.json_handler_func(data.decode())
                 except Exception as e:
                     print(f"JsonUDPServer: udp_server: error: {e}", flush=True)
         finally:
@@ -2142,6 +2143,8 @@ def jrtc_start_app(capsule):
 
     # run the app - This is blocking until the app exists
     jrtc_app_run(state.app)
+
+    json_udp_server.stop()
 
     # clean up app resources
     jrtc_app_destroy(state.app)
