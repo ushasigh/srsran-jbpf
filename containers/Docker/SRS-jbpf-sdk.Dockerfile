@@ -2,6 +2,7 @@
 # docker build -t ghcr.io/microsoft/jrtc-apps/srs-jbpf-proxy:latest -f SRS-jbpf-proxy.Dockerfile .
 # docker push ghcr.io/microsoft/jrtc-apps/srs-jbpf-proxy:latest
 
+ARG BASE_IMAGE_TAG=latest
 ARG SRS_JBPF_IMAGE_TAG=latest
 ARG JBPF_PROTOBUF_BUILDER_IMAGE=jbpf_protobuf_cli       
 ARG JBPF_PROTOBUF_BUILDER_IMAGE_TAG=latest
@@ -9,7 +10,7 @@ ARG JBPF_PROTOBUF_BUILDER_IMAGE_TAG=latest
 FROM ${JBPF_PROTOBUF_BUILDER_IMAGE}:${JBPF_PROTOBUF_BUILDER_IMAGE_TAG} AS jbpf_protobuf_builder
 FROM ghcr.io/microsoft/jrtc-apps/srs-jbpf:${SRS_JBPF_IMAGE_TAG} AS srsran
 
-FROM mcr.microsoft.com/azurelinux/base/core:3.0
+FROM ghcr.io/microsoft/jrtc-apps/base/srs:${BASE_IMAGE_TAG}
 
 LABEL org.opencontainers.image.source="https://github.com/microsoft/jrtc-apps"
 LABEL org.opencontainers.image.authors="Microsoft Corporation"
@@ -34,7 +35,7 @@ RUN echo "*** Installing relevant jbpf_protobuf binaries"
 COPY --from=jbpf_protobuf_builder /jbpf-protobuf/3p/nanopb /nanopb
 COPY --from=jbpf_protobuf_builder jbpf-protobuf/out/bin/jbpf_protobuf_cli /usr/local/bin/jbpf_protobuf_cli
 
-RUN tdnf install -y build-essential make python3-pip
+RUN tdnf install -y gcc gcc-c++ make python3 python3-pip
 RUN pip install ctypesgen
 RUN python3 -m pip install -r /nanopb/requirements.txt
 

@@ -14,6 +14,7 @@ Help()
    echo
    echo "Syntax: $0 -y <deployment-yaml>"
    echo "options:"
+   echo "[-s]   Optional SDK image tag.  Default='latest'"
    echo "-y     App yaml file with path"
    echo
 }
@@ -21,8 +22,10 @@ Help()
 DEPLOYMENT_YAML=""
 
 # Get the options
-while getopts "y:" option; do
+while getopts "s:y:" option; do
 	case $option in
+		s) # Set image tag
+			SDK_IMAGE_TAG="$OPTARG";;
 		y) 
 			DEPLOYMENT_YAML="$OPTARG";;
 		\?) # Invalid option
@@ -31,6 +34,8 @@ while getopts "y:" option; do
 			exit;;
 	esac
 done
+
+echo SDK_IMAGE_TAG $SDK_IMAGE_TAG
 
 if [[ -z "$DEPLOYMENT_YAML" || ! -f "$DEPLOYMENT_YAML" ]]; then
     echo "Error: DEPLOYMENT_YAML is either not set or the file does not exist."
