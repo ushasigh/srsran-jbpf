@@ -21,7 +21,7 @@ from jrtc_app import *
 
 
 include_ue_contexts = True
-include_perf = False #True
+include_perf = True
 include_rrc = True
 include_ngap = True
 include_pdcp = True
