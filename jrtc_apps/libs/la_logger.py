@@ -3,6 +3,7 @@ import hashlib
 import hmac
 import base64
 import subprocess
+import tempfile
 
 import atexit
 from dataclasses import dataclass
@@ -115,20 +116,27 @@ class LaLogger:
         try:
             # Due to a known issue with using the "requests" module with python sub-interpreters, a curl command is run instead.
 
-            cmd = ["curl", "-X", "POST", uri, "-H", f"Content-Type: {headers['content-type']}", 
-                   "-H", f"Authorization: {headers['Authorization']}", 
-                   "-H", f"Log-Type: {headers['Log-Type']}", 
-                   "-H", f"x-ms-date: {headers['x-ms-date']}", 
-                   "--data-binary", data]
-            
-            result = subprocess.run(cmd, capture_output=True, text=True)
+            with tempfile.NamedTemporaryFile(delete=True) as tmp:
+                tmp.write(data.encode('utf-8'))
+                tmp.flush()  # Ensure data is written
 
-            if result.returncode != 0:
-                print(
-                    f"**** Log Analytics error, curl command failed: code: {result.returncode} error: {result.stderr}", flush=True
-                )
-                return False
-            return True
+
+                cmd = ["curl", "-X", "POST", uri, "-H", f"Content-Type: {headers['content-type']}", 
+                    "-H", f"Authorization: {headers['Authorization']}", 
+                    "-H", f"Log-Type: {headers['Log-Type']}", 
+                    "-H", f"x-ms-date: {headers['x-ms-date']}", 
+                    "--data-binary",  f"@{tmp.name}"
+                ]
+            
+                result = subprocess.run(cmd, capture_output=True, text=True)
+
+                if result.returncode != 0:
+                    print(
+                        f"**** Log Analytics error, curl command failed: code: {result.returncode} error: {result.stderr}", flush=True
+                    )
+                    return False
+                return True
+
         except Exception as e:
             print(f"**** Log Analytics exception: {e}", flush=True)
             return False
