@@ -566,7 +566,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                 }
 
                 if uectx is None:
-                    s["cucp_ue_index"] = data.cucp_ue_index
+                    output["cucp_ue_index"] = data.cucp_ue_index
 
                 state.logger.log_msg(True, True, "Dashboard", f"{output}")
 
