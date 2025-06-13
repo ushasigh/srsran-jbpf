@@ -161,7 +161,7 @@ class JsonUDPServer:
         self.start_udp_server_thread()
 
     def start_udp_server_thread(self):
-        self.state.logger.log_msg(True, False, "Dashboard", f"Starting UDP server thread")
+        self.state.logger.log_msg(True, False, "", f"Starting UDP server thread")
         self.server_thread = threading.Thread(target=self.udp_server)
         self.server_thread.daemon = True  # Allows program to exit
         self.server_thread.start()
@@ -170,7 +170,7 @@ class JsonUDPServer:
         try:
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             self.sock.bind((self.ip, self.port))
-            self.state.logger.log_msg(True, False, "Dashboard", f"UDP server listening on {self.ip}:{self.port}")
+            self.state.logger.log_msg(True, False, "", f"UDP server listening on {self.ip}:{self.port}")
 
             while self.running:
                 try:
@@ -182,7 +182,7 @@ class JsonUDPServer:
         finally:
             if self.sock:
                 self.sock.close()
-                self.state.logger.log_msg(True, False, "Dashboard", "UDP server socket closed")
+                self.state.logger.log_msg(True, False, "", "UDP server socket closed")
 
     def stop(self):
         self.running = False
@@ -207,7 +207,7 @@ class JsonUDPServer:
             context_type = j.get("context_type", None)
             event = j.get("event", None)
             if context_type is None or event is None:
-                self.state.logger.log_msg(True, True, "Dashboard", f"Error: malformed message from Core {json_str}")
+                self.state.logger.log_msg(True, True, "", f"Error: malformed message from Core {json_str}")
                 return
             
             if context_type == "amf-ue":
@@ -218,7 +218,7 @@ class JsonUDPServer:
                     "core-msg": j
                 }   
 
-                self.state.logger.log_msg(True, True, "Dashboard", f"{output}")
+                self.state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
 
                 if event == "ran-ue-remove":
 
@@ -303,7 +303,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     "ue_ctx": None if uectx is None else uectx.concise_dict()
                 }            
 
-                state.logger.log_msg(True, True, "Dashboard", f"{output}")
+                state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
             
             elif stream_idx == UECTX_DU_UPDATE_CRNTI_SIDX:
                 data_ptr = ctypes.cast(
@@ -327,7 +327,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     output["du_ue_index"] = data.du_ue_index
                     output["rnti"] = data.rnti
 
-                state.logger.log_msg(True, True, "Dashboard", f"{output}")
+                state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
 
             elif stream_idx == UECTX_DU_DEL_SIDX:
                 data_ptr = ctypes.cast(
@@ -351,7 +351,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
 
                 state.ue_map.hook_du_ue_ctx_deletion(deviceid, data.du_ue_index)
 
-                state.logger.log_msg(True, True, "Dashboard", f"{output}")
+                state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
 
             elif stream_idx == UECTX_CUCP_ADD_SIDX:
                 data_ptr = ctypes.cast(
@@ -381,7 +381,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                 if uectx is None:
                     output["cucp_ue_index"] = data.cucp_ue_index
 
-                state.logger.log_msg(True, True, "Dashboard", f"{output}")
+                state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
 
             elif stream_idx == UECTX_CUCP_UPDATE_CRNTI_SIDX:
                 data_ptr = ctypes.cast(
@@ -403,7 +403,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     "ue_ctx": None if uectx is None else uectx.concise_dict()
                 }            
 
-                state.logger.log_msg(True, True, "Dashboard", f"{output}")
+                state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
 
             elif stream_idx == UECTX_CUCP_DEL_SIDX:
                 data_ptr = ctypes.cast(
@@ -427,7 +427,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
 
                 state.ue_map.hook_cucp_uemgr_ue_remove(deviceid, data.cucp_ue_index)
 
-                state.logger.log_msg(True, True, "Dashboard", f"{output}")
+                state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
 
             elif stream_idx == UECTX_CUCP_E1AP_BEARER_SETUP_SIDX:
                 data_ptr = ctypes.cast(
@@ -453,7 +453,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                 if uectx is None:
                     output["cucp_ue_index"] = data.cucp_ue_index
 
-                state.logger.log_msg(True, True, "Dashboard", f"{output}")
+                state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
 
             elif stream_idx == UECTX_CUUP_E1AP_BEARER_SETUP_SIDX:
                 data_ptr = ctypes.cast(
@@ -482,7 +482,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                 if uectx is None:
                     output["cuup_ue_index"] = data.cuup_ue_index
 
-                state.logger.log_msg(True, True, "Dashboard", f"{output}")
+                state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
 
             elif stream_idx == UECTX_CUUP_E1AP_BEARER_DEL_SIDX:
                 data_ptr = ctypes.cast(
@@ -512,7 +512,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                                     data.cuup_ue_e1ap_id,
                                     data.success)
 
-                state.logger.log_msg(True, True, "Dashboard", f"{output}")
+                state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
 
             #####################################################
             ### Perf
@@ -532,7 +532,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                 cnt = 0
                 for perf in perfs:
                     output["perfs"].append({
-                        "hook_name": perf.hook_name,
+                        "hook_name": perf.hook_name.decode('utf-8'),
                         "num": perf.num,
                         "min": perf.min,
                         "max": perf.max,
@@ -542,7 +542,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     if cnt >= data.hook_perf_count:
                         break
                 if len(output["perfs"]) > 0:
-                    state.logger.log_msg(True, True, "Dashboard", f"{output}")
+                    state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
 
 
             #####################################################
@@ -568,7 +568,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                 if uectx is None:
                     output["cucp_ue_index"] = data.cucp_ue_index
 
-                state.logger.log_msg(True, True, "Dashboard", f"{output}")
+                state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
 
             elif stream_idx == RRC_UE_PROCEDURE_SIDX:
                 data_ptr = ctypes.cast(
@@ -593,7 +593,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                 if uectx is None:
                     output["cucp_ue_index"] = data.cucp_ue_index
 
-                state.logger.log_msg(True, True, "Dashboard", f"{output}")
+                state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
 
             elif stream_idx == RRC_UE_REMOVE_SIDX:
                 data_ptr = ctypes.cast(
@@ -615,7 +615,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                 if uectx is None:
                     output["cucp_ue_index"] = data.cucp_ue_index
 
-                state.logger.log_msg(True, True, "Dashboard", f"{output}")
+                state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
 
             elif stream_idx == RRC_UE_UPDATE_CONTEXT_SIDX:
                 data_ptr = ctypes.cast(
@@ -640,7 +640,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     "plmn": data.plmn,
                     "nci": data.nci
                 }
-                state.logger.log_msg(True, True, "Dashboard", f"{output}")
+                state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
 
             elif stream_idx == RRC_UE_UPDATE_ID_SIDX:
                 data_ptr = ctypes.cast(
@@ -663,7 +663,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                 if uectx is None:
                     output["cucp_ue_index"] = data.cucp_ue_index
 
-                state.logger.log_msg(True, True, "Dashboard", f"{output}")
+                state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
 
 
             #####################################################
@@ -696,7 +696,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     output["ue_id"] = ueid
                     output["ue_ctx"] = None if uectx is None else uectx.concise_dict()
 
-                state.logger.log_msg(True, True, "Dashboard", f"{output}")
+                state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
 
             elif stream_idx == NGAP_PROCEDURE_COMPLETED_SIDX:
                 data_ptr = ctypes.cast(
@@ -739,7 +739,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                                                             data.ue_ctx.ran_ue_id, 
                                                             data.ue_ctx.amf_ue_id)
 
-                state.logger.log_msg(True, True, "Dashboard", f"{output}")
+                state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
 
             elif stream_idx == NGAP_RESET_SIDX:
                 data_ptr = ctypes.cast(
@@ -768,7 +768,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                                              ngap_ran_ue_id = None if data.ue_ctx.has_ran_ue_id is False else data.ue_ctx.ran_ue_id,
                                              ngap_amf_ue_id = None if data.ue_ctx.has_amf_ue_id is False else data.ue_ctx.amf_ue_id)
 
-                state.logger.log_msg(True, True, "Dashboard", f"{output}")
+                state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
 
 
             #####################################################
@@ -815,7 +815,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     if cnt >= data.stats_count:
                         break
                 if len(output["stats"]) > 0:
-                    state.logger.log_msg(True, True, "Dashboard", f"{output}")
+                    state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
 
             elif stream_idx == RLC_DL_SOUTH_STATS_SIDX:
                 data_ptr = ctypes.cast(
@@ -894,7 +894,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     if cnt >= data.stats_count:
                         break
                 if len(output["stats"]) > 0:
-                    state.logger.log_msg(True, True, "Dashboard", f"{output}")
+                    state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
 
             elif stream_idx == RLC_UL_STATS_SIDX:
 
@@ -957,7 +957,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     if cnt >= data.stats_count:
                         break
                 if len(output["stats"]) > 0:
-                    state.logger.log_msg(True, True, "Dashboard", f"{output}")
+                    state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
 
 
             #####################################################
@@ -1023,7 +1023,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     if cnt >= data.stats_count:
                         break
                 if len(output["stats"]) > 0:
-                    state.logger.log_msg(True, True, "Dashboard", f"{output}")
+                    state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
 
             elif stream_idx == PDCP_DL_SOUTH_STATS_SIDX:
 
@@ -1161,7 +1161,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     if cnt >= data.stats_count:
                         break
                 if len(output["stats"]) > 0:
-                    state.logger.log_msg(True, True, "Dashboard", f"{output}")
+                    state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
 
             elif stream_idx == PDCP_UL_STATS_SIDX:
 
@@ -1228,7 +1228,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                         break
 
                 if len(output["stats"]) > 0:
-                    state.logger.log_msg(True, True, "Dashboard", f"{output}")
+                    state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
 
 
 
@@ -1274,7 +1274,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     if cnt >= data.stats_count:
                         break
                 if len(output["stats"]) > 0:
-                    state.logger.log_msg(True, True, "Dashboard", f"{output}")
+                    state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
 
             elif stream_idx == MAC_SCHED_BSR_STATS_SIDX:
 
@@ -1308,7 +1308,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                         if cnt >= data.stats_count:
                             break
                 if len(output["stats"]) > 0:
-                    state.logger.log_msg(True, True, "Dashboard", f"{output}")
+                    state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
     
             elif stream_idx == MAC_SCHED_PHR_STATS_SIDX:
                 data_ptr = ctypes.cast(
@@ -1346,7 +1346,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     if cnt >= data.stats_count:
                         break
                 if len(output["stats"]) > 0:
-                    state.logger.log_msg(True, True, "Dashboard", f"{output}")
+                    state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
 
 
 
@@ -1394,7 +1394,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     if cnt >= data.stats_count:
                         break
                 if len(output["ues"]) > 0:
-                    state.logger.log_msg(True, True, "Dashboard", f"{output}")
+                    state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
 
             elif stream_idx == FAPI_UL_CONFIG_SIDX:
                 data_ptr = ctypes.cast(
@@ -1438,7 +1438,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     if cnt >= data.stats_count:
                         break
                 if len(output["ues"]) > 0:
-                    state.logger.log_msg(True, True, "Dashboard", f"{output}")
+                    state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
 
             elif stream_idx == FAPI_CRC_STATS_SIDX:
                 data_ptr = ctypes.cast(
@@ -1477,7 +1477,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     if cnt >= data.stats_count:
                         break
                 if len(output["ues"]) > 0:
-                    state.logger.log_msg(True, True, "Dashboard", f"{output}")
+                    state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
 
             elif stream_idx == FAPI_RACH_STATS_SIDX:
                 data_ptr = ctypes.cast(
@@ -1510,7 +1510,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     cnt += 1
                     if cnt >= data.l1_rach_pwr_hist_count:
                         break
-                state.logger.log_msg(True, True, "Dashboard", f"{output}")
+                state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
 
 
             ###########
@@ -1541,7 +1541,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                 }
 
                 # Send the output to the dashboard
-                state.logger.log_msg(True, True, "Dashboard", f"{output}")
+                state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
 
 
 
@@ -2136,7 +2136,7 @@ def jrtc_start_app(capsule):
 
     state.app = jrtc_app_create(capsule, app_cfg, app_handler, state)
 
-    state.logger.log_msg(True, True, "Unstructured", f"Number of subscribed streams: {len(streams)}")
+    state.logger.log_msg(True, True, "", f"Number of subscribed streams: {len(streams)}")
 
     # start thread for json port
     json_udp_server = JsonUDPServer("0.0.0.0", 20790, state)
