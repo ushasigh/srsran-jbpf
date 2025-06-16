@@ -633,7 +633,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     "ueid": ueid,
                     "ue_ctx": None if uectx is None else uectx.concise_dict(),
                     "cucp_ue_index": data.cucp_ue_index,
-                    "old_ue_index": data.old_ue_index,
+                    "old_cucp_ue_index": data.old_cucp_ue_index,
                     "rnti": data.c_rnti,
                     "pci": data.pci,
                     "tac": data.tac,
