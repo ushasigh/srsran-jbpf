@@ -536,7 +536,11 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                         "num": perf.num,
                         "min": perf.min,
                         "max": perf.max,
-                        "hist": list(perf.hist)
+                        "hist": list(perf.hist),
+                        "p50": perf.p50,
+                        "p90": perf.p90,
+                        "p95": perf.p95,
+                        "p99": perf.p99
                     })
                     cnt += 1
                     if cnt >= data.hook_perf_count:

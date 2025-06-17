@@ -5,7 +5,11 @@ message jbpf_hook_perf {
   required uint64 min = 2;
   required uint64 max = 3;
   repeated uint32 hist = 4;
-  required string hook_name = 5;
+  required uint64 p50 = 5;           // approximation of 50th percentile
+  required uint64 p90 = 6;           // approximation of 90th percentile
+  required uint64 p95 = 7;           // approximation of 95th percentile
+  required uint64 p99 = 8;           // approximation of 99th percentile
+  required string hook_name = 9;
 }
 
 message jbpf_out_perf_list {
