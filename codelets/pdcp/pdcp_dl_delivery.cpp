@@ -257,7 +257,7 @@ uint64_t jbpf_main(void* state)
             if ((events->map[aind % MAX_SDU_IN_FLIGHT].sdu_arrival_ns > 0) &&
                 (events->map[aind % MAX_SDU_IN_FLIGHT].rlcDelivered_ns > events->map[aind % MAX_SDU_IN_FLIGHT].sdu_arrival_ns)) {
 
-                uint64_t delay = events->map[aind % MAX_SDU_IN_FLIGHT].rlcDelivered_ns - events->map[aind % MAX_SDU_IN_FLIGHT].rlcTxStarted_ns;  
+                uint64_t delay = events->map[aind % MAX_SDU_IN_FLIGHT].rlcDelivered_ns - events->map[aind % MAX_SDU_IN_FLIGHT].sdu_arrival_ns;  
                 
                 out->stats[ind % MAX_NUM_UE_RB].total_delay.count++; 
                 out->stats[ind % MAX_NUM_UE_RB].total_delay.total += delay;
