@@ -35,10 +35,8 @@ message t_dls_stats {
    required t_dls_stats_item tx_queue_bytes = 9;   
    required t_dls_stats_item tx_queue_pkt = 10;
 
-   // SDUs transmitted
+   // SDUs transmitted / retransmitted
    required t_dls_traffic_stats_item sdu_tx_bytes = 11;
-
-   // SDUs retransmitted
    required t_dls_traffic_stats_item sdu_retx_bytes = 12;
 
    // SDUs discarded

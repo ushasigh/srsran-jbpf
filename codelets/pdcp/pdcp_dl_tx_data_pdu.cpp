@@ -89,7 +89,7 @@ uint64_t jbpf_main(void* state)
     int rb_id = RBID_2_EXPLICIT(pdcp_ctx.is_srb, pdcp_ctx.rb_id);    
 
     uint32_t count = (uint32_t) (ctx->srs_meta_data1 & 0xFFFFFFFF);
-    // uint32_t pdu_length = (uint32_t) (ctx->srs_meta_data1 >> 32);
+    uint32_t pdu_length = (uint32_t) (ctx->srs_meta_data1 >> 32);
     uint32_t window_size = (uint32_t) (ctx->srs_meta_data2 & 0xFFFFFFFF);
     uint32_t is_retx = (uint32_t) (ctx->srs_meta_data2 >> 32);
 
@@ -180,14 +180,28 @@ uint64_t jbpf_main(void* state)
         uint64_t now_ns = jbpf_time_get_ns();
         events->map[aind % MAX_SDU_IN_FLIGHT].pdcpTx_ns = now_ns;
 
+        // get sdu length
+        sdu_length = events->map[aind % MAX_SDU_IN_FLIGHT].sdu_length;
+
+        // update SDU traffic stats
+        if (is_retx) {
+            out->stats[ind % MAX_NUM_UE_RB].sdu_retx_bytes.count++; 
+            out->stats[ind % MAX_NUM_UE_RB].sdu_retx_bytes.total += sdu_length;
+        } else {
+            out->stats[ind % MAX_NUM_UE_RB].sdu_tx_bytes.count++; 
+            out->stats[ind % MAX_NUM_UE_RB].sdu_tx_bytes.total += sdu_length;
+        }
+
         // only calculate pdcp_tx_delay if we have a valid sdu arrival time
         if ((events->map[aind % MAX_SDU_IN_FLIGHT].sdu_arrival_ns > 0) &&
             (events->map[aind % MAX_SDU_IN_FLIGHT].pdcpTx_ns > events->map[aind % MAX_SDU_IN_FLIGHT].sdu_arrival_ns)) {
             uint64_t delay = events->map[aind % MAX_SDU_IN_FLIGHT].pdcpTx_ns - events->map[aind % MAX_SDU_IN_FLIGHT].sdu_arrival_ns;
 
-            // get sdu length
-            sdu_length = events->map[aind % MAX_SDU_IN_FLIGHT].sdu_length;
-                
+#ifdef DEBUG_PRINT
+            jbpf_printf_debug("PDCP DL TX PDU,  : count=%d, delay=%d\n", 
+                count, delay);
+#endif       
+
             out->stats[ind % MAX_NUM_UE_RB].pdcp_tx_delay.count++; 
             out->stats[ind % MAX_NUM_UE_RB].pdcp_tx_delay.total += delay;
             if (out->stats[ind % MAX_NUM_UE_RB].pdcp_tx_delay.min > delay) {
@@ -197,10 +211,6 @@ uint64_t jbpf_main(void* state)
                 out->stats[ind % MAX_NUM_UE_RB].pdcp_tx_delay.max = delay;
             }
 
-#ifdef DEBUG_PRINT
-            jbpf_printf_debug("PDCP DL TX PDU,  : count=%d, delay=%d\n", 
-                count, delay);
-#endif            
         } else {
             out->stats[ind % MAX_NUM_UE_RB].pdcp_tx_delay.count = 0;
         }
@@ -214,14 +224,6 @@ uint64_t jbpf_main(void* state)
 //#endif
     }    
 
-    // update traffic stats
-    if (is_retx) {
-        out->stats[ind % MAX_NUM_UE_RB].sdu_retx_bytes.count++; 
-        out->stats[ind % MAX_NUM_UE_RB].sdu_retx_bytes.total += sdu_length;
-    } else {
-        out->stats[ind % MAX_NUM_UE_RB].sdu_tx_bytes.count++; 
-        out->stats[ind % MAX_NUM_UE_RB].sdu_tx_bytes.total += sdu_length;
-    }
 #endif
     
     *not_empty_stats = 1;
