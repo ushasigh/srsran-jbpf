@@ -27,21 +27,21 @@ codelet_descriptor:
     priority: 1
     out_io_channel:
       - name: output_map_crc
-        forward_destination: DestinationUDP
+        forward_destination: DestinationNone
         serde:
           file_path: ${JBPF_CODELETS}/mac/mac_sched_crc_stats:crc_stats_serializer.so
           protobuf:
             package_path: ${JBPF_CODELETS}/mac/mac_sched_crc_stats.pb
             msg_name: crc_stats
       - name: output_map_bsr
-        forward_destination: DestinationUDP
+        forward_destination: DestinationNone
         serde:
           file_path: ${JBPF_CODELETS}/mac/mac_sched_bsr_stats:bsr_stats_serializer.so
           protobuf:
             package_path: ${JBPF_CODELETS}/mac/mac_sched_bsr_stats.pb
             msg_name: bsr_stats
       - name: output_map_phr
-        forward_destination: DestinationUDP
+        forward_destination: DestinationNone
         serde:
           file_path: ${JBPF_CODELETS}/mac/mac_sched_phr_stats:phr_stats_serializer.so
           protobuf:

@@ -4,12 +4,7 @@
 # Licensed under the MIT license.
 
 name: dashboard
-    
-decoder:
-  - type: decodergrpc
-    port: 30501
-    #port: 20789
-      
+
 app:
   - name: dashboard
     path: ${JRTC_APPS}/dashboard/dashboard.py

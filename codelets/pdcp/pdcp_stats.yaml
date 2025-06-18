@@ -38,21 +38,21 @@ codelet_descriptor:
     priority: 1
     out_io_channel:
       - name: output_map_dl_north
-        forward_destination: DestinationUDP
+        forward_destination: DestinationNone
         serde:
           file_path: ${JBPF_CODELETS}/pdcp/pdcp_dl_north_stats:dl_north_stats_serializer.so
           protobuf:
             package_path: ${JBPF_CODELETS}/pdcp/pdcp_dl_north_stats.pb
             msg_name: dl_north_stats
       - name: output_map_dl_south
-        forward_destination: DestinationUDP
+        forward_destination: DestinationNone
         serde:
           file_path: ${JBPF_CODELETS}/pdcp/pdcp_dl_south_stats:dl_south_stats_serializer.so
           protobuf:
             package_path: ${JBPF_CODELETS}/pdcp/pdcp_dl_south_stats.pb
             msg_name: dl_south_stats
       - name: output_map_ul
-        forward_destination: DestinationUDP
+        forward_destination: DestinationNone
         serde:
           file_path: ${JBPF_CODELETS}/pdcp/pdcp_ul_stats:ul_stats_serializer.so
           protobuf:

@@ -11,7 +11,7 @@ codelet_descriptor:
     priority: 1
     out_io_channel:
       - name: output_map
-        forward_destination: DestinationUDP
+        forward_destination: DestinationNone
         serde:
           file_path: ${JBPF_CODELETS}/ue_contexts/ue_contexts:du_ue_ctx_creation_serializer.so
           protobuf:
@@ -24,7 +24,7 @@ codelet_descriptor:
     priority: 1
     out_io_channel:
       - name: output_map
-        forward_destination: DestinationUDP
+        forward_destination: DestinationNone
         serde:
           file_path: ${JBPF_CODELETS}/ue_contexts/ue_contexts:du_ue_ctx_update_crnti_serializer.so
           protobuf:
@@ -37,7 +37,7 @@ codelet_descriptor:
     priority: 1
     out_io_channel:
       - name: output_map
-        forward_destination: DestinationUDP
+        forward_destination: DestinationNone
         serde:
           file_path: ${JBPF_CODELETS}/ue_contexts/ue_contexts:du_ue_ctx_deletion_serializer.so
           protobuf:
@@ -50,7 +50,7 @@ codelet_descriptor:
     priority: 1
     out_io_channel:
       - name: output_map
-        forward_destination: DestinationUDP
+        forward_destination: DestinationNone
         serde:
           file_path: ${JBPF_CODELETS}/ue_contexts/ue_contexts:cucp_ue_ctx_creation_serializer.so
           protobuf:
@@ -63,7 +63,7 @@ codelet_descriptor:
     priority: 1
     out_io_channel:
       - name: output_map
-        forward_destination: DestinationUDP
+        forward_destination: DestinationNone
         serde:
           file_path: ${JBPF_CODELETS}/ue_contexts/ue_contexts:cucp_ue_ctx_update_serializer.so
           protobuf:
@@ -76,7 +76,7 @@ codelet_descriptor:
     priority: 1
     out_io_channel:
       - name: output_map
-        forward_destination: DestinationUDP
+        forward_destination: DestinationNone
         serde:
           file_path: ${JBPF_CODELETS}/ue_contexts/ue_contexts:cucp_ue_ctx_deletion_serializer.so
           protobuf:
@@ -89,7 +89,7 @@ codelet_descriptor:
     priority: 1
     out_io_channel:
       - name: output_map
-        forward_destination: DestinationUDP
+        forward_destination: DestinationNone
         serde:
           file_path: ${JBPF_CODELETS}/ue_contexts/ue_contexts:e1ap_cucp_bearer_ctx_setup_serializer.so
           protobuf:
@@ -102,7 +102,7 @@ codelet_descriptor:
     priority: 1
     out_io_channel:
       - name: output_map
-        forward_destination: DestinationUDP
+        forward_destination: DestinationNone
         serde:
           file_path: ${JBPF_CODELETS}/ue_contexts/ue_contexts:e1ap_cuup_bearer_ctx_setup_serializer.so
           protobuf:
@@ -115,7 +115,7 @@ codelet_descriptor:
     priority: 1
     out_io_channel:
       - name: output_map
-        forward_destination: DestinationUDP
+        forward_destination: DestinationNone
         serde:
           file_path: ${JBPF_CODELETS}/ue_contexts/ue_contexts:e1ap_cuup_bearer_ctx_release_serializer.so
           protobuf:

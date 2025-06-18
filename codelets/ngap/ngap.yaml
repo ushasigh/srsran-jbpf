@@ -11,7 +11,7 @@ codelet_descriptor:
     priority: 1
     out_io_channel:
       - name: output_map
-        forward_destination: DestinationUDP
+        forward_destination: DestinationNone
         serde:
           file_path: ${JBPF_CODELETS}/ngap/ngap:ngap_procedure_started_serializer.so
           protobuf:
@@ -24,7 +24,7 @@ codelet_descriptor:
     priority: 1
     out_io_channel:
       - name: output_map
-        forward_destination: DestinationUDP
+        forward_destination: DestinationNone
         serde:
           file_path: ${JBPF_CODELETS}/ngap/ngap:ngap_procedure_completed_serializer.so
           protobuf:
@@ -37,7 +37,7 @@ codelet_descriptor:
     priority: 1
     out_io_channel:
       - name: output_map
-        forward_destination: DestinationUDP
+        forward_destination: DestinationNone
         serde:
           file_path: ${JBPF_CODELETS}/ngap/ngap:ngap_reset_serializer.so
           protobuf:
