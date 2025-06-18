@@ -150,7 +150,7 @@ uint64_t jbpf_main(void* state)
 
     // Just find the key, don't add it. It was added in dl_new_sdu.
     // It should always be found, but maybe the hash has been cleaned, then ignore
-    uint64_t compound_key = ((uint64_t)count << 31) << 1 | (uint64_t)delay_hash_key; 
+    uint64_t compound_key = JBPF_PROTOHASH_COMPOUND_KEY_64(delay_hash_key, count); 
     uint32_t *pind = (uint32_t *)jbpf_map_lookup_elem(&delay_hash, &compound_key); 
     if (pind) {
         uint32_t aind = *pind;
@@ -190,7 +190,7 @@ uint64_t jbpf_main(void* state)
 
     // Just find the key, don't add it. It was added in dl_new_sdu.
     // It should always be found, but maybe the hash has been cleaned, then ignore
-    compound_key = ((uint64_t)rb_id << 31) << 1 | (uint64_t)pdcp_ctx.cu_ue_index; 
+    compound_key = JBPF_PROTOHASH_COMPOUND_KEY_64(pdcp_ctx.cu_ue_index, rb_id); 
     pind = (uint32_t *)jbpf_map_lookup_elem(&queue_hash, &compound_key); 
 
     if (pind) {

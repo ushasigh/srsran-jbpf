@@ -150,7 +150,7 @@ uint64_t jbpf_main(void* state)
 #ifdef PDCP_REPORT_DL_DELAY_QUEUE
 
     // clear the queue hash entries
-    uint64_t compound_key = ((uint64_t)rb_id << 31) << 1 | (uint64_t)pdcp_ctx.cu_ue_index; 
+    uint64_t compound_key = JBPF_PROTOHASH_COMPOUND_KEY_64(pdcp_ctx.cu_ue_index, rb_id);
     jbpf_map_delete_elem(&queue_hash, &compound_key); 
     
 #endif

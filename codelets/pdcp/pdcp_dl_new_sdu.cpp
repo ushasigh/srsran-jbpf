@@ -117,7 +117,7 @@ uint64_t jbpf_main(void* state)
 
     // create explicit rbid
     int rb_id = RBID_2_EXPLICIT(pdcp_ctx.is_srb, pdcp_ctx.rb_id);
-    uint64_t compound_key = ((uint64_t)rb_id << 31) << 1 | (uint64_t)pdcp_ctx.cu_ue_index; 
+    uint64_t compound_key = JBPF_PROTOHASH_COMPOUND_KEY_64(pdcp_ctx.cu_ue_index, rb_id); 
 
     // Store SDU arrival time so we can calculate delay and queue size at the PDCP level
     uint32_t sdu_length = (uint32_t) (ctx->srs_meta_data1 >> 32);
