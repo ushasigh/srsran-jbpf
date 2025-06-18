@@ -36,7 +36,7 @@ class Logger:
         if log:
             prefix = "" if (timestamp is None) else f"{timestamp} : "
             s = prefix + msg
-            print(s)
+            print(s, flush=True)
 
         if rlog and (self.remote_logger is not None):
             

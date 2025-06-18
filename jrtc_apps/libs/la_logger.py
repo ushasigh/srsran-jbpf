@@ -4,10 +4,10 @@ import hmac
 import base64
 import subprocess
 import tempfile
+import json
 
 import atexit
-from dataclasses import dataclass
-
+from dataclasses import dataclass, asdict
 
 ##########################################
 @dataclass()
@@ -18,14 +18,26 @@ class LaLoggerConfig:
     batch_max_num_packets: int
     batch_max_num_bytes: int
     batch_timeout_secs: int
+    stats_periodicity_secs: int
 
     def __str__(self):
         return (
             f"log_type={self.log_type}, workspace_id={self.workspace_id}, "
             f"primary_key=******, batch_max_num_packets={self.batch_max_num_packets}, "
             f"batch_max_num_bytes={self.batch_max_num_bytes}, "
-            f"batch_timeout_secs={self.batch_timeout_secs}"
+            f"batch_timeout_secs={self.batch_timeout_secs},"
+            f"stats_periodicity_secs={self.stats_periodicity_secs}"
         )
+
+
+##########################################
+@dataclass()
+class LaLoggerStats:
+    msgs_sent: int
+    bytes_sent: int
+    msgs_dropped: int
+    bytes_dropped: int
+
 
 #########################################################################################
 class LaLogger:
@@ -41,6 +53,9 @@ class LaLogger:
         self.batch = []
         self.batch_payload_bytes = 0
         self.batch_start_time = None
+
+        self.next_stats_report_ts = dt.datetime.now(dt.timezone.utc) + dt.timedelta(seconds=self.cfg.stats_periodicity_secs)
+        self.stats = LaLoggerStats(0, 0, 0, 0)
 
         atexit.register(self.__close)
 
@@ -73,6 +88,8 @@ class LaLogger:
     
         if self.dbg:
             print(f"LaLogger():process_msg: len batch -> {len(self.batch)} bytes={self.batch_payload_bytes} ")
+
+        self.report_stats()
  
     ############################################
     def process_timeout(self):
@@ -87,6 +104,7 @@ class LaLogger:
         
         self.flush_batch()
 
+        self.report_stats()
 
     ############################################
     def LA_build_signature(self, date, content_length, method, content_type, resource):
@@ -135,6 +153,7 @@ class LaLogger:
                         f"**** Log Analytics error, curl command failed: code: {result.returncode} error: {result.stderr}", flush=True
                     )
                     return False
+
                 return True
 
         except Exception as e:
@@ -186,6 +205,9 @@ class LaLogger:
         if result is True:
             # successfully sent, reset batch
 
+            self.stats.msgs_sent += len(self.batch)
+            self.stats.bytes_sent += len(s)
+
             # reset batch
             self.batch = []
             self.batch_payload_bytes = 0
@@ -199,11 +221,35 @@ class LaLogger:
             # else keep the batch for next time
             if batch_len_exceeded:
                 print("**** Log Analytics error:   batch length exceeded, dropping batch", flush=True)
+
+                self.stats.msgs_dropped += len(self.batch)
+                self.stats.bytes_dropped += len(data)
+
                 self.batch = []
                 self.batch_payload_bytes = 0
                 self.batch_start_time = None
             else:
                 print("**** Log Analytics error:   keeping batch for next transmission", flush=True)
+
+    ############################################
+    def report_stats(self):
+
+        now = dt.datetime.now(dt.timezone.utc)
+        if now > self.next_stats_report_ts:
+
+            timestamp = now.isoformat(
+                "T", "microseconds"
+            )
+            
+            prefix = f"{timestamp} : "
+            stats = {
+                "LogAnalyticsStats": asdict(self.stats) 
+            }
+            s = prefix + json.dumps(stats) 
+            print(s)
+
+            self.next_stats_report_ts = now + dt.timedelta(seconds=self.cfg.stats_periodicity_secs)
+            self.stats = LaLoggerStats(0, 0, 0, 0)
 
 
     ############################################

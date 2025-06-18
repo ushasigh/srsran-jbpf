@@ -20,16 +20,6 @@ import jrtc_app
 from jrtc_app import *
 
 
-include_ue_contexts = True
-include_perf = True
-include_rrc = True
-include_ngap = True
-include_pdcp = True
-include_rlc = True
-include_mac = True
-include_fapi = True
-include_xran = False
-
 
 # always include the logger modules
 logger = sys.modules.get('logger')
@@ -37,20 +27,23 @@ from logger import Logger
 la_logger = sys.modules.get('la_logger')
 from la_logger import LaLogger, LaLoggerConfig
 
+# always include the params file
+params = sys.modules.get('dashboard_params')    
+
 # always include the ue_contexts_map module
 ue_contexts_map = sys.modules.get('ue_contexts_map')    
 from ue_contexts_map import UeContextsMap, JbpfNgapProcedure, JbpRrcProcedure
 
 # Import the protobuf py modules
-if include_ue_contexts:
+if params.include_ue_contexts:
     ue_contexts = sys.modules.get('ue_contexts')
     from ue_contexts import struct__du_ue_ctx_creation, struct__du_ue_ctx_update_crnti, struct__du_ue_ctx_deletion, \
                             struct__cucp_ue_ctx_creation, struct__cucp_ue_ctx_update, struct__cucp_ue_ctx_deletion, \
                             struct__e1ap_cucp_bearer_ctx_setup, struct__e1ap_cuup_bearer_ctx_setup, struct__e1ap_cuup_bearer_ctx_release
-if include_perf:
+if params.include_perf:
     jbpf_stats_report = sys.modules.get('jbpf_stats_report')
     from jbpf_stats_report import struct__jbpf_out_perf_list
-if include_rrc:
+if params.include_rrc:
     rrc_ue_add = sys.modules.get('rrc_ue_add')
     rrc_ue_procedure = sys.modules.get('rrc_ue_procedure')
     rrc_ue_remove = sys.modules.get('rrc_ue_remove')
@@ -61,31 +54,31 @@ if include_rrc:
     from rrc_ue_remove import struct__rrc_ue_remove
     from rrc_ue_update_context import struct__rrc_ue_update_context
     from rrc_ue_update_id import struct__rrc_ue_update_id
-if include_ngap:
+if params.include_ngap:
     ngap = sys.modules.get('ngap')
     from ngap import struct__ngap_procedure_started, struct__ngap_procedure_completed, struct__ngap_reset
-if include_pdcp:
+if params.include_pdcp:
     pdcp_dl_north_stats = sys.modules.get('pdcp_dl_north_stats')
     pdcp_dl_south_stats = sys.modules.get('pdcp_dl_south_stats')
     pdcp_ul_stats = sys.modules.get('pdcp_ul_stats')
     from pdcp_dl_north_stats import struct__dl_north_stats
     from pdcp_dl_south_stats import struct__dl_south_stats
     from pdcp_ul_stats import struct__ul_stats
-if include_rlc:
+if params.include_rlc:
     rlc_dl_north_stats = sys.modules.get('rlc_dl_north_stats')
     rlc_dl_south_stats = sys.modules.get('rlc_dl_south_stats')
     rlc_ul_stats = sys.modules.get('rlc_ul_stats')
     from rlc_dl_north_stats import struct__rlc_dl_north_stats
     from rlc_dl_south_stats import struct__rlc_dl_south_stats
     from rlc_ul_stats import struct__rlc_ul_stats
-if include_mac:
+if params.include_mac:
     mac_sched_crc_stats = sys.modules.get('mac_sched_crc_stats')
     mac_sched_bsr_stats = sys.modules.get('mac_sched_bsr_stats')
     mac_sched_phr_stats = sys.modules.get('mac_sched_phr_stats')
     from mac_sched_crc_stats import struct__crc_stats
     from mac_sched_bsr_stats import struct__bsr_stats
     from mac_sched_phr_stats import struct__phr_stats
-if include_fapi:
+if params.include_fapi:
     fapi_gnb_dl_config_stats = sys.modules.get('fapi_gnb_dl_config_stats')
     fapi_gnb_ul_config_stats = sys.modules.get('fapi_gnb_ul_config_stats')
     fapi_gnb_crc_stats = sys.modules.get('fapi_gnb_crc_stats')
@@ -94,10 +87,13 @@ if include_fapi:
     from fapi_gnb_ul_config_stats import struct__ul_config_stats
     from fapi_gnb_crc_stats import struct__crc_stats as struct__fapi_crc_stats
     from fapi_gnb_rach_stats import struct__rach_stats
-if include_xran:
+if params.include_xran:
     xran_packet_info = sys.modules.get('xran_packet_info')
     from xran_packet_info import struct__packet_stats
 
+
+rlog_enabled = False
+log_enabled = True
 
 # create lock.
 # This is used by "json_handler" and "app_handler" to ensure they use the resources safely.
@@ -200,6 +196,10 @@ class JsonUDPServer:
 
     ##########################################################################
     def json_handler_func(self, json_str: str) -> None:
+
+        global rlog_enabled
+        global log_enabled
+    
         with app_lock:
 
             j = json.loads(json_str)
@@ -218,7 +218,7 @@ class JsonUDPServer:
                     "core-msg": j
                 }   
 
-                self.state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
+                self.state.logger.log_msg(log_enabled, rlog_enabled, "Dashboard", f"{json.dumps(output)}")
 
                 if event == "ran-ue-remove":
 
@@ -262,6 +262,9 @@ class JsonUDPServer:
 ##########################################################################
 def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_data_entry, state: AppStateVars):
 
+    global rlog_enabled
+    global log_enabled
+
     with app_lock:
 
         ##########################################################################
@@ -303,7 +306,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     "ue_ctx": None if uectx is None else uectx.concise_dict()
                 }            
 
-                state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
+                state.logger.log_msg(log_enabled, rlog_enabled, "Dashboard", f"{json.dumps(output)}")
             
             elif stream_idx == UECTX_DU_UPDATE_CRNTI_SIDX:
                 data_ptr = ctypes.cast(
@@ -327,7 +330,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     output["du_ue_index"] = data.du_ue_index
                     output["rnti"] = data.rnti
 
-                state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
+                state.logger.log_msg(log_enabled, rlog_enabled, "Dashboard", f"{json.dumps(output)}")
 
             elif stream_idx == UECTX_DU_DEL_SIDX:
                 data_ptr = ctypes.cast(
@@ -351,7 +354,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
 
                 state.ue_map.hook_du_ue_ctx_deletion(deviceid, data.du_ue_index)
 
-                state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
+                state.logger.log_msg(log_enabled, rlog_enabled, "Dashboard", f"{json.dumps(output)}")
 
             elif stream_idx == UECTX_CUCP_ADD_SIDX:
                 data_ptr = ctypes.cast(
@@ -381,7 +384,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                 if uectx is None:
                     output["cucp_ue_index"] = data.cucp_ue_index
 
-                state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
+                state.logger.log_msg(log_enabled, rlog_enabled, "Dashboard", f"{json.dumps(output)}")
 
             elif stream_idx == UECTX_CUCP_UPDATE_CRNTI_SIDX:
                 data_ptr = ctypes.cast(
@@ -403,7 +406,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     "ue_ctx": None if uectx is None else uectx.concise_dict()
                 }            
 
-                state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
+                state.logger.log_msg(log_enabled, rlog_enabled, "Dashboard", f"{json.dumps(output)}")
 
             elif stream_idx == UECTX_CUCP_DEL_SIDX:
                 data_ptr = ctypes.cast(
@@ -427,7 +430,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
 
                 state.ue_map.hook_cucp_uemgr_ue_remove(deviceid, data.cucp_ue_index)
 
-                state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
+                state.logger.log_msg(log_enabled, rlog_enabled, "Dashboard", f"{json.dumps(output)}")
 
             elif stream_idx == UECTX_CUCP_E1AP_BEARER_SETUP_SIDX:
                 data_ptr = ctypes.cast(
@@ -453,7 +456,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                 if uectx is None:
                     output["cucp_ue_index"] = data.cucp_ue_index
 
-                state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
+                state.logger.log_msg(log_enabled, rlog_enabled, "Dashboard", f"{json.dumps(output)}")
 
             elif stream_idx == UECTX_CUUP_E1AP_BEARER_SETUP_SIDX:
                 data_ptr = ctypes.cast(
@@ -482,7 +485,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                 if uectx is None:
                     output["cuup_ue_index"] = data.cuup_ue_index
 
-                state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
+                state.logger.log_msg(log_enabled, rlog_enabled, "Dashboard", f"{json.dumps(output)}")
 
             elif stream_idx == UECTX_CUUP_E1AP_BEARER_DEL_SIDX:
                 data_ptr = ctypes.cast(
@@ -512,7 +515,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                                     data.cuup_ue_e1ap_id,
                                     data.success)
 
-                state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
+                state.logger.log_msg(log_enabled, rlog_enabled, "Dashboard", f"{json.dumps(output)}")
 
             #####################################################
             ### Perf
@@ -546,7 +549,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     if cnt >= data.hook_perf_count:
                         break
                 if len(output["perfs"]) > 0:
-                    state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
+                    state.logger.log_msg(log_enabled, rlog_enabled, "Dashboard", f"{json.dumps(output)}")
 
 
             #####################################################
@@ -572,7 +575,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                 if uectx is None:
                     output["cucp_ue_index"] = data.cucp_ue_index
 
-                state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
+                state.logger.log_msg(log_enabled, rlog_enabled, "Dashboard", f"{json.dumps(output)}")
 
             elif stream_idx == RRC_UE_PROCEDURE_SIDX:
                 data_ptr = ctypes.cast(
@@ -597,7 +600,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                 if uectx is None:
                     output["cucp_ue_index"] = data.cucp_ue_index
 
-                state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
+                state.logger.log_msg(log_enabled, rlog_enabled, "Dashboard", f"{json.dumps(output)}")
 
             elif stream_idx == RRC_UE_REMOVE_SIDX:
                 data_ptr = ctypes.cast(
@@ -619,7 +622,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                 if uectx is None:
                     output["cucp_ue_index"] = data.cucp_ue_index
 
-                state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
+                state.logger.log_msg(log_enabled, rlog_enabled, "Dashboard", f"{json.dumps(output)}")
 
             elif stream_idx == RRC_UE_UPDATE_CONTEXT_SIDX:
                 data_ptr = ctypes.cast(
@@ -644,7 +647,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     "plmn": data.plmn,
                     "nci": data.nci
                 }
-                state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
+                state.logger.log_msg(log_enabled, rlog_enabled, "Dashboard", f"{json.dumps(output)}")
 
             elif stream_idx == RRC_UE_UPDATE_ID_SIDX:
                 data_ptr = ctypes.cast(
@@ -667,7 +670,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                 if uectx is None:
                     output["cucp_ue_index"] = data.cucp_ue_index
 
-                state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
+                state.logger.log_msg(log_enabled, rlog_enabled, "Dashboard", f"{json.dumps(output)}")
 
 
             #####################################################
@@ -700,7 +703,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     output["ue_id"] = ueid
                     output["ue_ctx"] = None if uectx is None else uectx.concise_dict()
 
-                state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
+                state.logger.log_msg(log_enabled, rlog_enabled, "Dashboard", f"{json.dumps(output)}")
 
             elif stream_idx == NGAP_PROCEDURE_COMPLETED_SIDX:
                 data_ptr = ctypes.cast(
@@ -743,7 +746,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                                                             data.ue_ctx.ran_ue_id, 
                                                             data.ue_ctx.amf_ue_id)
 
-                state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
+                state.logger.log_msg(log_enabled, rlog_enabled, "Dashboard", f"{json.dumps(output)}")
 
             elif stream_idx == NGAP_RESET_SIDX:
                 data_ptr = ctypes.cast(
@@ -772,7 +775,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                                              ngap_ran_ue_id = None if data.ue_ctx.has_ran_ue_id is False else data.ue_ctx.ran_ue_id,
                                              ngap_amf_ue_id = None if data.ue_ctx.has_amf_ue_id is False else data.ue_ctx.amf_ue_id)
 
-                state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
+                state.logger.log_msg(log_enabled, rlog_enabled, "Dashboard", f"{json.dumps(output)}")
 
 
             #####################################################
@@ -819,7 +822,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     if cnt >= data.stats_count:
                         break
                 if len(output["stats"]) > 0:
-                    state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
+                    state.logger.log_msg(log_enabled, rlog_enabled, "Dashboard", f"{json.dumps(output)}")
 
             elif stream_idx == RLC_DL_SOUTH_STATS_SIDX:
                 data_ptr = ctypes.cast(
@@ -898,7 +901,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     if cnt >= data.stats_count:
                         break
                 if len(output["stats"]) > 0:
-                    state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
+                    state.logger.log_msg(log_enabled, rlog_enabled, "Dashboard", f"{json.dumps(output)}")
 
             elif stream_idx == RLC_UL_STATS_SIDX:
 
@@ -961,7 +964,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     if cnt >= data.stats_count:
                         break
                 if len(output["stats"]) > 0:
-                    state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
+                    state.logger.log_msg(log_enabled, rlog_enabled, "Dashboard", f"{json.dumps(output)}")
 
 
             #####################################################
@@ -1027,7 +1030,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     if cnt >= data.stats_count:
                         break
                 if len(output["stats"]) > 0:
-                    state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
+                    state.logger.log_msg(log_enabled, rlog_enabled, "Dashboard", f"{json.dumps(output)}")
 
             elif stream_idx == PDCP_DL_SOUTH_STATS_SIDX:
 
@@ -1165,7 +1168,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     if cnt >= data.stats_count:
                         break
                 if len(output["stats"]) > 0:
-                    state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
+                    state.logger.log_msg(log_enabled, rlog_enabled, "Dashboard", f"{json.dumps(output)}")
 
             elif stream_idx == PDCP_UL_STATS_SIDX:
 
@@ -1232,7 +1235,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                         break
 
                 if len(output["stats"]) > 0:
-                    state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
+                    state.logger.log_msg(log_enabled, rlog_enabled, "Dashboard", f"{json.dumps(output)}")
 
 
 
@@ -1278,7 +1281,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     if cnt >= data.stats_count:
                         break
                 if len(output["stats"]) > 0:
-                    state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
+                    state.logger.log_msg(log_enabled, rlog_enabled, "Dashboard", f"{json.dumps(output)}")
 
             elif stream_idx == MAC_SCHED_BSR_STATS_SIDX:
 
@@ -1312,7 +1315,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                         if cnt >= data.stats_count:
                             break
                 if len(output["stats"]) > 0:
-                    state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
+                    state.logger.log_msg(log_enabled, rlog_enabled, "Dashboard", f"{json.dumps(output)}")
     
             elif stream_idx == MAC_SCHED_PHR_STATS_SIDX:
                 data_ptr = ctypes.cast(
@@ -1350,7 +1353,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     if cnt >= data.stats_count:
                         break
                 if len(output["stats"]) > 0:
-                    state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
+                    state.logger.log_msg(log_enabled, rlog_enabled, "Dashboard", f"{json.dumps(output)}")
 
 
 
@@ -1398,7 +1401,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     if cnt >= data.stats_count:
                         break
                 if len(output["ues"]) > 0:
-                    state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
+                    state.logger.log_msg(log_enabled, rlog_enabled, "Dashboard", f"{json.dumps(output)}")
 
             elif stream_idx == FAPI_UL_CONFIG_SIDX:
                 data_ptr = ctypes.cast(
@@ -1442,7 +1445,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     if cnt >= data.stats_count:
                         break
                 if len(output["ues"]) > 0:
-                    state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
+                    state.logger.log_msg(log_enabled, rlog_enabled, "Dashboard", f"{json.dumps(output)}")
 
             elif stream_idx == FAPI_CRC_STATS_SIDX:
                 data_ptr = ctypes.cast(
@@ -1481,7 +1484,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     if cnt >= data.stats_count:
                         break
                 if len(output["ues"]) > 0:
-                    state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
+                    state.logger.log_msg(log_enabled, rlog_enabled, "Dashboard", f"{json.dumps(output)}")
 
             elif stream_idx == FAPI_RACH_STATS_SIDX:
                 data_ptr = ctypes.cast(
@@ -1514,7 +1517,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     cnt += 1
                     if cnt >= data.l1_rach_pwr_hist_count:
                         break
-                state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
+                state.logger.log_msg(log_enabled, rlog_enabled, "Dashboard", f"{json.dumps(output)}")
 
 
             ###########
@@ -1531,10 +1534,10 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                 dl_data_stats = data.dl_packet_stats.data_packet_stats
                 dl_control_stats = data.dl_packet_stats.ctrl_packet_stats
 
-                state.logger.log_msg(True, False, "", "****----------------------------")
-                state.logger.log_msg(True, False, "", f"*Hi App 1: timestamp: {data.timestamp}")
-                state.logger.log_msg(True, False, "", f"*DL Ctl: {dl_control_stats.Packet_count} {list(dl_control_stats.packet_inter_arrival_info.hist)}")
-                state.logger.log_msg(True, False, "", f"*DL Data: {dl_data_stats.Packet_count} {dl_data_stats.Prb_count} {list(dl_data_stats.packet_inter_arrival_info.hist)}")
+                state.logger.log_msg(log_enabled, rlog_enabled, "", "****----------------------------")
+                state.logger.log_msg(log_enabled, rlog_enabled, "", f"*Hi App 1: timestamp: {data.timestamp}")
+                state.logger.log_msg(log_enabled, rlog_enabled, "", f"*DL Ctl: {dl_control_stats.Packet_count} {list(dl_control_stats.packet_inter_arrival_info.hist)}")
+                state.logger.log_msg(log_enabled, rlog_enabled, "", f"*DL Data: {dl_data_stats.Packet_count} {dl_data_stats.Prb_count} {list(dl_data_stats.packet_inter_arrival_info.hist)}")
 
 
             else:
@@ -1545,7 +1548,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                 }
 
                 # Send the output to the dashboard
-                state.logger.log_msg(True, True, "Dashboard", f"{json.dumps(output)}")
+                state.logger.log_msg(log_enabled, rlog_enabled, "Dashboard", f"{json.dumps(output)}")
 
 
 
@@ -1585,6 +1588,9 @@ def jrtc_start_app(capsule):
     global FAPI_RACH_STATS_SIDX 
     global JBPF_STATS_REPORT_SIDX
     global XRAN_CODELET_OUT_SIDX
+    global rlog_enabled
+    global log_enabled
+
 
     UECTX_DU_ADD_SIDX = -1
     UECTX_DU_UPDATE_CRNTI_SIDX = -1
@@ -1626,7 +1632,7 @@ def jrtc_start_app(capsule):
     la_workspace_id = os.environ.get("LA_WORKSPACE_ID", "")
     la_primary_key = os.environ.get("LA_PRIMARY_KEY", "")
 
-    if la_workspace_id == "" or la_primary_key == "":
+    if  (params.la_enabled is False) or la_workspace_id == "" or la_primary_key == "":
         print("Log Analytics workspace ID or primary key not set. Using local logger only.", flush=True)
         la_logger = None
     else:
@@ -1637,9 +1643,10 @@ def jrtc_start_app(capsule):
                 "jrtc_dashboard",  # Log type
                 la_workspace_id,         
                 la_primary_key,         
-                100,          # 100 packets per batch
-                1024 * 1024,  # 1 MB per batch
-                5             # Timeout for batch sending (5 seconds)
+                params.la_msgs_per_batch,
+                params.la_bytes_per_batch,
+                params.la_tx_timeout_secs,
+                params.la_stats_period_secs
             ), 
             dbg=False
         )
@@ -1651,17 +1658,21 @@ def jrtc_start_app(capsule):
     hostname = ""
 
     # Initialize the app
-    
     state = AppStateVars(
         logger=Logger(hostname, stream_id, stream_type, remote_logger=la_logger),
-        ue_map=UeContextsMap(dbg=False) if include_ue_contexts else None, 
+        ue_map=UeContextsMap(dbg=False) if params.include_ue_contexts else None, 
         app=None)
+
+    # if LA is configured and intitialised, send to LA, and not write to console.
+    # else, write to console
+    rlog_enabled = (la_logger is not None)
+    log_enabled = (not rlog_enabled)
     
 
     #####################################################
     ### UE contexts
 
-    if include_ue_contexts:
+    if params.include_ue_contexts:
 
         streams.append(JrtcStreamCfg_t(
             JrtcStreamIdCfg_t(
@@ -1785,7 +1796,7 @@ def jrtc_start_app(capsule):
     #####################################################
     ### Perf
 
-    if include_perf:
+    if params.include_perf:
         streams.append(JrtcStreamCfg_t(
             JrtcStreamIdCfg_t(
                 JRTC_ROUTER_REQ_DEST_ANY, 
@@ -1804,7 +1815,7 @@ def jrtc_start_app(capsule):
     #####################################################
     ### RRC
 
-    if include_rrc:
+    if params.include_rrc:
         streams.append(JrtcStreamCfg_t(
             JrtcStreamIdCfg_t(
                 JRTC_ROUTER_REQ_DEST_ANY, 
@@ -1875,7 +1886,7 @@ def jrtc_start_app(capsule):
     #####################################################
     ### NGAP
 
-    if include_ngap:
+    if params.include_ngap:
     
         streams.append(JrtcStreamCfg_t(
             JrtcStreamIdCfg_t(
@@ -1921,7 +1932,7 @@ def jrtc_start_app(capsule):
     #####################################################
     ### RLC
 
-    if include_rlc:
+    if params.include_rlc:
         streams.append(JrtcStreamCfg_t(
             JrtcStreamIdCfg_t(
                 JRTC_ROUTER_REQ_DEST_ANY, 
@@ -1966,7 +1977,7 @@ def jrtc_start_app(capsule):
     #####################################################
     ### PDCP
 
-    if include_pdcp:
+    if params.include_pdcp:
         streams.append(JrtcStreamCfg_t(
             JrtcStreamIdCfg_t(
                 JRTC_ROUTER_REQ_DEST_ANY, 
@@ -2011,7 +2022,7 @@ def jrtc_start_app(capsule):
     #####################################################
     ### MAC
 
-    if include_mac:
+    if params.include_mac:
         # MAC SCHEDULER
         streams.append(JrtcStreamCfg_t(
                 JrtcStreamIdCfg_t(
@@ -2057,7 +2068,7 @@ def jrtc_start_app(capsule):
     #####################################################
     ### FAPI
 
-    if include_fapi:
+    if params.include_fapi:
         streams.append(JrtcStreamCfg_t(
             JrtcStreamIdCfg_t(
                 JRTC_ROUTER_REQ_DEST_ANY, 
@@ -2114,7 +2125,7 @@ def jrtc_start_app(capsule):
     #####################################################
     ### XRAN
 
-    if include_xran:
+    if params.include_xran:
         streams.append(JrtcStreamCfg_t(
             JrtcStreamIdCfg_t(
                 JRTC_ROUTER_REQ_DEST_ANY, 
@@ -2142,13 +2153,16 @@ def jrtc_start_app(capsule):
 
     state.logger.log_msg(True, True, "", f"Number of subscribed streams: {len(streams)}")
 
-    # start thread for json port
-    json_udp_server = JsonUDPServer("0.0.0.0", 20790, state)
+    # start thread for json udp pp
+    if params.json_udp_enabled is True:
+        json_udp_server = JsonUDPServer("0.0.0.0", params.json_udp_port, state)
 
     # run the app - This is blocking until the app exists
     jrtc_app_run(state.app)
 
-    json_udp_server.stop()
+    # stop thread for json udp pp
+    if params.json_udp_enabled is True:
+        json_udp_server.stop()
 
     # clean up app resources
     jrtc_app_destroy(state.app)

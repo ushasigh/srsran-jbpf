@@ -16,6 +16,7 @@ app:
     type: python
     port: 30500
     modules:
+      - ${JRTC_APPS}/dashboard/dashboard_params.py
       - ${JRTC_APPS}/libs/logger.py
       - ${JRTC_APPS}/libs/la_logger.py
       - ${JRTC_APPS}/libs/ue_contexts_map.py
