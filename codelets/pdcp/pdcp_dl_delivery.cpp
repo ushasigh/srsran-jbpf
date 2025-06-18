@@ -104,15 +104,6 @@ uint64_t jbpf_main(void* state)
         return JBPF_CODELET_FAILURE;
 #endif
 
-
-    // out->timestamp = jbpf_time_get_ns();
-    // out->cu_ue_index = pdcp_ctx.cu_ue_index;
-    // out->is_srb = pdcp_ctx.is_srb;
-    // out->rb_id = pdcp_ctx.rb_id;
-    // out->rlc_mode = pdcp_ctx.rlc_mode;
-    // out->notif_count = ctx->srs_meta_data1 >> 32;
-    // out->window_size = ctx->srs_meta_data1 & 0xFFFFFFFF;
-
     // create explicit rbid
     int rb_id = RBID_2_EXPLICIT(pdcp_ctx.is_srb, pdcp_ctx.rb_id);    
 
@@ -131,52 +122,17 @@ uint64_t jbpf_main(void* state)
     int new_val = 0;
     uint32_t ind = JBPF_PROTOHASH_LOOKUP_ELEM_64(out, stats, dl_south_hash, rb_id, pdcp_ctx.cu_ue_index, new_val);
     if (new_val) {
+        memset(&out->stats[ind % MAX_NUM_UE_RB], 0, sizeof(t_dls_stats));
         out->stats[ind % MAX_NUM_UE_RB].cu_ue_index = pdcp_ctx.cu_ue_index;
         out->stats[ind % MAX_NUM_UE_RB].is_srb = pdcp_ctx.is_srb;
         out->stats[ind % MAX_NUM_UE_RB].rb_id = pdcp_ctx.rb_id;
-
-        out->stats[ind % MAX_NUM_UE_RB].window.count = 0;
-        out->stats[ind % MAX_NUM_UE_RB].window.total = 0;
         out->stats[ind % MAX_NUM_UE_RB].window.min = UINT32_MAX;
-        out->stats[ind % MAX_NUM_UE_RB].window.max = 0;
-
-        out->stats[ind % MAX_NUM_UE_RB].pdcp_tx_delay.count = 0;
-        out->stats[ind % MAX_NUM_UE_RB].pdcp_tx_delay.total = 0;
         out->stats[ind % MAX_NUM_UE_RB].pdcp_tx_delay.min = UINT32_MAX;
-        out->stats[ind % MAX_NUM_UE_RB].pdcp_tx_delay.max = 0;
-
-        out->stats[ind % MAX_NUM_UE_RB].rlc_tx_delay.count = 0;
-        out->stats[ind % MAX_NUM_UE_RB].rlc_tx_delay.total = 0;
         out->stats[ind % MAX_NUM_UE_RB].rlc_tx_delay.min = UINT32_MAX;
-        out->stats[ind % MAX_NUM_UE_RB].rlc_tx_delay.max = 0;
-
-        out->stats[ind % MAX_NUM_UE_RB].rlc_deliv_delay.count = 0;
-        out->stats[ind % MAX_NUM_UE_RB].rlc_deliv_delay.total = 0;
         out->stats[ind % MAX_NUM_UE_RB].rlc_deliv_delay.min = UINT32_MAX;
-        out->stats[ind % MAX_NUM_UE_RB].rlc_deliv_delay.max = 0;
-
-        out->stats[ind % MAX_NUM_UE_RB].total_delay.count = 0;
-        out->stats[ind % MAX_NUM_UE_RB].total_delay.total = 0;
         out->stats[ind % MAX_NUM_UE_RB].total_delay.min = UINT32_MAX;
-        out->stats[ind % MAX_NUM_UE_RB].total_delay.max = 0;
-
-        out->stats[ind % MAX_NUM_UE_RB].tx_queue_bytes.count = 0;
-        out->stats[ind % MAX_NUM_UE_RB].tx_queue_bytes.total = 0;
         out->stats[ind % MAX_NUM_UE_RB].tx_queue_bytes.min = UINT32_MAX;
-        out->stats[ind % MAX_NUM_UE_RB].tx_queue_bytes.max = 0;
-        out->stats[ind % MAX_NUM_UE_RB].tx_queue_pkt.count = 0;
-        out->stats[ind % MAX_NUM_UE_RB].tx_queue_pkt.total = 0;
         out->stats[ind % MAX_NUM_UE_RB].tx_queue_pkt.min = UINT32_MAX;
-        out->stats[ind % MAX_NUM_UE_RB].tx_queue_pkt.max = 0;
-
-        out->stats[ind % MAX_NUM_UE_RB].sdu_tx_bytes.count = 0;
-        out->stats[ind % MAX_NUM_UE_RB].sdu_tx_bytes.total = 0;
-
-        out->stats[ind % MAX_NUM_UE_RB].sdu_retx_bytes.count = 0;
-        out->stats[ind % MAX_NUM_UE_RB].sdu_retx_bytes.total = 0;
-
-        out->stats[ind % MAX_NUM_UE_RB].sdu_discarded_bytes.count = 0;
-        out->stats[ind % MAX_NUM_UE_RB].sdu_discarded_bytes.total = 0;
     }
 
     out->stats[ind % MAX_NUM_UE_RB].window.count++;
@@ -193,10 +149,6 @@ uint64_t jbpf_main(void* state)
     // Calculate delay per SDU
     uint32_t total_sdu_length = 0;
     uint32_t total_sdu_cnt = 0;
-
-    uint32_t delay_key = 
-        ((uint64_t)(rb_id & 0xFFFF) << 15) << 1 | 
-        ((uint64_t)(pdcp_ctx.cu_ue_index & 0xFFFF));
 
     // At the beginning, 0 is not acked so set to "-1".
     uint32_t ack_ind = JBPF_PROTOHASH_LOOKUP_ELEM_64(last_deliv_acked, ack, last_deliv_acked_hash, rb_id, pdcp_ctx.cu_ue_index, new_val);
@@ -220,16 +172,22 @@ uint64_t jbpf_main(void* state)
     }
 
 #ifdef DEBUG_PRINT
-    jbpf_printf_debug("    ACKING: notif_count=%d, last_deliv_acked=%d, delta=%d\n", 
+    jbpf_printf_debug("PDCP DL DELIVER SDU:    ACKING: notif_count=%d, last_deliv_acked=%d, delta=%d\n", 
         notif_count, last_deliv_acked->ack[ack_ind % MAX_NUM_UE_RB], delta);
 #endif
 
+    uint32_t delay_hash_key = PDCP_DL_DELAY_HASH_KEY(rb_id, pdcp_ctx.cu_ue_index);
+
     for (uint32_t ncnt = 1; ncnt <= delta; ncnt++) {
         uint32_t notif = last_deliv_acked->ack[ack_ind % MAX_NUM_UE_RB] + ncnt;         // wraps if necessary
+    
+        if (notif % PDCP_QUEUE_SAMPLING_RATE != 0) {
+            continue;
+        }
 
         // Just find the key, don't add it. It was added in dl_new_sdu.
         // It should always be found, but maybe the hash has been cleaned, then ignore
-        uint64_t compound_key = ((uint64_t)notif << 31) << 1 | (uint64_t)delay_key; 
+        uint64_t compound_key = ((uint64_t)notif << 31) << 1 | (uint64_t)delay_hash_key; 
         uint32_t *pind = (uint32_t *)jbpf_map_lookup_elem(&delay_hash, &compound_key); 
         if (pind) {
             uint32_t aind = *pind;
@@ -278,7 +236,7 @@ uint64_t jbpf_main(void* state)
             // Remove the SDU from the arrival map
             // Repeat lookup in case of concurrent accesses
             for (uint8_t i = 0; i < 3; i++) {
-                res = JBPF_PROTOHASH_REMOVE_ELEM_64(events, map, delay_hash, delay_key, notif);
+                res = JBPF_PROTOHASH_REMOVE_ELEM_64(events, map, delay_hash, delay_hash_key, notif);
                 if (res == JBPF_MAP_SUCCESS) {
                     break;
                 }
@@ -289,7 +247,8 @@ uint64_t jbpf_main(void* state)
                 notif, sdu_length, delay);
 #endif
         
-        } else {
+        } 
+        else {
             // Just find the key, don't add it. 
             // It should always be found, but maybe the hash has been cleaned, then ignore
 #ifdef DEBUG_PRINT

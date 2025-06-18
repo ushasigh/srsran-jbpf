@@ -9,6 +9,11 @@
 #define PDCP_REPORT_UL
 #define PDCP_REPORT_DL_DELAY_QUEUE
 
+#define PDCP_QUEUE_SAMPLING_RATE (5)   /* i.e. 1 in 5 packets will be processed */
+
+#define PDCP_DL_DELAY_HASH_KEY(__rbid, __cu_ue_index) \
+  (uint32_t) (((uint64_t)(__rbid & 0xFFFF) << 15) << 1 | ((uint64_t)(__cu_ue_index & 0xFFFF)))
+
 
 #define MAX_NUM_UE_RB (256)
 //#define MAX_SDU_IN_FLIGHT (256 * 32 * 4)

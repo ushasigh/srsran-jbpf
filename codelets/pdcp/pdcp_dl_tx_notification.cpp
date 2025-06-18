@@ -118,52 +118,17 @@ uint64_t jbpf_main(void* state)
     int new_val = 0;
     uint32_t ind = JBPF_PROTOHASH_LOOKUP_ELEM_64(out, stats, dl_south_hash, rb_id, pdcp_ctx.cu_ue_index, new_val);
     if (new_val) {
+        memset(&out->stats[ind % MAX_NUM_UE_RB], 0, sizeof(t_dls_stats));
         out->stats[ind % MAX_NUM_UE_RB].cu_ue_index = pdcp_ctx.cu_ue_index;
         out->stats[ind % MAX_NUM_UE_RB].is_srb = pdcp_ctx.is_srb;
         out->stats[ind % MAX_NUM_UE_RB].rb_id = pdcp_ctx.rb_id;
-
-        out->stats[ind % MAX_NUM_UE_RB].window.count = 0;
-        out->stats[ind % MAX_NUM_UE_RB].window.total = 0;
         out->stats[ind % MAX_NUM_UE_RB].window.min = UINT32_MAX;
-        out->stats[ind % MAX_NUM_UE_RB].window.max = 0;
-
-        out->stats[ind % MAX_NUM_UE_RB].pdcp_tx_delay.count = 0;
-        out->stats[ind % MAX_NUM_UE_RB].pdcp_tx_delay.total = 0;
         out->stats[ind % MAX_NUM_UE_RB].pdcp_tx_delay.min = UINT32_MAX;
-        out->stats[ind % MAX_NUM_UE_RB].pdcp_tx_delay.max = 0;
-
-        out->stats[ind % MAX_NUM_UE_RB].rlc_tx_delay.count = 0;
-        out->stats[ind % MAX_NUM_UE_RB].rlc_tx_delay.total = 0;
         out->stats[ind % MAX_NUM_UE_RB].rlc_tx_delay.min = UINT32_MAX;
-        out->stats[ind % MAX_NUM_UE_RB].rlc_tx_delay.max = 0;
-
-        out->stats[ind % MAX_NUM_UE_RB].rlc_deliv_delay.count = 0;
-        out->stats[ind % MAX_NUM_UE_RB].rlc_deliv_delay.total = 0;
         out->stats[ind % MAX_NUM_UE_RB].rlc_deliv_delay.min = UINT32_MAX;
-        out->stats[ind % MAX_NUM_UE_RB].rlc_deliv_delay.max = 0;
-
-        out->stats[ind % MAX_NUM_UE_RB].total_delay.count = 0;
-        out->stats[ind % MAX_NUM_UE_RB].total_delay.total = 0;
         out->stats[ind % MAX_NUM_UE_RB].total_delay.min = UINT32_MAX;
-        out->stats[ind % MAX_NUM_UE_RB].total_delay.max = 0;
-
-        out->stats[ind % MAX_NUM_UE_RB].tx_queue_bytes.count = 0;
-        out->stats[ind % MAX_NUM_UE_RB].tx_queue_bytes.total = 0;
         out->stats[ind % MAX_NUM_UE_RB].tx_queue_bytes.min = UINT32_MAX;
-        out->stats[ind % MAX_NUM_UE_RB].tx_queue_bytes.max = 0;
-        out->stats[ind % MAX_NUM_UE_RB].tx_queue_pkt.count = 0;
-        out->stats[ind % MAX_NUM_UE_RB].tx_queue_pkt.total = 0;
         out->stats[ind % MAX_NUM_UE_RB].tx_queue_pkt.min = UINT32_MAX;
-        out->stats[ind % MAX_NUM_UE_RB].tx_queue_pkt.max = 0;
-
-        out->stats[ind % MAX_NUM_UE_RB].sdu_tx_bytes.count = 0;
-        out->stats[ind % MAX_NUM_UE_RB].sdu_tx_bytes.total = 0;
-
-        out->stats[ind % MAX_NUM_UE_RB].sdu_retx_bytes.count = 0;
-        out->stats[ind % MAX_NUM_UE_RB].sdu_retx_bytes.total = 0;
-
-        out->stats[ind % MAX_NUM_UE_RB].sdu_discarded_bytes.count = 0;
-        out->stats[ind % MAX_NUM_UE_RB].sdu_discarded_bytes.total = 0;
     }
 
     out->stats[ind % MAX_NUM_UE_RB].window.count++;
@@ -178,10 +143,7 @@ uint64_t jbpf_main(void* state)
 // Still not fully debugged so allowing to be disabled
 #ifdef PDCP_REPORT_DL_DELAY_QUEUE
 
-    uint32_t delay_key = 
-        ((uint64_t)(rb_id & 0xFFFF) << 15) << 1 | 
-        ((uint64_t)(pdcp_ctx.cu_ue_index & 0xFFFF));
-
+   uint32_t delay_hash_key = PDCP_DL_DELAY_HASH_KEY(rb_id, pdcp_ctx.cu_ue_index);
 
     // At the beginning, 0 is not acked so set to "-1".
     uint32_t ack_ind = JBPF_PROTOHASH_LOOKUP_ELEM_64(last_notif_acked, ack, last_notif_acked_hash, rb_id, pdcp_ctx.cu_ue_index, new_val);
@@ -204,17 +166,21 @@ uint64_t jbpf_main(void* state)
         return JBPF_CODELET_FAILURE;
     }
 
+#ifdef DEBUG_PRINT
+    jbpf_printf_debug("PDCP DL TX NOTIF,    ACKING: notif_count=%d, last_notif_acked=%d, delta=%d\n", 
+        notif_count, last_notif_acked->ack[ack_ind % MAX_NUM_UE_RB], delta);
+#endif
 
-    #ifdef DEBUG_PRINT
-            jbpf_printf_debug("PDCP DL TX NOTIF,    ACKING: notif_count=%d, last_notif_acked=%d, delta=%d\n", 
-                notif_count, last_notif_acked->ack[ack_ind % MAX_NUM_UE_RB], delta);
-    #endif
     for (uint32_t ncnt = 1; ncnt <= delta; ncnt++) {
         uint32_t notif = last_notif_acked->ack[ack_ind % MAX_NUM_UE_RB] + ncnt;         // wraps if necessary
 
+        if (notif % PDCP_QUEUE_SAMPLING_RATE != 0) {
+            continue;
+        }
+
         // Just find the key, don't add it. It was added in dl_new_sdu.
         // It should always be found, but maybe the hash has been cleaned, then ignore
-        uint64_t compound_key = ((uint64_t)notif << 31) << 1 | (uint64_t)delay_key; 
+        uint64_t compound_key = ((uint64_t)notif << 31) << 1 | (uint64_t)delay_hash_key; 
         uint32_t *pind = (uint32_t *)jbpf_map_lookup_elem(&delay_hash, &compound_key); 
         if (pind) {
             uint32_t aind = *pind;
@@ -245,10 +211,10 @@ uint64_t jbpf_main(void* state)
         } else {
             // Just find the key, don't add it. 
             // It should always be found, but maybe the hash has been cleaned, then ignore
-//#ifdef DEBUG_PRINT
-            jbpf_printf_debug("PDCP DL TX NOTIF,    R KEY NOT FOUND: notif=%d, notif_count=%d, last_notif_acked=%d\n", 
+#ifdef DEBUG_PRINT
+            jbpf_printf_debug("PDCP DL TX NOTIF, KEY NOT FOUND: notif=%d, notif_count=%d, last_notif_acked=%d\n", 
                 notif, notif_count, last_notif_acked->ack[ack_ind % MAX_NUM_UE_RB]);
-//#endif
+#endif
         }    
     }
 

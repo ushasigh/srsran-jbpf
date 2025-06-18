@@ -104,6 +104,7 @@ uint64_t jbpf_main(void* state)
 #endif
 
 
+
     // When a bearer context is setup, we need to reset the last acked
     // At the beginning, 0 is not acked so set to "-1".
     int new_val = 0;
@@ -134,49 +135,25 @@ uint64_t jbpf_main(void* state)
         return JBPF_CODELET_FAILURE;
     ind = JBPF_PROTOHASH_LOOKUP_ELEM_64(dls_out, stats, dl_south_hash, rb_id, pdcp_ctx.cu_ue_index, new_val);
 
+    memset(&dls_out->stats[ind % MAX_NUM_UE_RB], 0, sizeof(t_dls_stats));
     dls_out->stats[ind % MAX_NUM_UE_RB].cu_ue_index = pdcp_ctx.cu_ue_index;
     dls_out->stats[ind % MAX_NUM_UE_RB].is_srb = pdcp_ctx.is_srb;
     dls_out->stats[ind % MAX_NUM_UE_RB].rb_id = pdcp_ctx.rb_id;
-    dls_out->stats[ind % MAX_NUM_UE_RB].window.count = 0;
-    dls_out->stats[ind % MAX_NUM_UE_RB].window.total = 0;
     dls_out->stats[ind % MAX_NUM_UE_RB].window.min = UINT32_MAX;
-    dls_out->stats[ind % MAX_NUM_UE_RB].window.max = 0;
-    dls_out->stats[ind % MAX_NUM_UE_RB].pdcp_tx_delay.count = 0;
-    dls_out->stats[ind % MAX_NUM_UE_RB].pdcp_tx_delay.total = 0;
     dls_out->stats[ind % MAX_NUM_UE_RB].pdcp_tx_delay.min = UINT32_MAX;
-    dls_out->stats[ind % MAX_NUM_UE_RB].pdcp_tx_delay.max = 0;
-    dls_out->stats[ind % MAX_NUM_UE_RB].rlc_tx_delay.count = 0;
-    dls_out->stats[ind % MAX_NUM_UE_RB].rlc_tx_delay.total = 0;
     dls_out->stats[ind % MAX_NUM_UE_RB].rlc_tx_delay.min = UINT32_MAX;
-    dls_out->stats[ind % MAX_NUM_UE_RB].rlc_tx_delay.max = 0;
-    dls_out->stats[ind % MAX_NUM_UE_RB].rlc_deliv_delay.count = 0;
-    dls_out->stats[ind % MAX_NUM_UE_RB].rlc_deliv_delay.total = 0;
     dls_out->stats[ind % MAX_NUM_UE_RB].rlc_deliv_delay.min = UINT32_MAX;
-    dls_out->stats[ind % MAX_NUM_UE_RB].rlc_deliv_delay.max = 0;
-    dls_out->stats[ind % MAX_NUM_UE_RB].total_delay.count = 0;
-    dls_out->stats[ind % MAX_NUM_UE_RB].total_delay.total = 0;
     dls_out->stats[ind % MAX_NUM_UE_RB].total_delay.min = UINT32_MAX;
-    dls_out->stats[ind % MAX_NUM_UE_RB].total_delay.max = 0;
-    dls_out->stats[ind % MAX_NUM_UE_RB].tx_queue_bytes.count = 0;
-    dls_out->stats[ind % MAX_NUM_UE_RB].tx_queue_bytes.total = 0;
     dls_out->stats[ind % MAX_NUM_UE_RB].tx_queue_bytes.min = UINT32_MAX;
-    dls_out->stats[ind % MAX_NUM_UE_RB].tx_queue_bytes.max = 0;
-    dls_out->stats[ind % MAX_NUM_UE_RB].tx_queue_pkt.count = 0;
-    dls_out->stats[ind % MAX_NUM_UE_RB].tx_queue_pkt.total = 0;
     dls_out->stats[ind % MAX_NUM_UE_RB].tx_queue_pkt.min = UINT32_MAX;
-    dls_out->stats[ind % MAX_NUM_UE_RB].tx_queue_pkt.max = 0;
-    dls_out->stats[ind % MAX_NUM_UE_RB].sdu_tx_bytes.count = 0;
-    dls_out->stats[ind % MAX_NUM_UE_RB].sdu_tx_bytes.total = 0;
-    dls_out->stats[ind % MAX_NUM_UE_RB].sdu_retx_bytes.count = 0;
-    dls_out->stats[ind % MAX_NUM_UE_RB].sdu_retx_bytes.total = 0;
-    dls_out->stats[ind % MAX_NUM_UE_RB].sdu_discarded_bytes.count = 0;
-    dls_out->stats[ind % MAX_NUM_UE_RB].sdu_discarded_bytes.total = 0;
+
+#ifdef PDCP_REPORT_DL_DELAY_QUEUE
 
     // clear the queue hash entries
     uint64_t compound_key = ((uint64_t)rb_id << 31) << 1 | (uint64_t)pdcp_ctx.cu_ue_index; 
     jbpf_map_delete_elem(&queue_hash, &compound_key); 
     
-
+#endif
 
     return JBPF_CODELET_SUCCESS;
 }

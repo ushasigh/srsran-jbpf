@@ -36,6 +36,15 @@ DEFINE_PROTOHASH_64(dl_north_hash, MAX_NUM_UE_RB);
 
 
 #ifdef PDCP_REPORT_DL_DELAY_QUEUE
+
+
+typedef struct {
+    uint64_t map[MAX_NUM_UE_RB];
+    uint32_t map_count;
+} t_cumulative_sdu;
+
+
+
 struct jbpf_load_map_def SEC("maps") sdu_events = {
     .type = JBPF_MAP_TYPE_ARRAY,
     .key_size = sizeof(int),
@@ -50,9 +59,19 @@ struct jbpf_load_map_def SEC("maps") sdu_queues = {
     .max_entries = 1,
 };
 
+struct jbpf_load_map_def SEC("maps") cumulative_sdu_map = {
+    .type = JBPF_MAP_TYPE_ARRAY,
+    .key_size = sizeof(int),
+    .value_size = sizeof(t_cumulative_sdu),
+    .max_entries = 1,
+};
+
 
 DEFINE_PROTOHASH_64(delay_hash, MAX_SDU_IN_FLIGHT);
 DEFINE_PROTOHASH_64(queue_hash, MAX_SDU_QUEUES);
+
+DEFINE_PROTOHASH_64(cumulative_sdu_hash, MAX_NUM_UE_RB);
+
 #endif
 
 
@@ -72,6 +91,11 @@ uint64_t jbpf_main(void* state)
     }
     
 #ifdef PDCP_REPORT_DL_DELAY_QUEUE
+
+    t_cumulative_sdu *cumulative_sdus = (t_cumulative_sdu *)jbpf_map_lookup_elem(&cumulative_sdu_map, &zero_index);
+    if (!cumulative_sdus)
+        return JBPF_CODELET_FAILURE;
+
     t_sdu_events *events = (t_sdu_events *)jbpf_map_lookup_elem(&sdu_events, &zero_index);
     if (!events)
         return JBPF_CODELET_FAILURE;
@@ -91,18 +115,9 @@ uint64_t jbpf_main(void* state)
         return JBPF_CODELET_FAILURE;
 
 
-
-    // out->timestamp = jbpf_time_get_ns();
-    // out->cu_ue_index = pdcp_ctx.cu_ue_index;
-    // out->is_srb = pdcp_ctx.is_srb;
-    // out->rb_id = pdcp_ctx.rb_id;
-    // out->rlc_mode = pdcp_ctx.rlc_mode;
-    // out->sdu_length = ctx->srs_meta_data1 >> 32;
-    // out->count = ctx->srs_meta_data1 & 0xFFFFFFFF;
-
-
     // create explicit rbid
     int rb_id = RBID_2_EXPLICIT(pdcp_ctx.is_srb, pdcp_ctx.rb_id);
+    uint64_t compound_key = ((uint64_t)rb_id << 31) << 1 | (uint64_t)pdcp_ctx.cu_ue_index; 
 
     // Store SDU arrival time so we can calculate delay and queue size at the PDCP level
     uint32_t sdu_length = (uint32_t) (ctx->srs_meta_data1 >> 32);
@@ -154,11 +169,27 @@ uint64_t jbpf_main(void* state)
 // Still not fully debugged so allowing to be disabled
 #ifdef PDCP_REPORT_DL_DELAY_QUEUE
 
+    // increase the cumulative sdu length for this rb_id
+    uint32_t cumul_ind = JBPF_PROTOHASH_LOOKUP_ELEM_64(cumulative_sdus, map, cumulative_sdu_hash, pdcp_ctx.cu_ue_index, rb_id, new_val);
+    if (new_val) {
+        cumulative_sdus->map[cumul_ind % MAX_NUM_UE_RB] = 0;
+    }
+    cumulative_sdus->map[cumul_ind % MAX_NUM_UE_RB] += sdu_length;  
+   
+#ifdef DEBUG_PRINT
+    jbpf_printf_debug("PDCP DL NEW SDU: key=%08x, sdu_length=%d cumul_sdu_length=%d\n", 
+        compound_key, sdu_length, cumulative_sdus->map[cumul_ind % MAX_NUM_UE_RB]);
+#endif
+
+    if (count % PDCP_QUEUE_SAMPLING_RATE != 0) {
+        return JBPF_CODELET_SUCCESS;
+    }  
+
     uint64_t now_ns = jbpf_time_get_ns();
-    uint32_t key1 = 
-        ((uint64_t)(rb_id & 0xFFFF) << 15) << 1 | 
-        ((uint64_t)(pdcp_ctx.cu_ue_index & 0xFFFF));
-    ind = JBPF_PROTOHASH_LOOKUP_ELEM_64(events, map, delay_hash, key1, count, new_val);
+
+    uint32_t delay_hash_key = PDCP_DL_DELAY_HASH_KEY(rb_id, pdcp_ctx.cu_ue_index);
+
+    ind = JBPF_PROTOHASH_LOOKUP_ELEM_64(events, map, delay_hash, delay_hash_key, count, new_val);
 
     // in normal behavior, we should not have a new value, since the element would be cleated by deliv/discard handlers.
     // however in cases where a ue gets deleted and another one gets created the same cu_ue_index,
@@ -169,11 +200,11 @@ uint64_t jbpf_main(void* state)
     events->map[ind % MAX_SDU_IN_FLIGHT].pdcpTx_ns = 0;
     events->map[ind % MAX_SDU_IN_FLIGHT].rlcTxStarted_ns = 0;
     events->map[ind % MAX_SDU_IN_FLIGHT].rlcDelivered_ns = 0;
-    events->map[ind % MAX_SDU_IN_FLIGHT].sdu_length = sdu_length;
+    events->map[ind % MAX_SDU_IN_FLIGHT].sdu_length = cumulative_sdus->map[cumul_ind % MAX_NUM_UE_RB];
 
 #ifdef DEBUG_PRINT
-    jbpf_printf_debug("   NEW DELAY: cu_ue_index=%d, arrival_ns=%ld, sdu_length=%d\n", 
-        pdcp_ctx.cu_ue_index, events->map[ind % MAX_SDU_IN_FLIGHT].sdu_arrival_ns, sdu_length);
+    jbpf_printf_debug("   NEW DELAY: cu_ue_index=%d, arrival_ns=%ld, cumul_sdu_length=%d\n", 
+        pdcp_ctx.cu_ue_index, events->map[ind % MAX_SDU_IN_FLIGHT].sdu_arrival_ns, cumulative_sdus->map[cumul_ind % MAX_NUM_UE_RB]);
 #endif
 
     ind = JBPF_PROTOHASH_LOOKUP_ELEM_64(queues, map, queue_hash, pdcp_ctx.cu_ue_index, rb_id, new_val);
@@ -183,13 +214,17 @@ uint64_t jbpf_main(void* state)
         queues->map[ind % MAX_SDU_QUEUES].bytes = 0;
     }
     queues->map[ind % MAX_SDU_QUEUES].pkts ++;
-    queues->map[ind % MAX_SDU_QUEUES].bytes += sdu_length;
+    queues->map[ind % MAX_SDU_QUEUES].bytes += cumulative_sdus->map[cumul_ind % MAX_NUM_UE_RB];
 #ifdef DEBUG_PRINT
     jbpf_printf_debug("   NEW QUEUE: cu_ue_index=%d, pkts=%ld, bytes=%d\n", 
         pdcp_ctx.cu_ue_index,
         queues->map[ind % MAX_SDU_QUEUES].pkts,
         queues->map[ind % MAX_SDU_QUEUES].bytes);
 #endif
+
+    // clear the cumulative sdu length for this rb_id
+    JBPF_PROTOHASH_REMOVE_ELEM_64(cumulative_sdus, map, cumulative_sdu_hash, pdcp_ctx.cu_ue_index, rb_id);
+
 #endif // PDCP_REPORT_DL_DELAY_QUEUE
 
     return JBPF_CODELET_SUCCESS;
