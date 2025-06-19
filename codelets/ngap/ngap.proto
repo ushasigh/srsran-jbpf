@@ -26,5 +26,4 @@ message ngap_procedure_started {
 message ngap_reset {
     required uint64 timestamp = 1;
     optional ngap_ctx ue_ctx = 2;
-    required uint32 procedure = 3;
 }

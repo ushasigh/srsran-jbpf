@@ -1,24 +1,101 @@
 - [1. Introduction](#1-introduction)
 - [2. XRAN](#2-xran)
+  - [2.1. capture\_xran\_packet](#21-capture_xran_packet)
 - [3. FAPI](#3-fapi)
   - [3.1. PHY-MAC hooks](#31-phy-mac-hooks)
+    - [3.1.1. __fapi\_rx\_data\_indication__](#311-fapi_rx_data_indication)
+    - [3.1.2. __fapi\_crc\_indication__](#312-fapi_crc_indication)
+    - [3.1.3. __fapi\_uci\_indication__](#313-fapi_uci_indication)
+    - [3.1.4. __fapi\_srs\_indication__](#314-fapi_srs_indication)
+    - [3.1.5. __fapi\_rach\_indication__](#315-fapi_rach_indication)
   - [3.2. MAC-PHY](#32-mac-phy)
+    - [3.2.1. __fapi\_dl\_tti\_request__](#321-fapi_dl_tti_request)
+    - [3.2.2. __fapi\_ul\_tti\_request__](#322-fapi_ul_tti_request)
+    - [3.2.3. __fapi\_ul\_dci\_request__](#323-fapi_ul_dci_request)
+    - [3.2.4. __fapi\_tx\_data\_request__](#324-fapi_tx_data_request)
 - [4. DU UE context creation/deletion](#4-du-ue-context-creationdeletion)
+  - [4.1. __du\_ue\_ctx\_creation__](#41-du_ue_ctx_creation)
+  - [4.2. __du\_ue\_ctx\_update\_crnti__](#42-du_ue_ctx_update_crnti)
+  - [4.3. __du\_ue\_ctx\_deletion__](#43-du_ue_ctx_deletion)
 - [5. MAC scheduler](#5-mac-scheduler)
   - [5.1. MAC scheduler context creation/deletion](#51-mac-scheduler-context-creationdeletion)
+    - [5.1.1. __mac\_sched\_ue\_creation__](#511-mac_sched_ue_creation)
+    - [5.1.2. __mac\_sched\_ue\_reconfig__](#512-mac_sched_ue_reconfig)
+    - [5.1.3. __mac\_sched\_ue\_deletion__](#513-mac_sched_ue_deletion)
+    - [5.1.4. __mac\_sched\_ue\_config\_applied__](#514-mac_sched_ue_config_applied)
   - [5.2. MAC scheduler input data](#52-mac-scheduler-input-data)
+    - [5.2.1. __mac\_sched\_ul\_bsr\_indication__](#521-mac_sched_ul_bsr_indication)
+    - [5.2.2. __mac\_sched\_crc\_indication__](#522-mac_sched_crc_indication)
+    - [5.2.3. __mac\_sched\_uci\_indication__](#523-mac_sched_uci_indication)
+    - [5.2.4. __mac\_sched\_dl\_mac\_ce\_indication__](#524-mac_sched_dl_mac_ce_indication)
+    - [5.2.5. __mac\_sched\_ul\_phr\_indication__](#525-mac_sched_ul_phr_indication)
+    - [5.2.6. __mac\_sched\_dl\_buffer\_state\_indication__](#526-mac_sched_dl_buffer_state_indication)
+    - [5.2.7. __mac\_sched\_srs\_indication__](#527-mac_sched_srs_indication)
 - [6. PDCP](#6-pdcp)
   - [6.1. PDCP downlink](#61-pdcp-downlink)
+    - [6.1.1. __pdcp\_dl\_creation__](#611-pdcp_dl_creation)
+    - [6.1.2. __pdcp\_dl\_deletion__](#612-pdcp_dl_deletion)
+    - [6.1.3. __pdcp\_dl\_new\_sdu__](#613-pdcp_dl_new_sdu)
+    - [6.1.4. __pdcp\_dl\_tx\_data\_pdu__](#614-pdcp_dl_tx_data_pdu)
+    - [6.1.5. __pdcp\_dl\_tx\_control\_pdu__](#615-pdcp_dl_tx_control_pdu)
+    - [6.1.6. __pdcp\_dl\_handle\_tx\_notification__](#616-pdcp_dl_handle_tx_notification)
+    - [6.1.7. __pdcp\_dl\_handle\_delivery\_notification__](#617-pdcp_dl_handle_delivery_notification)
+    - [6.1.8. __pdcp\_dl\_discard\_pdu__](#618-pdcp_dl_discard_pdu)
+    - [6.1.9. __pdcp\_dl\_reestablish__](#619-pdcp_dl_reestablish)
   - [6.2. PDCP uplink](#62-pdcp-uplink)
+    - [6.2.1. __pdcp\_ul\_creation__](#621-pdcp_ul_creation)
+    - [6.2.2. __pdcp\_ul\_deletion__](#622-pdcp_ul_deletion)
+    - [6.2.3. __pdcp\_ul\_rx\_data\_pdu__](#623-pdcp_ul_rx_data_pdu)
+    - [6.2.4. __pdcp\_ul\_rx\_control\_pdu__](#624-pdcp_ul_rx_control_pdu)
+    - [6.2.5. __pdcp\_ul\_deliver\_sdu__](#625-pdcp_ul_deliver_sdu)
+    - [6.2.6. __pdcp\_ul\_reestablish__](#626-pdcp_ul_reestablish)
 - [7. E1AP procedures](#7-e1ap-procedures)
   - [7.1. E1AP CUCP hooks](#71-e1ap-cucp-hooks)
+    - [7.1.1. __e1\_cucp\_bearer\_context\_setup__](#711-e1_cucp_bearer_context_setup)
+    - [7.1.2. __e1\_cucp\_bearer\_context\_modification__](#712-e1_cucp_bearer_context_modification)
+    - [7.1.3. __e1\_cucp\_bearer\_context\_delete__](#713-e1_cucp_bearer_context_delete)
+    - [7.1.4. __e1\_cucp\_bearer\_context\_release__](#714-e1_cucp_bearer_context_release)
   - [7.2. E1AP CUUP hooks](#72-e1ap-cuup-hooks)
+    - [7.2.1. __e1\_cuup\_bearer\_context\_setup__](#721-e1_cuup_bearer_context_setup)
+    - [7.2.2. __e1\_cuup\_bearer\_context\_modification__](#722-e1_cuup_bearer_context_modification)
+    - [7.2.3. __e1\_cuup\_bearer\_context\_release__](#723-e1_cuup_bearer_context_release)
 - [8. CUCP UE Context Management](#8-cucp-ue-context-management)
+  - [8.1. __cucp\_uemgr\_ue\_add__](#81-cucp_uemgr_ue_add)
+  - [8.2. __cucp\_uemgr\_ue\_update__](#82-cucp_uemgr_ue_update)
+  - [8.3. __cucp\_uemgr\_ue\_remove__](#83-cucp_uemgr_ue_remove)
 - [9. NGAP](#9-ngap)
+  - [9.1. __ngap\_procedure\_started__](#91-ngap_procedure_started)
+  - [9.2. __ngap\_procedure\_completed__](#92-ngap_procedure_completed)
+  - [9.3. __ngap\_procedure\_reset__](#93-ngap_procedure_reset)
 - [10. RRC](#10-rrc)
+  - [10.1. __rrc\_ue\_add__](#101-rrc_ue_add)
+  - [10.2. __rrc\_ue\_update\_context__](#102-rrc_ue_update_context)
+  - [10.3. __rrc\_ue\_update\_id__](#103-rrc_ue_update_id)
+  - [10.4. __rrc\_ue\_remove__](#104-rrc_ue_remove)
+  - [10.5. __rrc\_ue\_procedure\_started__](#105-rrc_ue_procedure_started)
+  - [10.6. __rrc\_ue\_procedure\_completed__](#106-rrc_ue_procedure_completed)
 - [11. RLC](#11-rlc)
   - [11.1. RLC downlink](#111-rlc-downlink)
+    - [11.1.1. __rlc\_dl\_creation__](#1111-rlc_dl_creation)
+    - [11.1.2. __rlc\_dl\_deletion__](#1112-rlc_dl_deletion)
+    - [11.1.3. __rlc\_dl\_new\_sdu__](#1113-rlc_dl_new_sdu)
+    - [11.1.4. __rlc\_dl\_discard\_sdu__](#1114-rlc_dl_discard_sdu)
+    - [11.1.5. __rlc\_dl\_sdu\_send\_started__](#1115-rlc_dl_sdu_send_started)
+    - [11.1.6. __rlc\_dl\_sdu\_send\_completed__](#1116-rlc_dl_sdu_send_completed)
+    - [11.1.7. __rlc\_dl\_sdu\_delivered__](#1117-rlc_dl_sdu_delivered)
+    - [11.1.8. __rlc\_dl\_tx\_pdu__](#1118-rlc_dl_tx_pdu)
+    - [11.1.9. __rlc\_dl\_rx\_status__](#1119-rlc_dl_rx_status)
+    - [11.1.10. __rlc\_dl\_am\_tx\_pdu\_retx\_count__](#11110-rlc_dl_am_tx_pdu_retx_count)
+    - [11.1.11. __rlc\_dl\_am\_tx\_pdu\_max\_retx\_count\_reached__](#11111-rlc_dl_am_tx_pdu_max_retx_count_reached)
   - [11.2. RLC uplink](#112-rlc-uplink)
+    - [11.2.1. __rlc\_ul\_creation__](#1121-rlc_ul_creation)
+    - [11.2.2. __rlc\_ul\_deletion__](#1122-rlc_ul_deletion)
+    - [11.2.3. __rlc\_ul\_rx\_pdu__](#1123-rlc_ul_rx_pdu)
+    - [11.2.4. __rlc\_ul\_sdu\_recv\_started__](#1124-rlc_ul_sdu_recv_started)
+    - [11.2.5. __rlc\_ul\_sdu\_delivered__](#1125-rlc_ul_sdu_delivered)
+- [12. Periodic performance hook](#12-periodic-performance-hook)
+  - [12.1. report\_stats](#121-report_stats)
+
 
 
 # 1. Introduction
@@ -31,7 +108,7 @@ The hook names are listed in bullets in the sections below.
 
 # 2. XRAN
 
-- capture_xran_packet
+## 2.1. capture_xran_packet
 
 Context info:  
 ```c
@@ -51,42 +128,42 @@ Context info:
 
 ## 3.1. PHY-MAC hooks
 
-- __fapi_rx_data_indication__
+### 3.1.1. __fapi_rx_data_indication__
     
   Context "data" field points to a fapi::rx_data_indication_message structure.
   
-- __fapi_crc_indication__
+### 3.1.2. __fapi_crc_indication__
        
   Context "data" field points to a fapi::crc_indication_message structure.
 
-- __fapi_uci_indication__
+### 3.1.3. __fapi_uci_indication__
 
   Context "data" field points to a fapi::uci_indication_message structure.
 
-- __fapi_srs_indication__
+### 3.1.4. __fapi_srs_indication__
   
   Context "data" field points to a fapi::srs_indication_message structure.
 
-- __fapi_rach_indication__
+### 3.1.5. __fapi_rach_indication__
  
   Context "data" field points to a fapi::rach_indication_message structure.
 
 
 ## 3.2. MAC-PHY
  
-- __fapi_dl_tti_request__
+### 3.2.1. __fapi_dl_tti_request__
   
   Context "data" field points to a fapi::dl_tti_request_message structure.
   
-- __fapi_ul_tti_request__
+### 3.2.2. __fapi_ul_tti_request__
   
   Context "data" field points to a fapi::ul_tti_request_message structure.
 
-- __fapi_ul_dci_request__
+### 3.2.3. __fapi_ul_dci_request__
   
   Context "data" field points to a fapi::ul_dci_request_message structure.
   
-- __fapi_tx_data_request__
+### 3.2.4. __fapi_tx_data_request__
   
   Context "data" field points to a fapi::tx_data_request_message structure.
 
@@ -112,11 +189,11 @@ Context info:
     data_end: pointer to end of the jbpf_du_ue_ctx_info
 ```
 
-- __du_ue_ctx_creation__
+## 4.1. __du_ue_ctx_creation__
   
-- __du_ue_ctx_update_crnti__
+## 4.2. __du_ue_ctx_update_crnti__
   
-- __du_ue_ctx_deletion__
+## 4.3. __du_ue_ctx_deletion__
   
 
 # 5. MAC scheduler
@@ -130,13 +207,13 @@ Context info:
     du_ue_index: The index used in the DU entity to identify the UE
 ```
 
-- __mac_sched_ue_creation__
+### 5.1.1. __mac_sched_ue_creation__
   
-- __mac_sched_ue_reconfig__
+### 5.1.2. __mac_sched_ue_reconfig__
   
-- __mac_sched_ue_deletion__
+### 5.1.3. __mac_sched_ue_deletion__
   
-- __mac_sched_ue_config_applied__
+### 5.1.4. __mac_sched_ue_config_applied__
   
 
 ## 5.2. MAC scheduler input data
@@ -151,31 +228,31 @@ Context info:
 
 ```
 
-- __mac_sched_ul_bsr_indication__
+### 5.2.1. __mac_sched_ul_bsr_indication__
   
     Context "data" field points to an srsran::ul_bsr_indication_message structure.
 
-- __mac_sched_crc_indication__
+### 5.2.2. __mac_sched_crc_indication__
   
     Context "data" field points to an srsran::ul_crc_pdu_indication structure.
   
-- __mac_sched_uci_indication__
+### 5.2.3. __mac_sched_uci_indication__
   
     Context "data" field points to an srsran::uci_indication::uci_pdu structure.
   
-- __mac_sched_dl_mac_ce_indication__
+### 5.2.4. __mac_sched_dl_mac_ce_indication__
   
     Context "data" field points to an srsran::dl_mac_ce_indication structure.
   
-- __mac_sched_ul_phr_indication__
+### 5.2.5. __mac_sched_ul_phr_indication__
   
     Context "data" field points to an srsran::ul_phr_indication_message structure.
   
-- __mac_sched_dl_buffer_state_indication__
+### 5.2.6. __mac_sched_dl_buffer_state_indication__
   
     Context "data" field points to an srsran::dl_buffer_state_indication_message structure.
   
-- __mac_sched_srs_indication__
+### 5.2.7. __mac_sched_srs_indication__
   
     Context "data" field points to an srsran::srs_indication::srs_indication_pdu structure.
 
@@ -195,7 +272,7 @@ These hooks have information passed in using a __jbpf_pdcp_ctx_info__ as shown b
 
 ## 6.1. PDCP downlink
 
-- __pdcp_dl_creation__
+### 6.1.1. __pdcp_dl_creation__
      
     Called when a downlink PDCP bearer is created.
 
@@ -205,7 +282,7 @@ These hooks have information passed in using a __jbpf_pdcp_ctx_info__ as shown b
         data_end: pointer to end of the jbpf_pdcp_ctx_info
     ```
 
-- __pdcp_dl_deletion__
+### 6.1.2. __pdcp_dl_deletion__
       
     Called when a downlink PDCP bearer is deleted.
 
@@ -215,7 +292,7 @@ These hooks have information passed in using a __jbpf_pdcp_ctx_info__ as shown b
         data_end: pointer to end of the jbpf_pdcp_ctx_info
     ```
 
-- __pdcp_dl_new_sdu__
+### 6.1.3. __pdcp_dl_new_sdu__
      
     Called when a new SDU is received from higher layers.
 
@@ -227,7 +304,7 @@ These hooks have information passed in using a __jbpf_pdcp_ctx_info__ as shown b
         srs_meta_data2 = window_size
     ```
 
--__pdcp_dl_tx_data_pdu__
+### 6.1.4. __pdcp_dl_tx_data_pdu__
      
     Called when a PDCP data PDU is sent to RLC.
 
@@ -239,7 +316,7 @@ These hooks have information passed in using a __jbpf_pdcp_ctx_info__ as shown b
         srs_meta_data2 = is_retx << 32 | window_size
     ```
 
-- __pdcp_dl_tx_control_pdu__
+### 6.1.5. __pdcp_dl_tx_control_pdu__
   
     Called when a PDCP control PDU is sent to RLC.
 
@@ -250,7 +327,7 @@ These hooks have information passed in using a __jbpf_pdcp_ctx_info__ as shown b
         srs_meta_data1 = pdu_length << 32 | window_size
     ```
 
-- __pdcp_dl_handle_tx_notification__
+### 6.1.6. __pdcp_dl_handle_tx_notification__
   
     This is a notification when first byte of a PDCP SDU is transmitted by RLC.
    
@@ -271,7 +348,7 @@ These hooks have information passed in using a __jbpf_pdcp_ctx_info__ as shown b
 
     the last message means that counts 2-5 are all being notified.
 
-- __pdcp_dl_handle_delivery_notification__
+### 6.1.7. __pdcp_dl_handle_delivery_notification__
   
     In RLC TM/UM mode, this is a notificaion when all bytes of a PDCP SDU have been sent to lower layers.
     
@@ -294,7 +371,7 @@ These hooks have information passed in using a __jbpf_pdcp_ctx_info__ as shown b
 
     the last message means that counts 2-5 are all being notified.
 
-- __pdcp_dl_discard_pdu__
+### 6.1.8. __pdcp_dl_discard_pdu__
 
     Called when an SDU is discarded by the PDCP layer
 
@@ -305,7 +382,7 @@ These hooks have information passed in using a __jbpf_pdcp_ctx_info__ as shown b
         srs_meta_data1 = count << 32 | window_size
     ```
 
-- __pdcp_dl_reestablish__
+### 6.1.9. __pdcp_dl_reestablish__
 
     Called when a PDCP DL bearer is restablished.
 
@@ -317,7 +394,7 @@ These hooks have information passed in using a __jbpf_pdcp_ctx_info__ as shown b
 
 ## 6.2. PDCP uplink
 
-- __pdcp_ul_creation__
+### 6.2.1. __pdcp_ul_creation__
      
     Called when a uplink PDCP bearer is created.
 
@@ -327,7 +404,7 @@ These hooks have information passed in using a __jbpf_pdcp_ctx_info__ as shown b
         data_end: pointer to end of the jbpf_pdcp_ctx_info
     ```
 
-- __pdcp_dl_deletion__
+### 6.2.2. __pdcp_ul_deletion__
       
     Called when a uplink PDCP bearer is deleted.
 
@@ -337,7 +414,7 @@ These hooks have information passed in using a __jbpf_pdcp_ctx_info__ as shown b
         data_end: pointer to end of the jbpf_pdcp_ctx_info
     ```
 
-- __pdcp_ul_rx_data_pdu__
+### 6.2.3. __pdcp_ul_rx_data_pdu__
       
     Called when a uplink PDCP data PDU is received from lower layers.
 
@@ -349,7 +426,7 @@ These hooks have information passed in using a __jbpf_pdcp_ctx_info__ as shown b
         srs_meta_data2: count << 32 | window_size
     ```
 
-- __pdcp_ul_rx_control_pdu__
+### 6.2.4. __pdcp_ul_rx_control_pdu__
       
     Called when a uplink PDCP control PDU is received from lower layers.
 
@@ -360,7 +437,7 @@ These hooks have information passed in using a __jbpf_pdcp_ctx_info__ as shown b
         srs_meta_data1: pdu_length << 32 | window_size
     ```
 
-- __pdcp_ul_deliver_sdu__
+### 6.2.5. __pdcp_ul_deliver_sdu__
       
     Called when PDCP delivers an SDU to higher layers.
 
@@ -371,7 +448,7 @@ These hooks have information passed in using a __jbpf_pdcp_ctx_info__ as shown b
         srs_meta_data1: sdu_length << 32 | window_size
     ```
 
-- __pdcp_ul_reestablish__
+### 6.2.6. __pdcp_ul_reestablish__
 
     Called when a PDCP DL bearer is restablished.
 
@@ -403,19 +480,19 @@ All of the CUCP hooks have this context.
         data_end: pointer to end of the jbpf_cucp_e1_ctx_info
     ```
 
-- __e1_cucp_bearer_context_setup__
+### 7.1.1. __e1_cucp_bearer_context_setup__
      
     Called when CUCP sends a setup request to CUUP.
 
-- __e1_cucp_bearer_context_modification__
+### 7.1.2. __e1_cucp_bearer_context_modification__
      
     Called when CUCP sends a modification request to CUUP.
 
-- __e1_cucp_bearer_context_delete__
+### 7.1.3. __e1_cucp_bearer_context_delete__
      
     Called when CUCP sends a delete request to CUUP.
 
-- __e1_cucp_bearer_context_release__
+### 7.1.4. __e1_cucp_bearer_context_release__
      
     Called when CUCP determines that a bearer is inactive.
 
@@ -440,15 +517,15 @@ All of the CUUP hooks have this context.
         srs_meta_data1 = success/fail
     ```
 
-- __e1_cuup_bearer_context_setup__
+### 7.2.1. __e1_cuup_bearer_context_setup__
      
     Called when CUUP processes a setup request from the CUCP.
 
-- __e1_cuup_bearer_context_modification__
+### 7.2.2. __e1_cuup_bearer_context_modification__
      
     Called when CUUP processes a modification request from the CUCP.
 
-- __e1_cuup_bearer_context_release__
+### 7.2.3. __e1_cuup_bearer_context_release__
      
     Called when CUUP processes a release request from the CUCP.
 
@@ -467,7 +544,7 @@ struct jbpf_cucp_uemgr_ctx_info {
 };
 ```
 
-- __cucp_uemgr_ue_add__
+## 8.1. __cucp_uemgr_ue_add__
      
     Called when a new UE context is created.
 
@@ -479,7 +556,7 @@ struct jbpf_cucp_uemgr_ctx_info {
         srs_meta_data2 = rnti_set << 16 | rnti
     ```
 
-- __cucp_uemgr_ue_update__
+## 8.2. __cucp_uemgr_ue_update__
      
     Called when a new UE context is updated.
 
@@ -491,7 +568,7 @@ struct jbpf_cucp_uemgr_ctx_info {
         srs_meta_data2 = rnti
     ```
 
-- __cucp_uemgr_ue_remove__
+## 8.3. __cucp_uemgr_ue_remove__
      
     Called when a new UE context is deleted.
 
@@ -530,7 +607,7 @@ typedef enum {
 } JbpfNgapProcedure_t;
 ```
 
-- __ngap_procedure_started__
+## 9.1. __ngap_procedure_started__
      
     Called when an NGAP procedure is started.
 
@@ -541,7 +618,7 @@ typedef enum {
         srs_meta_data1: procedure (i.e. JbpfNgapProcedure_t)
     ```
 
-- __ngap_procedure_completed__
+## 9.2. __ngap_procedure_completed__
      
     Called when an NGAP procedure is completed.
 
@@ -552,7 +629,7 @@ typedef enum {
         srs_meta_data1: = success << 32 | procedure;
     ```
 
-- __ngap_procedure_reset__
+## 9.3. __ngap_procedure_reset__
      
     Called when an NGAP RESET occurs.
 
@@ -585,7 +662,7 @@ typedef enum {
 } JbpfRrcProcedure_t;
 ```
 
-- __rrc_ue_add__
+## 10.1. __rrc_ue_add__
      
     Called when a UE entity is created in RRC.
 
@@ -598,7 +675,7 @@ typedef enum {
         srs_meta_data3 = nci
     ```
 
-- __rrc_ue_update_context__
+## 10.2. __rrc_ue_update_context__
      
     Called when a UE entity is updated in RRC.
 
@@ -612,7 +689,7 @@ typedef enum {
         srs_meta_data4: nci;   
     ```
 
-- __rrc_ue_update_id__
+## 10.3. __rrc_ue_update_id__
      
     Called when a UE'd 5GTMSI is updated in RRC.
 
@@ -623,7 +700,7 @@ typedef enum {
         srs_meta_data1 =_5gtimsi;
     ```
     
-- __rrc_ue_remove__
+## 10.4. __rrc_ue_remove__
      
     Called when a UE entity is deleted in RRC.
 
@@ -633,7 +710,7 @@ typedef enum {
         data_end: pointer to end of the jbpf_rrc_ctx_info
     ```
 
-- __rrc_ue_procedure_started__
+## 10.5. __rrc_ue_procedure_started__
      
     Called when an RRC procedure is started.
        
@@ -644,7 +721,7 @@ typedef enum {
         srs_meta_data1: procedure (i.e JbpfRrcProcedure_t)
     ```
 
-- __rrc_ue_procedure_started__
+## 10.6. __rrc_ue_procedure_completed__
      
     Called when an RRC procedure is completed.
        
@@ -693,7 +770,7 @@ typedef enum {
 
 ## 11.1. RLC downlink
 
-- __rlc_dl_creation__
+### 11.1.1. __rlc_dl_creation__
      
     Called when a downlink RLC bearer is created.
        
@@ -703,7 +780,7 @@ typedef enum {
         data_end: pointer to end of the jbpf_rlc_ctx_info
     ```
 
-- __rlc_dl_deletion__
+### 11.1.2. __rlc_dl_deletion__
      
     Called when a downlink RLC bearer is deleted.
        
@@ -713,7 +790,7 @@ typedef enum {
         data_end: pointer to end of the jbpf_rlc_ctx_info
     ```
 
-- __rlc_dl_new_sdu__
+### 11.1.3. __rlc_dl_new_sdu__
      
     Called when a new SDU is received from PDCP.
        
@@ -724,7 +801,7 @@ typedef enum {
         srs_meta_data1: sdu_length << 32 | pdcp_sn;
     ```
 
-- __rlc_dl_discard_sdu__
+### 11.1.4. __rlc_dl_discard_sdu__
      
     Called when a SDU is discarded.
        
@@ -735,7 +812,7 @@ typedef enum {
         srs_meta_data1: pdcp_sn
     ```
 
-- __rlc_dl_sdu_send_started__
+### 11.1.5. __rlc_dl_sdu_send_started__
      
     Called when the first byte of an SDU is transmitted.
        
@@ -746,7 +823,7 @@ typedef enum {
         srs_meta_data1: pdcp_sn << 32 | is_retx
     ```
 
-- __rlc_dl_sdu_send_completed__
+### 11.1.6. __rlc_dl_sdu_send_completed__
      
     Called when all bytes of the SDU have been transmitted.
        
@@ -757,7 +834,7 @@ typedef enum {
         srs_meta_data1: pdcp_sn << 32 | is_retx
     ```
 
-- __rlc_dl_sdu_delivered__
+### 11.1.7. __rlc_dl_sdu_delivered__
      
     Called when all bytes of the SDU have been received by the peer RLC entity
        
@@ -768,7 +845,7 @@ typedef enum {
         srs_meta_data1: pdcp_sn << 32 | is_retx
     ```
 
-- __rlc_dl_tx_pdu__
+### 11.1.8. __rlc_dl_tx_pdu__
      
     Called when an RLC PDU is transmitted.
        
@@ -780,7 +857,7 @@ typedef enum {
         srs_meta_data2: window_size
     ```
 
-- __rlc_dl_rx_status__
+### 11.1.9. __rlc_dl_rx_status__
      
     Called when a STATUS PDU is received from lower layers.
        
@@ -791,7 +868,7 @@ typedef enum {
         srs_meta_data1: window_size
     ```
 
-- __rlc_dl_am_tx_pdu_retx_count__
+### 11.1.10. __rlc_dl_am_tx_pdu_retx_count__
      
     Called when a PDU is retransmitted, ahd shows thw retx count.
        
@@ -803,7 +880,7 @@ typedef enum {
         srs_meta_data2 = sn << 32 | retx_count;
     ```
 
-- __rlc_dl_am_tx_pdu_max_retx_count_reached__
+### 11.1.11. __rlc_dl_am_tx_pdu_max_retx_count_reached__
      
     Called when the maximum allowed RLC retransmissions is reached.
        
@@ -816,7 +893,7 @@ typedef enum {
     ```
 ## 11.2. RLC uplink
 
-- __rlc_ul_creation__
+### 11.2.1. __rlc_ul_creation__
      
     Called when a uplink RLC bearer is created.
        
@@ -826,7 +903,7 @@ typedef enum {
         data_end: pointer to end of the jbpf_rlc_ctx_info
     ```
 
-- __rlc_ul_deletion__
+### 11.2.2. __rlc_ul_deletion__
      
     Called when a uplink RLC bearer is deleted.
        
@@ -836,7 +913,7 @@ typedef enum {
         data_end: pointer to end of the jbpf_rlc_ctx_info
     ```
 
-- __rlc_ul_rx_pdu__
+### 11.2.3. __rlc_ul_rx_pdu__
      
     Called when a PDU is received from lower layers.
        
@@ -848,7 +925,7 @@ typedef enum {
         srs_meta_data2: window_size     
     ```
 
-- __rlc_ul_sdu_recv_started__
+### 11.2.4. __rlc_ul_sdu_recv_started__
      
     Called when a PDU is received for an SDU for which no bytes have previously been received.
        
@@ -859,7 +936,7 @@ typedef enum {
         srs_meta_data1 = sn << 32 | window_size
     ```
 
-- __rlc_ul_sdu_delivered__
+### 11.2.5. __rlc_ul_sdu_delivered__
      
     Called when an SDU is delivered to higher layers.
        
@@ -871,3 +948,35 @@ typedef enum {
         srs_meta_data2: sdu_length
     ```
 
+# 12. Periodic performance hook
+
+## 12.1. report_stats
+
+This is a predefine hook built into the Jbpf framework.
+It is called invoked every second.
+
+The information passed is shown below. However ***any codelet can be bound to this hook if a periodic trigger is required.***
+
+The hook has information passed in using a _jbpf_perf_hook_list__ as shown below ..
+```c
+    struct jbpf_perf_data
+    {
+        uint64_t num;
+        uint64_t min;
+        uint64_t max;
+        uint32_t hist[JBPF_NUM_HIST_BINS];
+        jbpf_hook_name_t hook_name;
+    };
+    struct jbpf_perf_hook_list
+    {
+        uint8_t num_reported_hooks;
+        struct jbpf_perf_data perf_data[MAX_NUM_HOOKS];
+    } 
+```
+
+    Context info:  
+    ```
+        data: pointer to the jbpf_perf_hook_list
+        data_end: pointer to end of the jbpf_perf_hook_list
+        meas_period: Period of measurements in ms
+    ```
