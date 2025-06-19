@@ -7,8 +7,8 @@
     - [1.3.3. Terminal 3](#133-terminal-3)
     - [1.3.4. Terminal 4](#134-terminal-4)
       - [1.3.4.1. Expected output:](#1341-expected-output)
-  - [1.4. View dashboard on Azure](#14-view-dashboard-on-azure)
-  - [1.5. Unloading app](#15-unloading-app)
+  - [1.4. Unloading app](#14-unloading-app)
+  - [1.5. View dashboard on Azure](#15-view-dashboard-on-azure)
 
 
 # 1. Dashboard application
@@ -131,21 +131,8 @@ Once the codeletSet is loaded successfully, one should see the following logs in
 Note that there will be different outputs for different types of statistics. 
 
 
-## 1.4. View dashboard on Azure
 
-Log onto your Azure Log Analytics portal and go to the Logs option. 
-Make sure you set KQL in the query type. Then type the following query:
-```
-search *
-```
-This will list all the records in the tables. 
-Initially, it will take a few minutes for Log Analytics to parse the data and create tables. 
-After that, the data should appear almost instantaneously. 
-
-
-
-
-## 1.5. Unloading app
+## 1.4. Unloading app
 
 To unload the codelet, run the following command:
 
@@ -153,5 +140,34 @@ To unload the codelet, run the following command:
 cd ~/jrtc-apps/jrtc_apps
 ./unload.sh -y xran_packets/deployment.yaml
 ```
+
+
+
+
+## 1.5. View dashboard on Azure
+
+Log onto your Azure Log Analytics portal and go to the Monitoring/Workbooks option. 
+Create a new workbook. You should be in the edit mode now. 
+In the top bar, choose the Advance Editor option with sign `</>`. 
+Choose Gallery Template, delete the existing text and copy [dashboard.json](../jrtc_apps/dashboard/dashboard.json) content into the window, Apply and Save. 
+This should show you the dashboards. 
+
+Initially, it will take a few minutes for Log Analytics to parse the data and create tables after you started a RAN and created some traffic. 
+After that, the data will keep appearing almost instantaneously. 
+You can also explore data using KQL language through a Log option. 
+The dashboard graphs are also defined in KQL. You can further modify each graph by editing its KQL query. 
+
+A part of a sample dashboard is shown in the figure below ![dashboard](./dashboard1.png).
+The Traffic section info shows PDCP throughput and queue size in bytes on the downlink in PDCP. 
+The Delay section shows various delays (see [here](./srsran_hooks.md) for more info on what is measured).
+
+The UEs are indexed by IMSIs (if available) or TIMSIs. If none is present, data is not displayed. 
+The dashboard jrtc [app](../jrtc_apps/dashboard/dashboard.py) collects data from various codelets and creates mapping between various identifiers (e.g. RNTI, UE ID, TMSI, etc).
+Different IDs are appended to each output so all outputs can be indexed by different IDs. 
+
+Some IDs change more often (like RNTI) and some less often (like TIMSI), but no ID visible inside RAN can identify a UE uniquely. 
+For this one needs the IMSI-TIMSI mapping form the core. 
+We have modified Open5GS to provide these mapping to jrt-controller whenever available, and our dashboard app adds IMSIs to the ID set. 
+If you don't use the modified Open5GS, the dashboard will classify data based on TIMSIs. 
 
 
