@@ -77,19 +77,11 @@ uint64_t jbpf_main(void* state)
         return JBPF_CODELET_FAILURE;
 #endif
 
-    // out->timestamp = jbpf_time_get_ns();
-    // out->cu_ue_index = pdcp_ctx.cu_ue_index;
-    // out->is_srb = pdcp_ctx.is_srb;
-    // out->rb_id = pdcp_ctx.rb_id;
-    // out->rlc_mode = pdcp_ctx.rlc_mode;
-    // out->count = ctx->srs_meta_data1 >> 32;
-    // out->window_size = ctx->srs_meta_data1 & 0xFFFFFFFF;
-
     // create explicit rbid
     int rb_id = RBID_2_EXPLICIT(pdcp_ctx.is_srb, pdcp_ctx.rb_id);    
 
     uint32_t count = (uint32_t) (ctx->srs_meta_data1 & 0xFFFFFFFF);
-    uint32_t pdu_length = (uint32_t) (ctx->srs_meta_data1 >> 32);
+    //uint32_t pdu_length = (uint32_t) (ctx->srs_meta_data1 >> 32);
     uint32_t window_size = (uint32_t) (ctx->srs_meta_data2 & 0xFFFFFFFF);
     uint32_t is_retx = (uint32_t) (ctx->srs_meta_data2 >> 32);
 
@@ -104,17 +96,58 @@ uint64_t jbpf_main(void* state)
     int new_val = 0;
     uint32_t ind = JBPF_PROTOHASH_LOOKUP_ELEM_64(out, stats, dl_south_hash, rb_id, pdcp_ctx.cu_ue_index, new_val);
     if (new_val) {
-        memset(&out->stats[ind % MAX_NUM_UE_RB], 0, sizeof(t_dls_stats));
         out->stats[ind % MAX_NUM_UE_RB].cu_ue_index = pdcp_ctx.cu_ue_index;
         out->stats[ind % MAX_NUM_UE_RB].is_srb = pdcp_ctx.is_srb;
         out->stats[ind % MAX_NUM_UE_RB].rb_id = pdcp_ctx.rb_id;
+
+        out->stats[ind % MAX_NUM_UE_RB].cu_ue_index = pdcp_ctx.cu_ue_index;
+        out->stats[ind % MAX_NUM_UE_RB].is_srb = pdcp_ctx.is_srb;
+        out->stats[ind % MAX_NUM_UE_RB].rb_id = pdcp_ctx.rb_id;
+
+        out->stats[ind % MAX_NUM_UE_RB].window.count = 0;
+        out->stats[ind % MAX_NUM_UE_RB].window.total = 0;
         out->stats[ind % MAX_NUM_UE_RB].window.min = UINT32_MAX;
+        out->stats[ind % MAX_NUM_UE_RB].window.max = 0;
+
+        out->stats[ind % MAX_NUM_UE_RB].pdcp_tx_delay.count = 0;
+        out->stats[ind % MAX_NUM_UE_RB].pdcp_tx_delay.total = 0;
         out->stats[ind % MAX_NUM_UE_RB].pdcp_tx_delay.min = UINT32_MAX;
+        out->stats[ind % MAX_NUM_UE_RB].pdcp_tx_delay.max = 0;
+
+        out->stats[ind % MAX_NUM_UE_RB].rlc_tx_delay.count = 0;
+        out->stats[ind % MAX_NUM_UE_RB].rlc_tx_delay.total = 0;
         out->stats[ind % MAX_NUM_UE_RB].rlc_tx_delay.min = UINT32_MAX;
+        out->stats[ind % MAX_NUM_UE_RB].rlc_tx_delay.max = 0;
+
+        out->stats[ind % MAX_NUM_UE_RB].rlc_deliv_delay.count = 0;
+        out->stats[ind % MAX_NUM_UE_RB].rlc_deliv_delay.total = 0;
         out->stats[ind % MAX_NUM_UE_RB].rlc_deliv_delay.min = UINT32_MAX;
+        out->stats[ind % MAX_NUM_UE_RB].rlc_deliv_delay.max = 0;
+
+        out->stats[ind % MAX_NUM_UE_RB].total_delay.count = 0;
+        out->stats[ind % MAX_NUM_UE_RB].total_delay.total = 0;
         out->stats[ind % MAX_NUM_UE_RB].total_delay.min = UINT32_MAX;
+        out->stats[ind % MAX_NUM_UE_RB].total_delay.max = 0;
+
+        out->stats[ind % MAX_NUM_UE_RB].tx_queue_bytes.count = 0;
+        out->stats[ind % MAX_NUM_UE_RB].tx_queue_bytes.total = 0;
         out->stats[ind % MAX_NUM_UE_RB].tx_queue_bytes.min = UINT32_MAX;
+        out->stats[ind % MAX_NUM_UE_RB].tx_queue_bytes.max = 0;
+        out->stats[ind % MAX_NUM_UE_RB].tx_queue_pkt.count = 0;
+        out->stats[ind % MAX_NUM_UE_RB].tx_queue_pkt.total = 0;
         out->stats[ind % MAX_NUM_UE_RB].tx_queue_pkt.min = UINT32_MAX;
+        out->stats[ind % MAX_NUM_UE_RB].tx_queue_pkt.max = 0;
+
+        out->stats[ind % MAX_NUM_UE_RB].sdu_tx_bytes.count = 0;
+        out->stats[ind % MAX_NUM_UE_RB].sdu_tx_bytes.total = 0;
+
+        out->stats[ind % MAX_NUM_UE_RB].sdu_retx_bytes.count = 0;
+        out->stats[ind % MAX_NUM_UE_RB].sdu_retx_bytes.total = 0;
+
+        out->stats[ind % MAX_NUM_UE_RB].sdu_discarded_bytes.count = 0;
+        out->stats[ind % MAX_NUM_UE_RB].sdu_discarded_bytes.total = 0;       
+        
+        out->stats[ind % MAX_NUM_UE_RB].large_delay_sdus_count = 0;
     }
 
     out->stats[ind % MAX_NUM_UE_RB].window.count++;
@@ -171,6 +204,22 @@ uint64_t jbpf_main(void* state)
                 count, delay);
 #endif       
 
+            if ((delay > PDCP_DELAY_MAX) && (out->stats[ind % MAX_NUM_UE_RB].large_delay_sdus_count < PDCP_MAX_LARGE_SDUS)) {
+                t_dls_large_delay_sdu_t *item = 
+                    &out->stats[ind % MAX_NUM_UE_RB].large_delay_sdus[out->stats[ind % MAX_NUM_UE_RB].large_delay_sdus_count % PDCP_MAX_LARGE_SDUS];
+                item->count = events->map[aind % MAX_SDU_IN_FLIGHT].count;
+                item->pdcp_tx_delay = delay;
+                item->rlc_tx_delay = 0;
+                item->rlc_deliv_delay = 0;
+                item->total_delay = 0;
+                item->sdu_arrival_ns = events->map[aind % MAX_SDU_IN_FLIGHT].sdu_arrival_ns;
+                item->pdcpTx_ns = events->map[aind % MAX_SDU_IN_FLIGHT].pdcpTx_ns;
+                item->rlcTxStarted_ns = 0; // not set yet
+                item->rlcDelivered_ns = 0; // not set yet
+                events->map[aind % MAX_SDU_IN_FLIGHT].large_sdu_delay_idx = out->stats[ind % MAX_NUM_UE_RB].large_delay_sdus_count % PDCP_MAX_LARGE_SDUS;
+                out->stats[ind % MAX_NUM_UE_RB].large_delay_sdus_count++;
+            }
+
             out->stats[ind % MAX_NUM_UE_RB].pdcp_tx_delay.count++; 
             out->stats[ind % MAX_NUM_UE_RB].pdcp_tx_delay.total += delay;
             if (out->stats[ind % MAX_NUM_UE_RB].pdcp_tx_delay.min > delay) {
@@ -187,10 +236,9 @@ uint64_t jbpf_main(void* state)
     } else {
         // Just find the key, don't add it. 
         // It should always be found, but maybe the hash has been cleaned, then ignore
-//#ifdef DEBUG_PRINT
-        jbpf_printf_debug("PDCP DL TX PDU KEY NOT FOUND: count=%d \n", 
-            count);
-//#endif
+#ifdef DEBUG_PRINT
+        jbpf_printf_debug("PDCP DL TX PDU KEY NOT FOUND: count=%d \n", count);
+#endif
     }    
 
 #endif

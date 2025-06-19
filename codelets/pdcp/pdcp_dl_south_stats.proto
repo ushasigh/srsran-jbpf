@@ -15,6 +15,20 @@ message t_dls_traffic_stats_item {
    required uint32 total = 2;
 }
 
+message t_dls_large_delay_sdu_t {
+   required uint32 count = 1;
+   required uint32 pdcp_tx_delay = 2;
+   required uint32 rlc_tx_delay = 3;
+   required uint32 rlc_deliv_delay = 4;
+   required uint32 total_delay = 5;
+   required uint64 sdu_arrival_ns = 6;
+   required uint64 pdcpTx_ns = 7;
+   required uint64 rlcTxStarted_ns = 8;
+   required uint64 rlcDelivered_ns = 9;
+}
+
+
+
 message t_dls_stats {
    required uint32 cu_ue_index = 1;
    required uint32 is_srb = 2;
@@ -41,6 +55,8 @@ message t_dls_stats {
 
    // SDUs discarded
    required t_dls_traffic_stats_item sdu_discarded_bytes = 13;
+
+   repeated t_dls_large_delay_sdu_t large_delay_sdus = 14;
 
 }
 

@@ -1,1 +1,2 @@
 dl_south_stats.stats max_count:256
+t_dls_stats.large_delay_sdus max_count:16

@@ -20,6 +20,9 @@
 #define MAX_SDU_IN_FLIGHT (256 * 32 * 1)
 #define MAX_SDU_QUEUES (256)
 
+#define PDCP_DELAY_MAX (1000000) /* 1 second in nanoseconds */
+#define PDCP_MAX_LARGE_SDUS (16) /* 1 second in nanoseconds */
+
 
 typedef struct {
     uint64_t sdu_arrival_ns;
@@ -27,6 +30,9 @@ typedef struct {
     uint64_t rlcTxStarted_ns;
     uint64_t rlcDelivered_ns;
     uint32_t sdu_length;
+
+    uint32_t count; 
+    uint32_t large_sdu_delay_idx;  // temp field to provide debug info for large delay SDUs
 } t_sdu_evs;
 
 typedef struct {

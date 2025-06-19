@@ -1161,6 +1161,31 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                         }
                         report_stat = True
 
+
+                    large_delay_sdus = []
+                    l_sdu_count = 0
+                    for l_sdu in stat.large_delay_sdus:
+                        sdu = {
+                            "count": l_sdu.count,
+                            "pdcp_tx_delay": l_sdu.pdcp_tx_delay,
+                            "rlc_tx_delay": l_sdu.rlc_tx_delay,
+                            "rlc_deliv_delay": l_sdu.rlc_deliv_delay,
+                            "total_delay": l_sdu.total_delay,
+                            "sdu_arrival_ns": l_sdu.sdu_arrival_ns,
+                            "pdcpTx_ns": l_sdu.pdcpTx_ns,
+                            "rlcTxStarted_ns": l_sdu.rlcTxStarted_ns,
+                            "rlcDelivered_ns": l_sdu.rlcDelivered_ns
+                        }
+                        large_delay_sdus.append(sdu)
+                        l_sdu_count += 1
+                        if l_sdu_count >= stat.large_delay_sdus_count:
+                            break
+                    if len(large_delay_sdus) > 0:
+                        s["large_delay_sdus"] = large_delay_sdus
+                        report_stat = True
+
+                        state.logger.log_msg(True, False, "Dashboard", f"large_delay_sdus: {large_delay_sdus}")
+
                     # Add the stat to the output
                     if report_stat:
                         output["stats"].append(s)

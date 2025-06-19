@@ -202,6 +202,9 @@ uint64_t jbpf_main(void* state)
     events->map[ind % MAX_SDU_IN_FLIGHT].rlcDelivered_ns = 0;
     events->map[ind % MAX_SDU_IN_FLIGHT].sdu_length = cumulative_sdus->map[cumul_ind % MAX_NUM_UE_RB];
 
+    events->map[ind % MAX_SDU_IN_FLIGHT].count = count;
+    events->map[ind % MAX_SDU_IN_FLIGHT].large_sdu_delay_idx = UINT32_MAX;
+
 #ifdef DEBUG_PRINT
     jbpf_printf_debug("   NEW DELAY: cu_ue_index=%d, arrival_ns=%ld, cumul_sdu_length=%d\n", 
         pdcp_ctx.cu_ue_index, events->map[ind % MAX_SDU_IN_FLIGHT].sdu_arrival_ns, cumulative_sdus->map[cumul_ind % MAX_NUM_UE_RB]);
