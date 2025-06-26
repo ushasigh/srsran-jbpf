@@ -66,11 +66,12 @@ uint64_t jbpf_main(void* state)
     int rb_id = RBID_2_EXPLICIT(rlc_ctx.is_srb, rlc_ctx.rb_id);
 
     // Store SDU arrival time so we can calculate delay and queue size at the rlc level
-    JbpfRlcPdu_t pdu_type = (JbpfRlcPdu_t) (ctx->srs_meta_data1 >> 32);
-    uint32_t pdu_len = (uint32_t) (ctx->srs_meta_data1 & 0xFFFFFFFF);
+    uint32_t pdcp_sn = (uint32_t) (ctx->srs_meta_data1 >> 32);
+    uint32_t is_retx = (uint32_t) (ctx->srs_meta_data1 & 0xFFFFFFFF);
+    uint32_t latency_ns = (uint32_t)ctx->srs_meta_data2;
 
 #ifdef DEBUG_PRINT
-    jbpf_printf_debug("RLC DL TX PDU: du_ue_index=%d, rb_id=%d, pdu_length=%d\n", 
+    jbpf_printf_debug("RLC DL TX SDU COMPLETED: du_ue_index=%d, rb_id=%d, pdu_length=%d\n", 
         rlc_ctx.du_ue_index, rb_id, pdu_len);
 #endif
 
@@ -147,7 +148,6 @@ uint64_t jbpf_main(void* state)
         queue_info = &rlc_ctx.u.tm_tx.sdu_queue_info;
     }  
     if (queue_info) {
-
         out->stats[ind % MAX_NUM_UE_RB].sdu_queue_pkts.count++;
         if (queue_info->pkts < out->stats[ind % MAX_NUM_UE_RB].sdu_queue_pkts.min) {
             out->stats[ind % MAX_NUM_UE_RB].sdu_queue_pkts.min = queue_info->pkts;
@@ -168,29 +168,19 @@ uint64_t jbpf_main(void* state)
     }
 
     /////////////////////////////////////////////
-    // pdu_tx_bytes
-    if (pdu_type == JBPF_RLC_PDUTYPE_DATA) {
-        out->stats[ind % MAX_NUM_UE_RB].pdu_tx_bytes.count++;
-        out->stats[ind % MAX_NUM_UE_RB].pdu_tx_bytes.total += pdu_len;
+    // sdu_tx_completed
+    out->stats[ind % MAX_NUM_UE_RB].sdu_tx_completed.count++;
+    if (latency_ns < out->stats[ind % MAX_NUM_UE_RB].sdu_tx_completed.min) {
+        out->stats[ind % MAX_NUM_UE_RB].sdu_tx_completed.min = latency_ns;
     }
+    if (latency_ns > out->stats[ind % MAX_NUM_UE_RB].sdu_tx_completed.max) {
+        out->stats[ind % MAX_NUM_UE_RB].sdu_tx_completed.max = latency_ns;
+    }
+    out->stats[ind % MAX_NUM_UE_RB].sdu_tx_completed.total += latency_ns;
 
     /////////////////////////////////////////////
     // AM fields
     if (out->stats[ind % MAX_NUM_UE_RB].has_am) {
-
-        /////////////////////////////////////////////
-        // pdu_retx_bytes
-        if (pdu_type == JBPF_RLC_PDUTYPE_DATA_RETX) {
-            out->stats[ind % MAX_NUM_UE_RB].am.pdu_retx_bytes.count++;
-            out->stats[ind % MAX_NUM_UE_RB].am.pdu_retx_bytes.total += pdu_len;
-        }
-
-        /////////////////////////////////////////////
-        // pdu_status_bytes
-        if (pdu_type == JBPF_RLC_PDUTYPE_STATUS) {
-            out->stats[ind % MAX_NUM_UE_RB].am.pdu_status_bytes.count++;
-            out->stats[ind % MAX_NUM_UE_RB].am.pdu_status_bytes.total += pdu_len;
-        }
 
         /////////////////////////////////////////////
         // update pdu_window

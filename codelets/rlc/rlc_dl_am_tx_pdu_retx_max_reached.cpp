@@ -6,7 +6,6 @@
 #include "jbpf_srsran_contexts.h"
 
 #include "rlc_defines.h"
-#include "rlc_dl_south_stats.pb.h"
 
 #include "../utils/misc_utils.h"
 #include "../utils/hashmap_utils.h"
@@ -38,9 +37,8 @@ uint64_t jbpf_main(void* state)
     int rb_id = RBID_2_EXPLICIT(rlc_ctx.is_srb, rlc_ctx.rb_id);
 
     // Store SDU arrival time so we can calculate delay and queue size at the rlc level
-    uint32_t window_size = (uint32_t) (ctx->srs_meta_data1 & 0xFFFFFFFF);
-    uint32_t sn = (uint32_t) (ctx->srs_meta_data2 >> 32);
-    uint32_t retx_count = (uint32_t) (ctx->srs_meta_data2 & 0xFFFFFFFF);
+    uint32_t sn = (uint32_t) (ctx->srs_meta_data1 >> 32);
+    uint32_t retx_count = (uint32_t) (ctx->srs_meta_data1 & 0xFFFFFFFF);
 
 #ifdef DEBUG_PRINT
     jbpf_printf_debug("RLC DL AM MAX RETX REACHED: du_ue_index=%d, rb_id=%d, window_size=%d\n", 

@@ -59,11 +59,9 @@ uint64_t jbpf_main(void* state)
 #endif
 
 
-    // When a bearer context is setup, we need to reset the last acked
     // At the beginning, 0 is not acked so set to "-1".
     int new_val = 0;
-    uint32_t ack_ind = 0;
-   
+       
     rlc_ul_stats *out = (rlc_ul_stats *)jbpf_map_lookup_elem(&stats_map_ul, &zero_index);
     if (!out)
         return JBPF_CODELET_FAILURE;
@@ -72,14 +70,30 @@ uint64_t jbpf_main(void* state)
     out->stats[ind % MAX_NUM_UE_RB].du_ue_index = rlc_ctx.du_ue_index;
     out->stats[ind % MAX_NUM_UE_RB].is_srb = rlc_ctx.is_srb;
     out->stats[ind % MAX_NUM_UE_RB].rb_id = rlc_ctx.rb_id;
-    out->stats[ind % MAX_NUM_UE_RB].pdu_window.count = 0;
-    out->stats[ind % MAX_NUM_UE_RB].pdu_window.total = 0;
-    out->stats[ind % MAX_NUM_UE_RB].pdu_window.min = UINT32_MAX;
-    out->stats[ind % MAX_NUM_UE_RB].pdu_window.max = 0;
+    out->stats[ind % MAX_NUM_UE_RB].rlc_mode = rlc_ctx.rlc_mode;
+
     out->stats[ind % MAX_NUM_UE_RB].pdu_bytes.count = 0;
     out->stats[ind % MAX_NUM_UE_RB].pdu_bytes.total = 0;
+
     out->stats[ind % MAX_NUM_UE_RB].sdu_delivered_bytes.count = 0;
     out->stats[ind % MAX_NUM_UE_RB].sdu_delivered_bytes.total = 0;
+
+    out->stats[ind % MAX_NUM_UE_RB].sdu_delivered_latency.count = 0;
+    out->stats[ind % MAX_NUM_UE_RB].sdu_delivered_latency.total = 0;
+    out->stats[ind % MAX_NUM_UE_RB].sdu_delivered_latency.min = UINT32_MAX;
+    out->stats[ind % MAX_NUM_UE_RB].sdu_delivered_latency.max = 0;
+
+    out->stats[ind % MAX_NUM_UE_RB].um.pdu_window.count = 0;
+    out->stats[ind % MAX_NUM_UE_RB].um.pdu_window.total = 0;
+    out->stats[ind % MAX_NUM_UE_RB].um.pdu_window.min = UINT32_MAX;
+    out->stats[ind % MAX_NUM_UE_RB].um.pdu_window.max = 0;
+    out->stats[ind % MAX_NUM_UE_RB].has_um = false;
+
+    out->stats[ind % MAX_NUM_UE_RB].am.pdu_window.count = 0;
+    out->stats[ind % MAX_NUM_UE_RB].am.pdu_window.total = 0;
+    out->stats[ind % MAX_NUM_UE_RB].am.pdu_window.min = UINT32_MAX;
+    out->stats[ind % MAX_NUM_UE_RB].am.pdu_window.max = 0;
+    out->stats[ind % MAX_NUM_UE_RB].has_am = false;
 
     return JBPF_CODELET_SUCCESS;
 }
