@@ -16,11 +16,11 @@ message t_ul_traffic_stats_item {
 }
 
 message t_ul_stats_um {
-   required t_ul_stats_item pdu_window = 1;
+   required t_ul_stats_item pdu_window_pkts = 1;
 }
 
 message t_ul_stats_am {
-   required t_ul_stats_item pdu_window = 1;
+   required t_ul_stats_item pdu_window_pkts = 1;
 }
 
 message t_ul_stats {

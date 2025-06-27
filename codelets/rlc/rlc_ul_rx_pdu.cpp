@@ -5,7 +5,7 @@
 
 #include "jbpf_srsran_contexts.h"
 
-#include "rlc_defines.h"
+#include "rlc_helpers.h"
 #include "rlc_ul_stats.pb.h"
 
 #include "../utils/misc_utils.h"
@@ -78,80 +78,31 @@ uint64_t jbpf_main(void* state)
 
     uint32_t ind = JBPF_PROTOHASH_LOOKUP_ELEM_64(out, stats, ul_hash, rlc_ctx.du_ue_index, rb_id, new_val);
     if (new_val) {
-        out->stats[ind % MAX_NUM_UE_RB].du_ue_index = rlc_ctx.du_ue_index;
-        out->stats[ind % MAX_NUM_UE_RB].is_srb = rlc_ctx.is_srb;
-        out->stats[ind % MAX_NUM_UE_RB].rb_id = rlc_ctx.rb_id;
-        out->stats[ind % MAX_NUM_UE_RB].rlc_mode = rlc_ctx.rlc_mode;
-
-        out->stats[ind % MAX_NUM_UE_RB].pdu_bytes.count = 0;
-        out->stats[ind % MAX_NUM_UE_RB].pdu_bytes.total = 0;
-
-        out->stats[ind % MAX_NUM_UE_RB].sdu_delivered_bytes.count = 0;
-        out->stats[ind % MAX_NUM_UE_RB].sdu_delivered_bytes.total = 0;
-
-        out->stats[ind % MAX_NUM_UE_RB].sdu_delivered_latency.count = 0;
-        out->stats[ind % MAX_NUM_UE_RB].sdu_delivered_latency.total = 0;
-        out->stats[ind % MAX_NUM_UE_RB].sdu_delivered_latency.min = UINT32_MAX;
-        out->stats[ind % MAX_NUM_UE_RB].sdu_delivered_latency.max = 0;
-
-        if (rlc_ctx.rlc_mode == JBPF_RLC_MODE_UM) {
-
-            out->stats[ind % MAX_NUM_UE_RB].um.pdu_window.count = 0;
-            out->stats[ind % MAX_NUM_UE_RB].um.pdu_window.total = 0;
-            out->stats[ind % MAX_NUM_UE_RB].um.pdu_window.min = UINT32_MAX;
-            out->stats[ind % MAX_NUM_UE_RB].um.pdu_window.max = 0;
-
-            out->stats[ind % MAX_NUM_UE_RB].has_um = true;
-        }
-
-        if (rlc_ctx.rlc_mode == JBPF_RLC_MODE_AM) {
-
-            out->stats[ind % MAX_NUM_UE_RB].am.pdu_window.count = 0;
-            out->stats[ind % MAX_NUM_UE_RB].am.pdu_window.total = 0;
-            out->stats[ind % MAX_NUM_UE_RB].am.pdu_window.min = UINT32_MAX;
-            out->stats[ind % MAX_NUM_UE_RB].am.pdu_window.max = 0;
-
-            out->stats[ind % MAX_NUM_UE_RB].has_am = true;
-        }
+        RLC_UL_STATS_INIT(out->stats[ind % MAX_NUM_UE_RB], rlc_ctx.du_ue_index, rlc_ctx.is_srb, 
+                           rlc_ctx.rb_id, rlc_ctx.rlc_mode);
+    }
+    // Handle case where "deletion" has occurred and rlc_mode has been cleared
+    if (out->stats[ind % MAX_NUM_UE_RB].rlc_mode == JBPF_RLC_MODE_MAX) {
+        RLC_UL_STATS_INIT(out->stats[ind % MAX_NUM_UE_RB], rlc_ctx.du_ue_index, rlc_ctx.is_srb, 
+                          rlc_ctx.rb_id, rlc_ctx.rlc_mode);        
     }
 
     /////////////////////////////////////////////
     // pdu_bytes
     if (pdu_type == JBPF_RLC_PDUTYPE_DATA) {
-        out->stats[ind % MAX_NUM_UE_RB].pdu_bytes.count++;
-        out->stats[ind % MAX_NUM_UE_RB].pdu_bytes.total += pdu_len;
+        RLC_TRAFFIC_STATS_UPDATE(out->stats[ind % MAX_NUM_UE_RB].pdu_bytes, pdu_len);
     }
 
     /////////////////////////////////////////////
     // UM
     if (out->stats[ind % MAX_NUM_UE_RB].has_um) {
-
-        /////////////////////////////////////////////
-        // update pdu_window
-        out->stats[ind % MAX_NUM_UE_RB].um.pdu_window.count++;
-        if (rlc_ctx.u.um_rx.window_size < out->stats[ind % MAX_NUM_UE_RB].um.pdu_window.min) {
-            out->stats[ind % MAX_NUM_UE_RB].um.pdu_window.min = rlc_ctx.u.um_rx.window_size;
-        }
-        if (rlc_ctx.u.um_rx.window_size > out->stats[ind % MAX_NUM_UE_RB].um.pdu_window.max) {
-            out->stats[ind % MAX_NUM_UE_RB].um.pdu_window.max = rlc_ctx.u.um_rx.window_size;
-        }
-        out->stats[ind % MAX_NUM_UE_RB].um.pdu_window.total += rlc_ctx.u.um_rx.window_size;   
+        RLC_STATS_UPDATE(out->stats[ind % MAX_NUM_UE_RB].um.pdu_window_pkts, rlc_ctx.u.um_rx.window_num_pkts);
     }	
 	
     /////////////////////////////////////////////
     // AM
     if (out->stats[ind % MAX_NUM_UE_RB].has_am) {
-
-        /////////////////////////////////////////////
-        // update pdu_window
-        out->stats[ind % MAX_NUM_UE_RB].am.pdu_window.count++;
-        if (rlc_ctx.u.am_rx.window_size < out->stats[ind % MAX_NUM_UE_RB].am.pdu_window.min) {
-            out->stats[ind % MAX_NUM_UE_RB].am.pdu_window.min = rlc_ctx.u.am_rx.window_size;
-        }
-        if (rlc_ctx.u.am_rx.window_size > out->stats[ind % MAX_NUM_UE_RB].am.pdu_window.max) {
-            out->stats[ind % MAX_NUM_UE_RB].am.pdu_window.max = rlc_ctx.u.am_rx.window_size;
-        }
-        out->stats[ind % MAX_NUM_UE_RB].am.pdu_window.total += rlc_ctx.u.am_rx.window_size;   
+        RLC_STATS_UPDATE(out->stats[ind % MAX_NUM_UE_RB].am.pdu_window_pkts, rlc_ctx.u.am_rx.window_num_pkts);
     }	
     
     *not_empty_stats = 1;

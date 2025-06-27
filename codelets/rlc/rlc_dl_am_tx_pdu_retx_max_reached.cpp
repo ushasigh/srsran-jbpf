@@ -5,8 +5,6 @@
 
 #include "jbpf_srsran_contexts.h"
 
-#include "rlc_defines.h"
-
 #include "../utils/misc_utils.h"
 #include "../utils/hashmap_utils.h"
 

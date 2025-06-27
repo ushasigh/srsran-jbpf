@@ -66,10 +66,10 @@ uint64_t jbpf_main(void* state)
     int rb_id = RBID_2_EXPLICIT(pdcp_ctx.is_srb, pdcp_ctx.rb_id);
 
     // get data passed in metadata
-    // uint32_t count = (uint32_t) ctx->srs_meta_data1;
+    uint32_t pdu_length = (uint32_t) (ctx->srs_meta_data1 & 0xFFFFFFFF);
 
 #ifdef DEBUG_PRINT
-    jbpf_printf_debug("PDCP DISCARD: cu_ue_index=%d, rb_id=%d, count=%d\n", 
+    jbpf_printf_debug("PDCP DL TX PDU: cu_ue_index=%d, rb_id=%d, count=%d\n", 
         pdcp_ctx.cu_ue_index, rb_id, count);
 #endif
 
@@ -95,8 +95,8 @@ uint64_t jbpf_main(void* state)
     }
 
     ///////////////////////////////////////////////////////
-    // update sdu_discarded
-    out->stats[ind % MAX_NUM_UE_RB].sdu_discarded++;
+    // update control_pdu_tx_bytes
+    PDCP_TRAFFIC_STATS_UPDATE(out->stats[ind % MAX_NUM_UE_RB].control_pdu_tx_bytes, pdu_length);
 
     *not_empty_stats = 1;
 

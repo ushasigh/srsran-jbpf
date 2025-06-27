@@ -4,6 +4,7 @@
 #include <linux/bpf.h>
 
 #include "jbpf_srsran_contexts.h"
+#include "pdcp_helpers.h"
 #include "pdcp_ul_stats.pb.h"
 
 #include "../utils/misc_utils.h"
@@ -65,17 +66,10 @@ uint64_t jbpf_main(void* state)
     // At the beginning, 0 is not acked so set to "-1".
     int new_val = 0;
     uint32_t ind = JBPF_PROTOHASH_LOOKUP_ELEM_64(out, stats, ul_hash, pdcp_ctx.cu_ue_index, rb_id, new_val);
-    out->stats[ind % MAX_NUM_UE_RB].cu_ue_index = pdcp_ctx.cu_ue_index;
-    out->stats[ind % MAX_NUM_UE_RB].is_srb = pdcp_ctx.is_srb;
-    out->stats[ind % MAX_NUM_UE_RB].rb_id = pdcp_ctx.rb_id;
-    out->stats[ind % MAX_NUM_UE_RB].sdu_bytes.count = 0;
-    out->stats[ind % MAX_NUM_UE_RB].sdu_bytes.total = 0;
-    out->stats[ind % MAX_NUM_UE_RB].sdu_bytes.min = UINT32_MAX;
-    out->stats[ind % MAX_NUM_UE_RB].sdu_bytes.max = 0;
-    out->stats[ind % MAX_NUM_UE_RB].window.count = 0;
-    out->stats[ind % MAX_NUM_UE_RB].window.total = 0;
-    out->stats[ind % MAX_NUM_UE_RB].window.min = UINT32_MAX;
-    out->stats[ind % MAX_NUM_UE_RB].window.max = 0;
+
+    PDCP_UL_STATS_INIT(out->stats[ind % MAX_NUM_UE_RB], pdcp_ctx.cu_ue_index, pdcp_ctx.is_srb, 
+                        pdcp_ctx.rb_id, pdcp_ctx.rlc_mode);
+    out->stats[ind % MAX_NUM_UE_RB].rlc_mode = JBPF_RLC_MODE_MAX;
     
 
     return JBPF_CODELET_SUCCESS;
