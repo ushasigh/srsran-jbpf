@@ -119,7 +119,7 @@ kubectl -n ran logs -f jrtc-0 -c jrtc-decoder
 Load the codelet:
 ```
 cd ~/jrtc_apps/jrtc_apps
-./load.sh -y xran_packets/deployment.yaml
+./load.sh -y dashboard/deployment.yaml
 ```
 
 #### 1.3.4.1. Expected output:
@@ -138,7 +138,7 @@ To unload the codelet, run the following command:
 
 ```
 cd ~/jrtc-apps/jrtc_apps
-./unload.sh -y xran_packets/deployment.yaml
+./unload.sh -y dashboard/deployment.yaml
 ```
 
 
