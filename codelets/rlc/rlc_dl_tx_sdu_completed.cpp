@@ -36,6 +36,7 @@ DEFINE_PROTOHASH_64(dl_hash, MAX_NUM_UE_RB);
 
 
 
+
 // #define DEBUG_PRINT
 
 extern "C" SEC("jbpf_srsran_generic")
@@ -65,13 +66,13 @@ uint64_t jbpf_main(void* state)
     int rb_id = RBID_2_EXPLICIT(rlc_ctx.is_srb, rlc_ctx.rb_id);
 
     // Store SDU arrival time so we can calculate delay and queue size at the rlc level
-    uint32_t sdu_length = (uint32_t) (ctx->srs_meta_data1 >> 32);
+    uint32_t pdcp_sn = (uint32_t) (ctx->srs_meta_data1 >> 32);
+    uint32_t is_retx = (uint32_t) (ctx->srs_meta_data1 & 0xFFFFFFFF);
+    uint32_t latency_ns = (uint32_t)ctx->srs_meta_data2;
 
 #ifdef DEBUG_PRINT
-    // jbpf_printf_debug("rlc DL NEW SDU: du_ue_index=%d, sdu_length=%d, count=%d\n", 
-    //     rlc_ctx.du_ue_index, sdu_length, count);
-    jbpf_printf_debug("RLC DL NEW SDU: du_ue_index=%d, rb_id=%d, sdu_length=%d\n", 
-        rlc_ctx.du_ue_index, rb_id, sdu_length);
+    jbpf_printf_debug("RLC DL TX SDU COMPLETED: du_ue_index=%d, rb_id=%d, pdu_length=%d\n", 
+        rlc_ctx.du_ue_index, rb_id, pdu_len);
 #endif
 
     int new_val = 0;
@@ -101,11 +102,13 @@ uint64_t jbpf_main(void* state)
         RLC_STATS_UPDATE(out->stats[ind % MAX_NUM_UE_RB].sdu_queue_pkts, queue_info->num_pkts);
         RLC_STATS_UPDATE(out->stats[ind % MAX_NUM_UE_RB].sdu_queue_bytes, queue_info->num_bytes);
     }
-    
-    /////////////////////////////////////////////
-    // update sdu_new_bytes
-    RLC_TRAFFIC_STATS_UPDATE(out->stats[ind % MAX_NUM_UE_RB].sdu_new_bytes, sdu_length);
 
+    /////////////////////////////////////////////
+    // sdu_tx_completed
+    RLC_STATS_UPDATE(out->stats[ind % MAX_NUM_UE_RB].sdu_tx_completed, latency_ns);
+
+    /////////////////////////////////////////////
+    // AM fields
     if (out->stats[ind % MAX_NUM_UE_RB].has_am) {
 
         /////////////////////////////////////////////
@@ -114,8 +117,8 @@ uint64_t jbpf_main(void* state)
         if (!queue_info->used) {
             RLC_STATS_UPDATE(out->stats[ind % MAX_NUM_UE_RB].am.pdu_window_pkts, queue_info->num_pkts);
             RLC_STATS_UPDATE(out->stats[ind % MAX_NUM_UE_RB].am.pdu_window_bytes, queue_info->num_bytes);
-        }
-    }
+        } 
+    }	
 
     *not_empty_stats = 1;
 

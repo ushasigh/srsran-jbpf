@@ -5,7 +5,7 @@
 
 #include "jbpf_srsran_contexts.h"
 
-#include "rlc_defines.h"
+#include "rlc_helpers.h"
 #include "rlc_ul_stats.pb.h"
 
 #include "../utils/misc_utils.h"
@@ -68,11 +68,8 @@ uint64_t jbpf_main(void* state)
     // Store SDU arrival time so we can calculate delay and queue size at the rlc level
     uint32_t pdu_type = (uint32_t) (ctx->srs_meta_data1 >> 32);
     uint32_t pdu_len = (uint32_t) (ctx->srs_meta_data1 & 0xFFFFFFFF);
-    uint32_t window_size = (uint32_t) (ctx->srs_meta_data2 & 0xFFFFFFFF);
 
 #ifdef DEBUG_PRINT
-    // jbpf_printf_debug("rlc DL NEW SDU: du_ue_index=%d, sdu_length=%d, count=%d\n", 
-    //     rlc_ctx.du_ue_index, sdu_length, count);
     jbpf_printf_debug("RLC UL RX PDU: du_ue_index=%d, rb_id=%d, pdu_length=%d\n", 
         rlc_ctx.du_ue_index, rb_id, pdu_len);
 #endif
@@ -81,33 +78,32 @@ uint64_t jbpf_main(void* state)
 
     uint32_t ind = JBPF_PROTOHASH_LOOKUP_ELEM_64(out, stats, ul_hash, rlc_ctx.du_ue_index, rb_id, new_val);
     if (new_val) {
-        out->stats[ind % MAX_NUM_UE_RB].du_ue_index = rlc_ctx.du_ue_index;
-        out->stats[ind % MAX_NUM_UE_RB].is_srb = rlc_ctx.is_srb;
-        out->stats[ind % MAX_NUM_UE_RB].rb_id = rlc_ctx.rb_id;
-
-        out->stats[ind % MAX_NUM_UE_RB].pdu_window.count = 0;
-        out->stats[ind % MAX_NUM_UE_RB].pdu_window.total = 0;
-        out->stats[ind % MAX_NUM_UE_RB].pdu_window.min = UINT32_MAX;
-        out->stats[ind % MAX_NUM_UE_RB].pdu_window.max = 0;
-
-        out->stats[ind % MAX_NUM_UE_RB].pdu_bytes.count = 0;
-        out->stats[ind % MAX_NUM_UE_RB].pdu_bytes.total = 0;
-
-        out->stats[ind % MAX_NUM_UE_RB].sdu_delivered_bytes.count = 0;
-        out->stats[ind % MAX_NUM_UE_RB].sdu_delivered_bytes.total = 0;
+        RLC_UL_STATS_INIT(out->stats[ind % MAX_NUM_UE_RB], rlc_ctx.du_ue_index, rlc_ctx.is_srb, 
+                           rlc_ctx.rb_id, rlc_ctx.rlc_mode);
+    }
+    // Handle case where "deletion" has occurred and rlc_mode has been cleared
+    if (out->stats[ind % MAX_NUM_UE_RB].rlc_mode == JBPF_RLC_MODE_MAX) {
+        RLC_UL_STATS_INIT(out->stats[ind % MAX_NUM_UE_RB], rlc_ctx.du_ue_index, rlc_ctx.is_srb, 
+                          rlc_ctx.rb_id, rlc_ctx.rlc_mode);        
     }
 
-    out->stats[ind % MAX_NUM_UE_RB].pdu_window.count++;
-    out->stats[ind % MAX_NUM_UE_RB].pdu_window.total += window_size;
-    if (out->stats[ind % MAX_NUM_UE_RB].pdu_window.min > window_size) {
-        out->stats[ind % MAX_NUM_UE_RB].pdu_window.min = window_size;
+    /////////////////////////////////////////////
+    // pdu_bytes
+    if (pdu_type == JBPF_RLC_PDUTYPE_DATA) {
+        RLC_TRAFFIC_STATS_UPDATE(out->stats[ind % MAX_NUM_UE_RB].pdu_bytes, pdu_len);
     }
-    if (out->stats[ind % MAX_NUM_UE_RB].pdu_window.max < window_size) {
-        out->stats[ind % MAX_NUM_UE_RB].pdu_window.max = window_size;
-    }    
- 
-    out->stats[ind % MAX_NUM_UE_RB].pdu_bytes.count++; 
-    out->stats[ind % MAX_NUM_UE_RB].pdu_bytes.total += pdu_len;
+
+    /////////////////////////////////////////////
+    // UM
+    if (out->stats[ind % MAX_NUM_UE_RB].has_um) {
+        RLC_STATS_UPDATE(out->stats[ind % MAX_NUM_UE_RB].um.pdu_window_pkts, rlc_ctx.u.um_rx.window_num_pkts);
+    }	
+	
+    /////////////////////////////////////////////
+    // AM
+    if (out->stats[ind % MAX_NUM_UE_RB].has_am) {
+        RLC_STATS_UPDATE(out->stats[ind % MAX_NUM_UE_RB].am.pdu_window_pkts, rlc_ctx.u.am_rx.window_num_pkts);
+    }	
     
     *not_empty_stats = 1;
 

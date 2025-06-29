@@ -5,11 +5,10 @@
 
 #include "jbpf_srsran_contexts.h"
 
-#include "pdcp_dl_north_stats.pb.h"
-#include "pdcp_dl_south_stats.pb.h"
+#include "pdcp_dl_stats.pb.h"
 #include "pdcp_ul_stats.pb.h"
 
-#include "pdcp_dl_pkts.h"
+#include "pdcp_helpers.h"
 
 #define SEC(NAME) __attribute__((section(NAME), used))
 
@@ -24,44 +23,21 @@
 
 
 
-//// DL NORTH
+//// DL
 
-jbpf_ringbuf_map(output_map_dl_north, dl_north_stats, 1000);
-
-
-// We store stats in this (single entry) map across runs
-struct jbpf_load_map_def SEC("maps") stats_map_dl_north = {
-    .type = JBPF_MAP_TYPE_ARRAY,
-    .key_size = sizeof(int),
-    .value_size = sizeof(dl_north_stats),
-    .max_entries = 1,
-};
-
-DEFINE_PROTOHASH_64(dl_north_hash, MAX_NUM_UE_RB);
-
-struct jbpf_load_map_def SEC("maps") dl_north_not_empty = {
-    .type = JBPF_MAP_TYPE_ARRAY,
-    .key_size = sizeof(int),
-    .value_size = sizeof(uint32_t),
-    .max_entries = 1,
-};
-
-
-//// DL SOUTH
-
-jbpf_ringbuf_map(output_map_dl_south, dl_south_stats, 1000);
+jbpf_ringbuf_map(output_map_dl, dl_stats, 1000);
 
 // We store stats in this (single entry) map across runs
-struct jbpf_load_map_def SEC("maps") stats_map_dl_south = {
+struct jbpf_load_map_def SEC("maps") stats_map_dl = {
     .type = JBPF_MAP_TYPE_ARRAY,
     .key_size = sizeof(int),
-    .value_size = sizeof(dl_south_stats),
+    .value_size = sizeof(dl_stats),
     .max_entries = 1,
 };
 
-DEFINE_PROTOHASH_64(dl_south_hash, MAX_NUM_UE_RB);
+DEFINE_PROTOHASH_64(dl_hash, MAX_NUM_UE_RB);
 
-struct jbpf_load_map_def SEC("maps") dl_south_not_empty = {
+struct jbpf_load_map_def SEC("maps") dl_not_empty = {
     .type = JBPF_MAP_TYPE_ARRAY,
     .key_size = sizeof(int),
     .value_size = sizeof(uint32_t),
@@ -114,81 +90,37 @@ uint64_t jbpf_main(void *state)
 
 
     ////////////////////////////////////////////////////////////////////////////////
-    ///// DL NORTH stats
+    ///// DL stats
 
-    uint32_t *not_empty_dl_north_stats = (uint32_t*)jbpf_map_lookup_elem(&dl_north_not_empty, &zero_index);
-    if (!not_empty_dl_north_stats)
+    uint32_t *not_empty_dl_stats = (uint32_t*)jbpf_map_lookup_elem(&dl_not_empty, &zero_index);
+    if (!not_empty_dl_stats)
         return JBPF_CODELET_FAILURE;
 
     // Get stats map buffer to save output across invocations
-    void *c = jbpf_map_lookup_elem(&stats_map_dl_north, &zero_index);
+    void* c = jbpf_map_lookup_elem(&stats_map_dl, &zero_index);
     if (!c)
         return JBPF_CODELET_FAILURE;
-    dl_north_stats *out_dl_north = (dl_north_stats *)c;
+    dl_stats *out_dl = (dl_stats *)c;
 
-    if (*not_empty_dl_north_stats)
+        
+    if (*not_empty_dl_stats)
     {
-        out_dl_north->timestamp = timestamp;
-
+        out_dl->timestamp = timestamp;
         int ret = 0;
-#ifdef PDCP_REPORT_DL
-#ifdef DEBUG_PRINT
-        jbpf_printf_debug("DL NORTH OUTPUT: %lu\n", out_dl_north->timestamp);
-#endif
-        ret = jbpf_ringbuf_output(&output_map_dl_north, (void *) out_dl_north, sizeof(dl_north_stats));
-#endif
 
-        JBPF_HASHMAP_CLEAR(&dl_north_hash);
+#ifdef DEBUG_PRINT
+        jbpf_printf_debug("DL SOUTH OUTPUT: %lu\n", out_dl->timestamp);
+#endif
+        ret = jbpf_ringbuf_output(&output_map_dl, (void *) out_dl, sizeof(dl_stats));
+
+        JBPF_HASHMAP_CLEAR(&dl_hash);
         
         // Reset the info
         // NOTE: this is not thread safe, but we don't care here
         // The worst case we can overwrite someone else writing
-        jbpf_map_clear(&stats_map_dl_north);
+        jbpf_map_clear(&stats_map_dl);
 
-        *not_empty_dl_north_stats = 0;
-
-        if (ret < 0) {
-            return JBPF_CODELET_FAILURE;
-        }
-
-    }
-
-
-
-    ////////////////////////////////////////////////////////////////////////////////
-    ///// DL SOUTH stats
-
-    uint32_t *not_empty_dl_south_stats = (uint32_t*)jbpf_map_lookup_elem(&dl_south_not_empty, &zero_index);
-    if (!not_empty_dl_south_stats)
-        return JBPF_CODELET_FAILURE;
-
-    // Get stats map buffer to save output across invocations
-    c = jbpf_map_lookup_elem(&stats_map_dl_south, &zero_index);
-    if (!c)
-        return JBPF_CODELET_FAILURE;
-    dl_south_stats *out_dl_south = (dl_south_stats *)c;
-
-        
-    if (*not_empty_dl_south_stats)
-    {
-        out_dl_south->timestamp = timestamp;
-        int ret = 0;
-
-#ifdef PDCP_REPORT_DL
-#ifdef DEBUG_PRINT
-        jbpf_printf_debug("DL SOUTH OUTPUT: %lu\n", out_dl_south->timestamp);
-#endif
-        ret = jbpf_ringbuf_output(&output_map_dl_south, (void *) out_dl_south, sizeof(dl_south_stats));
-#endif
-
-        JBPF_HASHMAP_CLEAR(&dl_south_hash);
-        
-        // Reset the info
-        // NOTE: this is not thread safe, but we don't care here
-        // The worst case we can overwrite someone else writing
-        jbpf_map_clear(&stats_map_dl_south);
-
-        *not_empty_dl_south_stats = 0;
+        *not_empty_dl_stats = 0;
 
         if (ret < 0) {
             return JBPF_CODELET_FAILURE;
@@ -216,12 +148,10 @@ uint64_t jbpf_main(void *state)
         out_ul->timestamp = timestamp;
 
         int ret = 0;
-#ifdef PDCP_REPORT_UL
 #ifdef DEBUG_PRINT
         jbpf_printf_debug("UL OUTPUT: %lu\n", out_ul->timestamp);
 #endif
         ret = jbpf_ringbuf_output(&output_map_ul, (void *) out_ul, sizeof(ul_stats));
-#endif // PDCP_REPORT_UL
 
         JBPF_HASHMAP_CLEAR(&ul_hash);
         
