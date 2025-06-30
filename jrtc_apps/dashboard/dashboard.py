@@ -103,12 +103,18 @@ class RLCMode(Enum):
     RLC_TM = 1  # Transparent Mode
     RLC_UM = 2  # Unacknowledged Mode
     RLC_AM = 3  # Acknowledged Mode
+    RLC_UNKNOWN = 4  # Unknown Mode
 
 def rlc_mode_to_str(mode: int) -> str:
     try:
         return RLCMode(mode).name
     except ValueError:
         return "UNKNOWN"
+
+def int_2_RLCMode(m: int) -> RLCMode:
+    if m >= 1 and m <= 3:
+        return RLCMode(m)
+    return RLCMode.RLC_UNKNOWN
 
 
 ##########################################################################
@@ -853,7 +859,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                         }
                         report_stat = True
 
-                    if (stat.rlc_mode == RLCMode.RLC_AM and 
+                    if (int_2_RLCMode(stat.rlc_mode) == RLCMode.RLC_AM and 
                         stat.am.pdu_retx_bytes.count > 0):
                         s["pdu_retx_bytes"] = {
                             "count": stat.am.pdu_retx_bytes.count,
@@ -861,7 +867,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                         }
                         report_stat = True
 
-                    if (stat.rlc_mode == RLCMode.RLC_AM and 
+                    if (int_2_RLCMode(stat.rlc_mode) == RLCMode.RLC_AM and 
                         stat.am.pdu_status_bytes.count > 0):
                         s["pdu_status_bytes"] = {
                             "count": stat.am.pdu_status_bytes.count,
@@ -869,7 +875,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                         }
                         report_stat = True
 
-                    if (stat.rlc_mode == RLCMode.RLC_AM and 
+                    if (int_2_RLCMode(stat.rlc_mode) == RLCMode.RLC_AM and 
                         stat.am.pdu_retx_count.count > 0):
                         s["pdu_retx_count"] = {
                             "count": stat.am.pdu_retx_count.count,
@@ -880,7 +886,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                         }
                         report_stat = True
 
-                    if (stat.rlc_mode == RLCMode.RLC_AM and
+                    if (int_2_RLCMode(stat.rlc_mode) == RLCMode.RLC_AM and
                         stat.am.pdu_window_pkts.count > 0):
                         s["pdu_window_pkts"] = {
                             "count": stat.am.pdu_window_pkts.count,
@@ -891,7 +897,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                         }
                         report_stat = True
 
-                    if (stat.rlc_mode == RLCMode.RLC_AM and
+                    if (int_2_RLCMode(stat.rlc_mode) == RLCMode.RLC_AM and
                         stat.am.pdu_window_bytes.count > 0):
                         s["pdu_window_bytes"] = {
                             "count": stat.am.pdu_window_bytes.count,
@@ -909,7 +915,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                         break
                 if len(output["stats"]) > 0:
                     state.logger.log_msg(log_enabled, rlog_enabled, "Dashboard", f"{json.dumps(output)}")
-                    print(f"MJB Dashboard: RLC_DL_STATS : {json.dumps(output, indent=2)}", flush=True)
+
 
             elif stream_idx == RLC_UL_STATS_SIDX:
 
@@ -967,7 +973,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                         }
                         report_stat = True
 
-                    if (stat.rlc_mode == RLCMode.RLC_UM and
+                    if (int_2_RLCMode(stat.rlc_mode) == RLCMode.RLC_UM and
                         stat.um.pdu_window_pkts.count > 0):
                         s["pdu_window_pkts"] = {
                             "count": stat.um.pdu_window_pkts.count,
@@ -978,7 +984,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                         }
                         report_stat = True
 
-                    if (stat.rlc_mode == RLCMode.RLC_AM and
+                    if (int_2_RLCMode(stat.rlc_mode) == RLCMode.RLC_AM and
                         stat.am.pdu_window_pkts.count > 0):
                         s["pdu_window_pkts"] = {
                             "count": stat.am.pdu_window_pkts.count,
@@ -996,7 +1002,6 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                         break
                 if len(output["stats"]) > 0:
                     state.logger.log_msg(log_enabled, rlog_enabled, "Dashboard", f"{json.dumps(output)}")
-                    print(f"MJB Dashboard: RLC_UL_STATS : {json.dumps(output, indent=2)}", flush=True)
 
             #####################################################
             ### PDCP
@@ -1109,7 +1114,6 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                         break
                 if len(output["stats"]) > 0:
                     state.logger.log_msg(log_enabled, rlog_enabled, "Dashboard", f"{json.dumps(output)}")
-                    print(f"MJB Dashboard: PDCP_DL_STATS : {json.dumps(output, indent=2)}", flush=True)
 
 
             elif stream_idx == PDCP_UL_STATS_SIDX:
@@ -1199,8 +1203,6 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
 
                 if len(output["stats"]) > 0:
                     state.logger.log_msg(log_enabled, rlog_enabled, "Dashboard", f"{json.dumps(output)}")
-                    print(f"MJB Dashboard: PDCP_UL_STATS : {json.dumps(output, indent=2)}", flush=True)
-
 
 
             #####################################################

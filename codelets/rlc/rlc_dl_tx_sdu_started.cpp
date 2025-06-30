@@ -114,7 +114,7 @@ uint64_t jbpf_main(void* state)
         /////////////////////////////////////////////
         // update pdu_window
         const jbpf_queue_info_t* queue_info = &rlc_ctx.u.am_tx.window_info;
-        if (!queue_info->used) {
+        if (queue_info->used) {
             RLC_STATS_UPDATE(out->stats[ind % MAX_NUM_UE_RB].am.pdu_window_pkts, queue_info->num_pkts);
             RLC_STATS_UPDATE(out->stats[ind % MAX_NUM_UE_RB].am.pdu_window_bytes, queue_info->num_bytes);
         } 
