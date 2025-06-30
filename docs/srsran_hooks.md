@@ -79,14 +79,15 @@
     - [11.1.1. __rlc\_dl\_creation__](#1111-rlc_dl_creation)
     - [11.1.2. __rlc\_dl\_deletion__](#1112-rlc_dl_deletion)
     - [11.1.3. __rlc\_dl\_new\_sdu__](#1113-rlc_dl_new_sdu)
-    - [11.1.4. __rlc\_dl\_discard\_sdu__](#1114-rlc_dl_discard_sdu)
-    - [11.1.5. __rlc\_dl\_sdu\_send\_started__](#1115-rlc_dl_sdu_send_started)
-    - [11.1.6. __rlc\_dl\_sdu\_send\_completed__](#1116-rlc_dl_sdu_send_completed)
-    - [11.1.7. __rlc\_dl\_sdu\_delivered__](#1117-rlc_dl_sdu_delivered)
-    - [11.1.8. __rlc\_dl\_tx\_pdu__](#1118-rlc_dl_tx_pdu)
-    - [11.1.9. __rlc\_dl\_rx\_status__](#1119-rlc_dl_rx_status)
-    - [11.1.10. __rlc\_dl\_am\_tx\_pdu\_retx\_count__](#11110-rlc_dl_am_tx_pdu_retx_count)
-    - [11.1.11. __rlc\_dl\_am\_tx\_pdu\_max\_retx\_count\_reached__](#11111-rlc_dl_am_tx_pdu_max_retx_count_reached)
+    - [11.1.4. __rlc\_dl\_lost\_sdu__](#1114-rlc_dl_lost_sdu)
+    - [11.1.5. __rlc\_dl\_discard\_sdu__](#1115-rlc_dl_discard_sdu)
+    - [11.1.6. __rlc\_dl\_sdu\_send\_started__](#1116-rlc_dl_sdu_send_started)
+    - [11.1.7. __rlc\_dl\_sdu\_send\_completed__](#1117-rlc_dl_sdu_send_completed)
+    - [11.1.8. __rlc\_dl\_sdu\_delivered__](#1118-rlc_dl_sdu_delivered)
+    - [11.1.9. __rlc\_dl\_tx\_pdu__](#1119-rlc_dl_tx_pdu)
+    - [11.1.10. __rlc\_dl\_rx\_status__](#11110-rlc_dl_rx_status)
+    - [11.1.11. __rlc\_dl\_am\_tx\_pdu\_retx\_count__](#11111-rlc_dl_am_tx_pdu_retx_count)
+    - [11.1.12. __rlc\_dl\_am\_tx\_pdu\_max\_retx\_count\_reached__](#11112-rlc_dl_am_tx_pdu_max_retx_count_reached)
   - [11.2. RLC uplink](#112-rlc-uplink)
     - [11.2.1. __rlc\_ul\_creation__](#1121-rlc_ul_creation)
     - [11.2.2. __rlc\_ul\_deletion__](#1122-rlc_ul_deletion)
@@ -260,6 +261,12 @@ Context info:
 
 These hooks have information passed in using a __jbpf_pdcp_ctx_info__ as shown below ..
 ```c
+    typedef struct {
+        uint8_t used;      /* Is the window used, 0 = not-used, 1 = used */
+        uint32_t num_pkts;     /* Total packets */
+        uint32_t num_bytes;    /* Total bytes*/
+    } jbpf_queue_info_t;
+
     struct jbpf_pdcp_ctx_info {
         uint16_t ctx_id;   /* Context id (could be implementation specific) */
         uint32_t cu_ue_index;   /* if is_srb=True is cu_cp_ue_index, if is_srb=False is cu_up_ue_index */
@@ -267,6 +274,8 @@ These hooks have information passed in using a __jbpf_pdcp_ctx_info__ as shown b
         uint8_t rb_id;   /* if is_srb=True:    0=srb0, 1=srb1, 2=srb2,
                             if is_srb=False:   1=drb1, 2=drb2, 3-drb3 ... */
         uint8_t rlc_mode;  /* 0=UM, 1=AM*/
+        // window details
+        jbpf_queue_info_t window_info;  /* Window info */        
     };
 ```
 
@@ -301,7 +310,6 @@ These hooks have information passed in using a __jbpf_pdcp_ctx_info__ as shown b
         data: pointer to the jbpf_pdcp_ctx_info
         data_end: pointer to end of the jbpf_pdcp_ctx_info
         srs_meta_data1:  sdu_length << 32 | count
-        srs_meta_data2 = window_size
     ```
 
 ### 6.1.4. __pdcp_dl_tx_data_pdu__
@@ -313,7 +321,8 @@ These hooks have information passed in using a __jbpf_pdcp_ctx_info__ as shown b
         data: pointer to the jbpf_pdcp_ctx_info
         data_end: pointer to end of the jbpf_pdcp_ctx_info
         srs_meta_data1 = pdu_length << 32 | count;
-        srs_meta_data2 = is_retx << 32 | window_size
+        srs_meta_data2 = is_retx << 32 | latency_set
+        srs_meta_data3 = latency_ns   // from sdu-arrival to transmission of the PDU
     ```
 
 ### 6.1.5. __pdcp_dl_tx_control_pdu__
@@ -324,7 +333,7 @@ These hooks have information passed in using a __jbpf_pdcp_ctx_info__ as shown b
     ```
         data: pointer to the jbpf_pdcp_ctx_info
         data_end: pointer to end of the jbpf_pdcp_ctx_info
-        srs_meta_data1 = pdu_length << 32 | window_size
+        srs_meta_data1 = pdu_length 
     ```
 
 ### 6.1.6. __pdcp_dl_handle_tx_notification__
@@ -335,7 +344,7 @@ These hooks have information passed in using a __jbpf_pdcp_ctx_info__ as shown b
     ```
         data: pointer to the jbpf_pdcp_ctx_info
         data_end: pointer to end of the jbpf_pdcp_ctx_info
-        srs_meta_data1 = notif_count << 32 | window_size
+        srs_meta_data1 = notif_count
     ```
 
     Note that the notif_count means "up to and including" that count. i.e. in the following example
@@ -358,7 +367,7 @@ These hooks have information passed in using a __jbpf_pdcp_ctx_info__ as shown b
     ```
         data: pointer to the jbpf_pdcp_ctx_info
         data_end: pointer to end of the jbpf_pdcp_ctx_info
-        srs_meta_data1 = notif_count << 32 | window_size
+        srs_meta_data1 = notif_count 
     ```
 
     Note that the notif_count means "up to and including" that count. i.e. in the following example
@@ -379,7 +388,7 @@ These hooks have information passed in using a __jbpf_pdcp_ctx_info__ as shown b
     ```
         data: pointer to the jbpf_pdcp_ctx_info
         data_end: pointer to end of the jbpf_pdcp_ctx_info
-        srs_meta_data1 = count << 32 | window_size
+        srs_meta_data1 = count <<
     ```
 
 ### 6.1.9. __pdcp_dl_reestablish__
@@ -423,7 +432,7 @@ These hooks have information passed in using a __jbpf_pdcp_ctx_info__ as shown b
         data: pointer to the jbpf_pdcp_ctx_info
         data_end: pointer to end of the jbpf_pdcp_ctx_info
         srs_meta_data1: pdu_length << 32 | header_length
-        srs_meta_data2: count << 32 | window_size
+        srs_meta_data2: count 
     ```
 
 ### 6.2.4. __pdcp_ul_rx_control_pdu__
@@ -434,7 +443,7 @@ These hooks have information passed in using a __jbpf_pdcp_ctx_info__ as shown b
     ```
         data: pointer to the jbpf_pdcp_ctx_info
         data_end: pointer to end of the jbpf_pdcp_ctx_info
-        srs_meta_data1: pdu_length << 32 | window_size
+        srs_meta_data1: pdu_length
     ```
 
 ### 6.2.5. __pdcp_ul_deliver_sdu__
@@ -445,7 +454,7 @@ These hooks have information passed in using a __jbpf_pdcp_ctx_info__ as shown b
     ```
         data: pointer to the jbpf_pdcp_ctx_info
         data_end: pointer to end of the jbpf_pdcp_ctx_info
-        srs_meta_data1: sdu_length << 32 | window_size
+        srs_meta_data1: sdu_length 
     ```
 
 ### 6.2.6. __pdcp_ul_reestablish__
@@ -736,19 +745,35 @@ typedef enum {
 
 These hooks have information passed in using a __jbpf_rlc_ctx_info__ as shown below ..
 ```c
-struct jbpf_rlc_ctx_info {
-    uint16_t ctx_id;    /* Context id (could be implementation specific) */
-    uint64_t gnb_du_id;
-    uint16_t du_ue_index; 
-    uint8_t is_srb;  /* true=srb, false=drb */
-    uint8_t rb_id;   /* if is_srb=True:    0=srb0, 1=srb1, 2=srb2,
-                     if is_srb=False:      1=drb1, 2=drb2, 3-drb3 ... */
-    JbpfRlcMode_t rlc_mode;  /* 0=TM, 1=UM, 2=AM*/
-    struct  {
-        uint32_t n_sdus;  ///< Number of buffered SDUs that are not marked as discarded.
-        uint32_t n_bytes; ///< Number of buffered bytes that are not marked as discarded.
-    } sdu_queue_info;
-};
+    struct jbpf_rlc_ctx_info {
+        uint16_t ctx_id;    /* Context id (could be implementation specific) */
+        uint64_t gnb_du_id;
+        uint16_t du_ue_index; 
+        uint8_t is_srb;  /* true=srb, false=drb */
+        uint8_t rb_id;   /* if is_srb=True:    0=srb0, 1=srb1, 2=srb2,
+                        if is_srb=False:      1=drb1, 2=drb2, 3-drb3 ... */
+        JbpfDirection_t direction; /* 0 DL, 1 UL */
+        JbpfRlcMode_t rlc_mode;  /* 0=TM, 1=UM, 2=AM*/
+
+        union {
+            struct {
+                jbpf_queue_info_t sdu_queue_info; /* SDU queue info */
+            } tm_tx;
+            struct {
+                jbpf_queue_info_t sdu_queue_info; /* SDU queue info */
+            } um_tx;
+            struct {
+                jbpf_queue_info_t sdu_queue_info; /* SDU queue info */
+                jbpf_queue_info_t window_info;  /* Window info */
+            } am_tx;
+            struct {
+                uint32_t window_num_pkts;  /* Window info */
+            } um_rx;
+            struct {
+                uint32_t window_num_pkts;  /* Window info */
+            } am_rx;
+        } u;
+    };
 ```
 
 These enums are also used ..
@@ -798,10 +823,23 @@ typedef enum {
     ```
         data: pointer to the jbpf_rlc_ctx_info
         data_end: pointer to end of the jbpf_rlc_ctx_info
-        srs_meta_data1: sdu_length << 32 | pdcp_sn;
+        srs_meta_data1: sdu_length << 32 | pdcp_sn
+        srs_meta_data2: is_retx
     ```
 
-### 11.1.4. __rlc_dl_discard_sdu__
+### 11.1.4. __rlc_dl_lost_sdu__
+     
+    Called when a new SDU is received from PDCP.
+       
+    Context info:  
+    ```
+        data: pointer to the jbpf_rlc_ctx_info
+        data_end: pointer to end of the jbpf_rlc_ctx_info
+        srs_meta_data1: sdu_length << 32 | pdcp_sn
+        srs_meta_data2: is_retx
+    ```
+
+### 11.1.5. __rlc_dl_discard_sdu__
      
     Called when a SDU is discarded.
        
@@ -809,10 +847,10 @@ typedef enum {
     ```
         data: pointer to the jbpf_rlc_ctx_info
         data_end: pointer to end of the jbpf_rlc_ctx_info
-        srs_meta_data1: pdcp_sn
+        srs_meta_data1: pdcp_sn << 32 | success
     ```
 
-### 11.1.5. __rlc_dl_sdu_send_started__
+### 11.1.6. __rlc_dl_sdu_send_started__
      
     Called when the first byte of an SDU is transmitted.
        
@@ -821,9 +859,10 @@ typedef enum {
         data: pointer to the jbpf_rlc_ctx_info
         data_end: pointer to end of the jbpf_rlc_ctx_info
         srs_meta_data1: pdcp_sn << 32 | is_retx
+        srs_meta_data2: latency_ns  // time from sdu-arrival to start of transmission of the first byte 
     ```
 
-### 11.1.6. __rlc_dl_sdu_send_completed__
+### 11.1.7. __rlc_dl_sdu_send_completed__
      
     Called when all bytes of the SDU have been transmitted.
        
@@ -832,9 +871,10 @@ typedef enum {
         data: pointer to the jbpf_rlc_ctx_info
         data_end: pointer to end of the jbpf_rlc_ctx_info
         srs_meta_data1: pdcp_sn << 32 | is_retx
+        srs_meta_data2: latency_ns  // time from sdu-arrival to when all bytes have been transmitted.
     ```
 
-### 11.1.7. __rlc_dl_sdu_delivered__
+### 11.1.8. __rlc_dl_sdu_delivered__
      
     Called when all bytes of the SDU have been received by the peer RLC entity
        
@@ -843,9 +883,10 @@ typedef enum {
         data: pointer to the jbpf_rlc_ctx_info
         data_end: pointer to end of the jbpf_rlc_ctx_info
         srs_meta_data1: pdcp_sn << 32 | is_retx
+        srs_meta_data2: latency_ns   // time from sdu-arrival to when all bytes have been acknowledgd as received by the UE.
     ```
 
-### 11.1.8. __rlc_dl_tx_pdu__
+### 11.1.9. __rlc_dl_tx_pdu__
      
     Called when an RLC PDU is transmitted.
        
@@ -854,10 +895,9 @@ typedef enum {
         data: pointer to the jbpf_rlc_ctx_info
         data_end: pointer to end of the jbpf_rlc_ctx_info
         srs_meta_data1: pdu_type << 32 | pdu_len
-        srs_meta_data2: window_size
     ```
 
-### 11.1.9. __rlc_dl_rx_status__
+### 11.1.10. __rlc_dl_rx_status__
      
     Called when a STATUS PDU is received from lower layers.
        
@@ -865,10 +905,9 @@ typedef enum {
     ```
         data: pointer to the jbpf_rlc_ctx_info
         data_end: pointer to end of the jbpf_rlc_ctx_info
-        srs_meta_data1: window_size
     ```
 
-### 11.1.10. __rlc_dl_am_tx_pdu_retx_count__
+### 11.1.11. __rlc_dl_am_tx_pdu_retx_count__
      
     Called when a PDU is retransmitted, ahd shows thw retx count.
        
@@ -876,11 +915,10 @@ typedef enum {
     ```
         data: pointer to the jbpf_rlc_ctx_info
         data_end: pointer to end of the jbpf_rlc_ctx_info
-        srs_meta_data1: window_size
-        srs_meta_data2 = sn << 32 | retx_count;
+        srs_meta_data1: sn << 32 | retx_count
     ```
 
-### 11.1.11. __rlc_dl_am_tx_pdu_max_retx_count_reached__
+### 11.1.12. __rlc_dl_am_tx_pdu_max_retx_count_reached__
      
     Called when the maximum allowed RLC retransmissions is reached.
        
@@ -888,8 +926,7 @@ typedef enum {
     ```
         data: pointer to the jbpf_rlc_ctx_info
         data_end: pointer to end of the jbpf_rlc_ctx_info
-        srs_meta_data1: window_size
-        srs_meta_data2 = sn << 32 | retx_count;
+        srs_meta_data1: sn << 32 | retx_count
     ```
 ## 11.2. RLC uplink
 
@@ -922,7 +959,6 @@ typedef enum {
         data: pointer to the jbpf_rlc_ctx_info
         data_end: pointer to end of the jbpf_rlc_ctx_info
         srs_meta_data1: pdu_type << 32 | pdu_len
-        srs_meta_data2: window_size     
     ```
 
 ### 11.2.4. __rlc_ul_sdu_recv_started__
@@ -933,7 +969,7 @@ typedef enum {
     ```
         data: pointer to the jbpf_rlc_ctx_info
         data_end: pointer to end of the jbpf_rlc_ctx_info
-        srs_meta_data1 = sn << 32 | window_size
+        srs_meta_data1 = sn 
     ```
 
 ### 11.2.5. __rlc_ul_sdu_delivered__
@@ -944,8 +980,8 @@ typedef enum {
     ```
         data: pointer to the jbpf_rlc_ctx_info
         data_end: pointer to end of the jbpf_rlc_ctx_info
-        srs_meta_data1: sn << 32 | window_size
-        srs_meta_data2: sdu_length
+        srs_meta_data1: sn << 32 | sdu_length
+        srs_meta_data2: latency_ns // from start of SDU reception to SDU delivery
     ```
 
 # 12. Periodic performance hook

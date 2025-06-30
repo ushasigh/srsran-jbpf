@@ -22,30 +22,32 @@
 - [5. PDCP](#5-pdcp)
   - [5.1. pdcp\_dl\_new\_sdu](#51-pdcp_dl_new_sdu)
   - [5.2. pdcp\_dl\_tx\_data\_pdu](#52-pdcp_dl_tx_data_pdu)
-  - [5.3. pdcp\_dl\_tx\_notification](#53-pdcp_dl_tx_notification)
-  - [5.4. pdcp\_dl\_delivery](#54-pdcp_dl_delivery)
-  - [5.5. pdcp\_dl\_discard](#55-pdcp_dl_discard)
-  - [5.6. pdcp\_dl\_deletion](#56-pdcp_dl_deletion)
-  - [5.7. pdcp\_ul\_stats](#57-pdcp_ul_stats)
-  - [5.8. pdcp\_ul\_deletion](#58-pdcp_ul_deletion)
-  - [5.9. pdcp\_collect](#59-pdcp_collect)
-    - [5.9.1. Downlink "north" statistics](#591-downlink-north-statistics)
-    - [5.9.2. Downlink "south" statistics](#592-downlink-south-statistics)
-      - [5.9.2.1. Downlink latency statistics](#5921-downlink-latency-statistics)
-    - [5.9.3. Uplink statistics](#593-uplink-statistics)
+  - [5.3. pdcp\_dl\_tx\_control\_pdu](#53-pdcp_dl_tx_control_pdu)
+  - [5.4. pdcp\_dl\_discard](#54-pdcp_dl_discard)
+  - [5.5. pdcp\_dl\_deletion](#55-pdcp_dl_deletion)
+  - [5.6. pdcp\_ul\_deliver\_sdu](#56-pdcp_ul_deliver_sdu)
+  - [5.7. pdcp\_ul\_deliver\_sdu](#57-pdcp_ul_deliver_sdu)
+  - [5.8. pdcp\_ul\_rx\_data\_pdu](#58-pdcp_ul_rx_data_pdu)
+  - [5.9. pdcp\_ul\_rx\_control\_pdu](#59-pdcp_ul_rx_control_pdu)
+  - [5.10. pdcp\_ul\_deletion](#510-pdcp_ul_deletion)
+  - [5.11. pdcp\_collect](#511-pdcp_collect)
+    - [5.11.1. Downlink statistics](#5111-downlink-statistics)
+    - [5.11.2. Uplink statistics](#5112-uplink-statistics)
 - [6. RLC](#6-rlc)
   - [6.1. rlc\_dl\_new\_sdu](#61-rlc_dl_new_sdu)
   - [6.2. rlc\_dl\_tx\_pdu](#62-rlc_dl_tx_pdu)
-  - [6.3. rlc\_dl\_am\_tx\_pdu\_retx\_count](#63-rlc_dl_am_tx_pdu_retx_count)
-  - [6.4. rlc\_dl\_am\_tx\_pdu\_retx\_max\_reached](#64-rlc_dl_am_tx_pdu_retx_max_reached)
-  - [6.5. rlc\_dl\_deletion](#65-rlc_dl_deletion)
-  - [6.6. rlc\_ul\_rx\_pdu](#66-rlc_ul_rx_pdu)
-  - [6.7. rlc\_ul\_deliver\_sdu](#67-rlc_ul_deliver_sdu)
-  - [6.8. rlc\_ul\_deletion](#68-rlc_ul_deletion)
-  - [6.9. rlc\_collect](#69-rlc_collect)
-    - [6.9.1. Downlink "north" statistics](#691-downlink-north-statistics)
-    - [6.9.2. Downlink "south" statistics](#692-downlink-south-statistics)
-    - [6.9.3. Uplink statistics](#693-uplink-statistics)
+  - [6.3. rlc\_dl\_tx\_sdu\_started](#63-rlc_dl_tx_sdu_started)
+  - [6.4. rlc\_dl\_tx\_sdu\_completed](#64-rlc_dl_tx_sdu_completed)
+  - [6.5. rlc\_dl\_tx\_sdu\_delivered](#65-rlc_dl_tx_sdu_delivered)
+  - [6.6. rlc\_dl\_am\_tx\_pdu\_retx\_count](#66-rlc_dl_am_tx_pdu_retx_count)
+  - [6.7. rlc\_dl\_am\_tx\_pdu\_retx\_max\_reached](#67-rlc_dl_am_tx_pdu_retx_max_reached)
+  - [6.8. rlc\_dl\_deletion](#68-rlc_dl_deletion)
+  - [6.9. rlc\_ul\_rx\_pdu](#69-rlc_ul_rx_pdu)
+  - [6.10. rlc\_ul\_deliver\_sdu](#610-rlc_ul_deliver_sdu)
+  - [6.11. rlc\_ul\_deletion](#611-rlc_ul_deletion)
+  - [6.12. rlc\_collect](#612-rlc_collect)
+    - [6.12.1. Downlink "north" statistics](#6121-downlink-north-statistics)
+    - [6.12.2. Uplink statistics](#6122-uplink-statistics)
 - [7. MAC](#7-mac)
   - [7.1. mac\_sched\_bsr\_stats](#71-mac_sched_bsr_stats)
   - [7.2. mac\_sched\_crc\_stats](#72-mac_sched_crc_stats)
@@ -69,7 +71,7 @@
   - [9.1. xran\_packets\_collect](#91-xran_packets_collect)
   - [9.2. xran\_packets\_report](#92-xran_packets_report)
 - [10. Performance statistics](#10-performance-statistics)
-  - [9.2. jbpf\_stats\_report](#92-jbpf_stats_report)
+  - [10.1. jbpf\_stats\_report](#101-jbpf_stats_report)
 
 
 # 1. Introduction
@@ -221,34 +223,42 @@ Binds to hook [pdcp_dl_new_sdu](srsran_hooks.md#613-pdcp_dl_new_sdu).
 
 
 ## 5.2. [pdcp_dl_tx_data_pdu](../codelets/pdcp/pdcp_dl_tx_data_pdu.cpp)
-Binds to hook [pdcp_dl_tx_data_pdu](srsran_hooks.md(#614-pdcp_dl_tx_data_pdu).
+Binds to hook [pdcp_dl_tx_data_pdu](srsran_hooks.md#614-pdcp_dl_tx_data_pdu).
 
 
-## 5.3. [pdcp_dl_tx_notification](../codelets/pdcp/pdcp_dl_tx_notification.cpp)
-Binds to hook [pdcp_dl_tx_notification](srsran_hooks.md#616-pdcp_dl_handle_tx_notification).
+## 5.3. [pdcp_dl_tx_control_pdu](../codelets/pdcp/pdcp_dl_tx_control_pdu.cpp)
+Binds to hook [pdcp_dl_tx_control_pdu](srsran_hooks.md#615-pdcp_dl_tx_control_pdu).
 
 
-## 5.4. [pdcp_dl_delivery](../codelets/pdcp/pdcp_dl_delivery.cpp)
-Binds to hook [pdcp_dl_handle_delivery_notification](srsran_hooks.md#617-pdcp_dl_handle_delivery_notification).
-
-
-## 5.5. [pdcp_dl_discard](../codelets/pdcp/pdcp_dl_discard.cpp) 
+## 5.4. [pdcp_dl_discard](../codelets/pdcp/pdcp_dl_discard.cpp) 
 Binds to hook [pdcp_dl_discard_pdu](srsran_hooks.md#618-pdcp_dl_discard_pdu).
 
 
-## 5.6. [pdcp_dl_deletion](../codelets/pdcp/pdcp_dl_deletion.cpp)
+## 5.5. [pdcp_dl_deletion](../codelets/pdcp/pdcp_dl_deletion.cpp)
 Binds to hook [pdcp_dl_deletion](srsran_hooks.md#612-pdcp_dl_deletion).
 
 
-## 5.7. [pdcp_ul_stats](../codelets/pdcp/pdcp_ul_stats.cpp)
+## 5.6. [pdcp_ul_deliver_sdu](../codelets/pdcp/pdcp_ul_deliver_sdu.cpp)
 Binds to hook [pdcp_ul_deliver_sdu](srsran_hooks.md#625-pdcp_ul_deliver_sdu).
 
 
-## 5.8. [pdcp_ul_deletion](../codelets/pdcp/pdcp_ul_deletion.cpp)
+## 5.7. [pdcp_ul_deliver_sdu](../codelets/pdcp/pdcp_ul_deliver_sdu.cpp)
+Binds to hook [pdcp_ul_rx_data_pdu](srsran_hooks.md#623-pdcp_ul_rx_data_pdu).
+
+
+## 5.8. [pdcp_ul_rx_data_pdu](../codelets/pdcp/pdcp_ul_rx_data_pdu.cpp)
+Binds to hook [pdcp_ul_rx_data_pdu](srsran_hooks.md#623-pdcp_ul_rx_data_pdu).
+
+
+## 5.9. [pdcp_ul_rx_control_pdu](../codelets/pdcp/pdcp_ul_rx_control_pdu.cpp)
+Binds to hook [pdcp_ul_rx_control_pdu](srsran_hooks.md##624-pdcp_ul_rx_control_pdu).
+
+
+## 5.10. [pdcp_ul_deletion](../codelets/pdcp/pdcp_ul_deletion.cpp)
 Binds to hook [pdcp_ul_deletion](srsran_hooks.md#22-pdcp_ul_deletion).
 
 
-## 5.9. [pdcp_collect](../codelets/pdcp/pdcp_collect.cpp) 
+## 5.11. [pdcp_collect](../codelets/pdcp/pdcp_collect.cpp) 
 Binds to hook [report_stats](srsran_hooks.md#121-report_stats).  
 
 This is the codelet which sends the PDCP statistics to the higher layers.
@@ -257,70 +267,49 @@ These are described in the following sections.
 
 Note that for the statistics, __cu_ue_index__ is used to identiofy the context.  If __is_srb=True__, this represents the __cucp_ue_index__, otherwise it represents the __cuup_ue_index__.
 
-### 5.9.1. Downlink "north" statistics
+### 5.11.1. Downlink statistics
 
-These are the downlink statistics related the north interface of the PDCP i.e. between PDCP and higher layers (i.e. RRC for CUCP, or SDAP for CUUP).
+These are the downlink statistics.
 
-The output is defined in [pdcp_dl_north_stats.proto](../codelets/pdcp/pdcp_dl_north_stats.proto).
+The output is defined in [pdcp_dl_stats.proto](../codelets/pdcp/pdcp_dl_stats.proto).
 
-__sdu_bytes__:  the number of SDU bytes in the transmission buffr that are either (i) not yet transmitted or (ii) not yet acknowledged as delivered.  
+__sdu_new_bytes__:  the number of SDU bytes received at the north interface.
 
-__window__:  The number of SDUs in the transmission buffer.
+__sdu_discarded__:  the number of discarded SDUs.
 
-### 5.9.2. Downlink "south" statistics
+__pdu_tx_bytes__:  Number of DATA PDU bytes transmitted.
 
-These are the downlink statistics related the south interface of the PDCP i.e. between PDCP and RLC.
+__pdu_retx_bytes__:  Number of DATA PDU bytes retransmitted.
 
-The output is defined in [pdcp_dl_south_stats.proto](../codelets/pdcp/pdcp_dl_south_stats.proto).
+__control_pdu_tx_bytes__: Number of CONTROL PDU bytes transmitted.
 
-__window__:  This is the same statistc is shown in the "north" statistics. It is included on both sections to ensure the higher layer components receive up to date information.
+__pdu_window_pkts__: min/avg/max stats for the number of packets in the transmission buffer
 
-__tx_queue_bytes__, __tx_queue_pkt__:  This is the amount of data which is actually tramsmitte to RLC.  Messages remain in this tx queue until they are acknowledged as delivered, or are discarded.
+__pdu_window_bytes__: min/avg/max stats for the number of bytes in the transmission buffer
 
-__sdu_tx_bytes__:  Number of sdu bytes transmitted.
+__sdu_tx_latency__:  min/avg/max stats for tx latency (in nanosecs).  This is the time from when the SDU arrives from the higher layers, to when is is transmitted to RLC.
 
-__sdu_retx_bytes__:  Number of sdu bytes re-transmitted.
-
-__sdu_discarded_bytes__ : Number of sdu bytes discarded.
-
-#### 5.9.2.1. Downlink latency statistics
-
-For each PDCP message, latencies of specific events are captured.  Here are the events of a lifecycle of a message ..
-
-__event1__: SDU is received from highers 
-
-__event2__: PDCP PDU is transmitted to RLC
-
-__event3__: RLC sends a PDU containing the first byte of a PDCP SDU is transmitted to MAC
-
-__event4__: RLC notifies PDCP that all the bytes of a PDCP SDU have been delivered.  In RLC TM/UM mode, this means that all the bytes were sent to MAC.  In RLC AM mode, it means that the UE has acknowledged successful reception of all of the bytes of the PDCP SDU.
-
-
-The latency statistics measure the following:
-
-__pdcp_tx_delay__:  event2 - event1
-
-__rlc_tx_delay__:   event3 - event2
-
-__rlc_deliv_delay__: event4 - event3
-
-__total_delay__:  event4 - event1
-
-Note that in cases where there is very bad connectivity, UEs or specific PDUs can br dropped after event2 has occurred i.e. it is possible for event2 to happen, but event3 and/or event4 to not happen.  In this case you may get a higher number of __pdcp_tx_delay__ statistics than __total_delay__ statistics, and it could be possibe that the __max pdcp_tx_delay__ will be reported as greater than the __max total_delay__.
-
-### 5.9.3. Uplink statistics
+### 5.11.2. Uplink statistics
 
 These are the uplink statistics.
 
 The output is defined in [pdcp_ul_stats.proto](../codelets/pdcp/pdcp_ul_stats.proto).
 
-__sdu_bytes__:  the number of SDU bytes delivered to the north interface.
+__rx_data_pdu_bytes__: Number of DATA PDU bytes received.
 
-__window__:  The number of SDUs in the reception buffer.
+__rx_control_pdu_bytes__: Number of CONTROL PDU bytes received.
+
+__sdu_delivered_bytes__:  the number of SDU bytes delivered to the north interface.
+
+__pdu_window_pkts__: min/avg/max stats for the number of packets in the reception buffer
+
+__pdu_window_bytes__: min/avg/max stats for the number of bytes in the reception buffer
+
+
 
 # 6. RLC
 
-There are a number of codelets associated with the PDCP layer. These include:
+There are a number of codelets associated with the RLC layer. These include:
 
 - rlc_dl...: These codelets are responsible for collecting downlink statistics such as window sizes, throughput rates and retransmission cpounts (AM only).
 
@@ -333,69 +322,90 @@ There are a number of codelets associated with the PDCP layer. These include:
 Binds to hook [rlc_dl_new_sdu](srsran_hooks.md#1113-rlc_dl_new_sdu).
 
 ## 6.2. [rlc_dl_tx_pdu](../codelets/rlc/rlc_dl_tx_pdu.cpp)
-Binds to hook [rlc_dl_tx_pdu](srsran_hooks.md#1118-rlc_dl_tx_pdu).
+Binds to hook [rlc_dl_tx_pdu](srsran_hooks.md#1119-rlc_dl_tx_pdu).
 
-## 6.3. [rlc_dl_am_tx_pdu_retx_count](../codelets/rlc/rlc_dl_am_tx_pdu_retx_count.cpp)
-Binds to hook [rlc_dl_am_tx_pdu_retx_count](srsran_hooks.md#11110-rlc_dl_am_tx_pdu_retx_count).
+## 6.3. [rlc_dl_tx_sdu_started](../codelets/rlc/rlc_dl_tx_sdu_started.cpp)
+Binds to hook [rlc_dl_sdu_send_started](srsran_hooks.md#1116-rlc_dl_sdu_send_started).
 
-## 6.4. [rlc_dl_am_tx_pdu_retx_max_reached](../codelets/rlc/rlc_dl_am_tx_pdu_retx_max_reached.cpp)
-Binds to hook [rlc_dl_am_tx_pdu_max_retx_count_reached](srsran_hooks.md#11111-rlc_dl_am_tx_pdu_max_retx_count_reached).
+## 6.4. [rlc_dl_tx_sdu_completed](../codelets/rlc/rlc_dl_tx_sdu_completed.cpp)
+Binds to hook [rlc_dl_sdu_send_completed](srsran_hooks.md#1117-rlc_dl_sdu_send_completed).
 
-## 6.5. [rlc_dl_deletion](../codelets/rlc/rlc_dl_deletion.cpp)  
+## 6.5. [rlc_dl_tx_sdu_delivered](../codelets/rlc/rlc_dl_tx_sdu_delivered.cpp)
+Binds to hook [rlc_dl_sdu_delivered](srsran_hooks.md#1118-rlc_dl_sdu_delivered).
+
+## 6.6. [rlc_dl_am_tx_pdu_retx_count](../codelets/rlc/rlc_dl_am_tx_pdu_retx_count.cpp)
+Binds to hook [rlc_dl_am_tx_pdu_retx_count](srsran_hooks.md#11111-rlc_dl_am_tx_pdu_retx_count).
+
+## 6.7. [rlc_dl_am_tx_pdu_retx_max_reached](../codelets/rlc/rlc_dl_am_tx_pdu_retx_max_reached.cpp)
+Binds to hook [rlc_dl_am_tx_pdu_max_retx_count_reached](srsran_hooks.md#11112-rlc_dl_am_tx_pdu_max_retx_count_reached).
+
+## 6.8. [rlc_dl_deletion](../codelets/rlc/rlc_dl_deletion.cpp)  
 Binds to hook [rlc_dl_deletion](srsran_hooks.md#1112-rlc_dl_deletion).
 
-## 6.6. [rlc_ul_rx_pdu](../codelets/rlc/rlc_ul_rx_pdu.cpp)
+## 6.9. [rlc_ul_rx_pdu](../codelets/rlc/rlc_ul_rx_pdu.cpp)
 Binds to hook [rlc_ul_rx_pdu](srsran_hooks.md#1123-rlc_ul_rx_pdu).
 
-## 6.7. [rlc_ul_deliver_sdu](../codelets/rlc/rlc_ul_deliver_sdu.cpp)
+## 6.10. [rlc_ul_deliver_sdu](../codelets/rlc/rlc_ul_deliver_sdu.cpp)
 Binds to hook [rlc_ul_sdu_delivered](srsran_hooks.md#1125-rlc_ul_sdu_delivered).
 
-## 6.8. [rlc_ul_deletion](../codelets/rlc/rlc_ul_deletion.cpp) 
+## 6.11. [rlc_ul_deletion](../codelets/rlc/rlc_ul_deletion.cpp) 
 Binds to hook [rlc_ul_deletion](srsran_hooks.md#1122-rlc_ul_deletion).
 
-## 6.9. [rlc_collect](../codelets/rlc/rlc_collect.cpp)             
+## 6.12. [rlc_collect](../codelets/rlc/rlc_collect.cpp)             
 Binds to hook [report_stats](srsran_hooks.md#121-report_stats).  
 
 This is the codelet which sends the RLC statistics to the higher layers.
 
 These are described in the following sections.
 
-### 6.9.1. Downlink "north" statistics
+### 6.12.1. Downlink "north" statistics
 
-These are the downlink statistics related the north interface of the RLC i.e. between RLC and PDCP.
+These are the downlink statistics.
 
-The output is defined in [rlc_dl_north_stats.proto](../codelets/rlc/rlc_dl_north_stats.proto).
+The output is defined in [rlc_dl_stats.proto](../codelets/rlc/rlc_dl_stats.proto).
 
-__sdu_new_bytes__:  the number of SDU bytes receoved from PDCP.
+__sdu_queue_pkts__: min/avg/max stats for the number of packets in the squ queue
 
+__sdu_queue_pkts__: min/avg/max stats for the number of bytes in the  squ queue
 
-### 6.9.2. Downlink "south" statistics
+__sdu_new_bytes__:  the number of SDU bytes received from PDCP.
 
-These are the downlink statistics related the south interface of the RLC i.e. between RLC and MAC.
+__pdu_tx_bytes__:  the number of DATA PDU bytes transmitted to MAC.
 
-The output is defined in [rlc_dl_south_stats.proto](../codelets/rlc/rlc_dl_south_stats.proto).
+__sdu_tx_started__: min/avg/max stats for the "tx-started" latency.  This is the duration (in nansocs) from the sdu-arrival time, to when the first byte of that SDU to transmitted to MAC.
 
-__pdu_window__:  the number of PDU transmission window.
+__sdu_tx_completed__: min/avg/max stats for the "tx-completed" latency.  This is the duration (in nansocs) from the sdu-arrival time, to when all of the bytes of that SDU to transmitted to MAC.
 
-__pdu_tx_bytes__:  Number of bytes transmitted for DATA PDUs.
+__sdu_tx_delivered__: min/avg/max stats for the "tx-delivered" latency.  This is the duration (in nansocs) from the sdu-arrival time, to when all of the bytes of that SDU have been received by the UE.
 
-__pdu_retx_bytes__:  Number of bytes re-transmitted for DATA PDUs.
+The following are present just for AM mode:-
 
-__pdu_status_bytes__:  Number of bytes transmitted for STATUS PDUs.
+__pdu_retx_bytes__:  the number of DATA PDU bytes retransmitted to MAC.
 
-__pdu_retx_count__:  The __retx count__ of a transmitted DATA PDU.
+__pdu_status_bytes__:  the number of STATUS PDU bytes transmitted to MAC.
 
-### 6.9.3. Uplink statistics
+__pdu_retx_count__: min/avg/max stats for the number of retx of a packet.
+
+__pdu_window_pkts__: min/avg/max stats for the number of packets in the reception buffer
+
+__pdu_window_bytes__: min/avg/max stats for the number of bytes in the reception buffer
+
+### 6.12.2. Uplink statistics
 
 These are the uplink statistics.
 
 The output is defined in [rlc_ul_stats.proto](../codelets/rlc/rlc_ul_stats.proto).
 
-__pdu_window__:  the number of PDU transmission window.
+__pdu_bytes__:  the number of PDU bytes received from MAC.
 
-__pdu_bytes__: Number of PDU bytes received from MAC.
+__sdu_delivered_bytes__:  the number of SDU bytes delivered to PDCP.
 
-__sdu_delivered_bytes__: Number of SDU bytes delivered to PDCP.
+__sdu_delivered_latency__: min/avg/max stats for the "rx-delivered" latency.  This is the duration (in nansocs) from the time when the first byte of a PDU arrives, until the time when that SDU is delivered to PDCP.
+
+The following is also present in UM and AM mode:
+
+__pdu_window_pkts__: min/avg/max stats for the number of packets in the reception buffer
+
 
 # 7. MAC
 
@@ -499,7 +509,7 @@ This codelet is used to collect statistics of the performace of the codelets.
 
 It can be used to identify cases where codelets are taking longer than expected. It provides a logarithmic histogram with 64 bins, and approximates the 50th, 90th, 95th, and 99th percentiles.
 
-## 9.2. [jbpf_stats_report](../codelets/perf/jbpf_stats_report.c)
+## 10.1. [jbpf_stats_report](../codelets/perf/jbpf_stats_report.c)
 Binds to hook [report_stats](srsran_hooks.md#121-report_stats).  
 
 Sends messages as defined in [jbpf_stats_report.proto](../codelets/perf/jbpf_stats_report.proto).
