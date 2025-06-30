@@ -34,11 +34,11 @@ message t_dl_stats {
    required t_dl_traffic_stats_item control_pdu_tx_bytes = 9;
 
    // window info
-   required t_dl_stats_item pdu_window_pkts = 10;
-   required t_dl_stats_item pdu_window_bytes = 11;
+   optional t_dl_stats_item pdu_window_pkts = 10;
+   optional t_dl_stats_item pdu_window_bytes = 11;
 
    // pdcp_tx_latency = sdu-arrival ... sdu-transmission
-   required t_dl_stats_item sdu_tx_latency = 12;
+   optional t_dl_stats_item sdu_tx_latency = 12;
 }
 
 message dl_stats {

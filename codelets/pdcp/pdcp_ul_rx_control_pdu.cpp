@@ -84,7 +84,13 @@ uint64_t jbpf_main(void* state)
     }
 
     ///////////////////////////////////////////////// 
-    // sdu_delivered_bytes
+    // window info
+    const jbpf_queue_info_t* queue_info = &pdcp_ctx.window_info;
+    PDCP_STATS_UPDATE(out->stats[ind % MAX_NUM_UE_RB].pdu_window_pkts, queue_info->num_pkts);
+    PDCP_STATS_UPDATE(out->stats[ind % MAX_NUM_UE_RB].pdu_window_bytes, queue_info->num_bytes);
+
+    ///////////////////////////////////////////////// 
+    // rx_control_pdu_bytes
     PDCP_TRAFFIC_STATS_UPDATE(out->stats[ind % MAX_NUM_UE_RB].rx_control_pdu_bytes, pdu_length);
 
     *not_empty_stats = 1;

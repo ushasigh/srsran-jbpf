@@ -787,7 +787,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     }
 
                     if uectx is None:
-                        s['du_ue_index']: stat.du_ue_index
+                        s['du_ue_index'] = stat.du_ue_index
 
                     if stat.sdu_queue_pkts.count > 0:
                         s["sdu_queue_pkts"] = {
@@ -909,7 +909,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                         break
                 if len(output["stats"]) > 0:
                     state.logger.log_msg(log_enabled, rlog_enabled, "Dashboard", f"{json.dumps(output)}")
-
+                    print(f"MJB Dashboard: RLC_DL_STATS : {json.dumps(output, indent=2)}", flush=True)
 
             elif stream_idx == RLC_UL_STATS_SIDX:
 
@@ -941,7 +941,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     }
 
                     if uectx is None:
-                        s['du_ue_index']: stat.du_ue_index
+                        s['du_ue_index'] = stat.du_ue_index
 
                     if stat.pdu_bytes.count > 0:
                         s["pdu_bytes"] = {
@@ -996,7 +996,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                         break
                 if len(output["stats"]) > 0:
                     state.logger.log_msg(log_enabled, rlog_enabled, "Dashboard", f"{json.dumps(output)}")
-
+                    print(f"MJB Dashboard: RLC_UL_STATS : {json.dumps(output, indent=2)}", flush=True)
 
             #####################################################
             ### PDCP
@@ -1032,11 +1032,12 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                         "ueid": ueid,
                         "ue_ctx": None if uectx is None else uectx.concise_dict(),
                         "is_srb": stat.is_srb,
-                        "rb_id": stat.rb_id
+                        "rb_id": stat.rb_id,
+                        "rlc_mode": rlc_mode_to_str(stat.rlc_mode)
                     }
 
                     if uectx is None:
-                        s[ue_index_key]: stat.cu_ue_index
+                        s[ue_index_key] = stat.cu_ue_index
 
                     if stat.sdu_new_bytes.count > 0:
                         s["sdu_new_bytes"] = {
@@ -1070,7 +1071,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                         }
                         report_stat = True
 
-                    if stat.pdu_window_pkts.count > 0:
+                    if stat.has_pdu_window_pkts and stat.pdu_window_pkts.count > 0:
                         s["pdu_window_pkts"] = {
                             "count": stat.pdu_window_pkts.count,
                             "total": stat.pdu_window_pkts.total,
@@ -1080,7 +1081,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                         }
                         report_stat = True
 
-                    if stat.pdu_window_bytes.count > 0:
+                    if stat.has_pdu_window_bytes and stat.pdu_window_bytes.count > 0:
                         s["pdu_window_bytes"] = {
                             "count": stat.pdu_window_bytes.count,
                             "total": stat.pdu_window_bytes.total,
@@ -1090,7 +1091,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                         }
                         report_stat = True
 
-                    if stat.sdu_tx_latency.count > 0:
+                    if stat.has_sdu_tx_latency and stat.sdu_tx_latency.count > 0:
                         s["sdu_tx_latency"] = {
                             "count": stat.sdu_tx_latency.count,
                             "total": stat.sdu_tx_latency.total,
@@ -1108,6 +1109,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                         break
                 if len(output["stats"]) > 0:
                     state.logger.log_msg(log_enabled, rlog_enabled, "Dashboard", f"{json.dumps(output)}")
+                    print(f"MJB Dashboard: PDCP_DL_STATS : {json.dumps(output, indent=2)}", flush=True)
 
 
             elif stream_idx == PDCP_UL_STATS_SIDX:
@@ -1141,11 +1143,12 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                         "ueid": ueid,
                         "ue_ctx": None if uectx is None else uectx.concise_dict(),
                         "is_srb": stat.is_srb,
-                        "rb_id": stat.rb_id
+                        "rb_id": stat.rb_id,
+                        "rlc_mode": rlc_mode_to_str(stat.rlc_mode)
                     }
 
                     if uectx is None:
-                        s[ue_index_key]: stat.cu_ue_index
+                        s[ue_index_key] = stat.cu_ue_index
 
                     if stat.sdu_delivered_bytes.count > 0:
                         s["sdu_delivered_bytes"] = {
@@ -1196,6 +1199,8 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
 
                 if len(output["stats"]) > 0:
                     state.logger.log_msg(log_enabled, rlog_enabled, "Dashboard", f"{json.dumps(output)}")
+                    print(f"MJB Dashboard: PDCP_UL_STATS : {json.dumps(output, indent=2)}", flush=True)
+
 
 
             #####################################################

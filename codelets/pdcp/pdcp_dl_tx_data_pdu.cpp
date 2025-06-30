@@ -67,14 +67,16 @@ uint64_t jbpf_main(void* state)
 
     // get data passed in metadata
     uint32_t pdu_length = (uint32_t) (ctx->srs_meta_data1 & 0xFFFFFFFF);
-    // uint32_t count = (uint32_t) (ctx->srs_meta_data1 >> 32);
-    uint32_t is_retx = (uint32_t) (ctx->srs_meta_data2 & 0xFFFFFFFF);
-    uint32_t latency_set = (uint32_t) (ctx->srs_meta_data2 >> 32);
+    uint32_t count = (uint32_t) (ctx->srs_meta_data1 >> 32);
+    uint32_t latency_set = (uint32_t) (ctx->srs_meta_data2 & 0xFFFFFFFF);
+    uint32_t is_retx = (uint32_t) (ctx->srs_meta_data2 >> 32);
     uint32_t latency_ns = (uint32_t) ctx->srs_meta_data3;
 
 #ifdef DEBUG_PRINT
-    jbpf_printf_debug("PDCP DL TX PDU: cu_ue_index=%d, rb_id=%d, count=%d\n", 
+    jbpf_printf_debug("PDCP DL TX PDU: cu_ue_index=%d, rb_id=%d, count=%d, ", 
         pdcp_ctx.cu_ue_index, rb_id, count);
+    jbpf_printf_debug("is_retx=%d latency_set=%d latency_ns=%d\n", 
+        is_retx, latency_set, latency_ns);
 #endif
 
     int new_val = 0;
@@ -110,6 +112,7 @@ uint64_t jbpf_main(void* state)
     // update sdu_tx_latency
     if (latency_set) {
         PDCP_STATS_UPDATE(out->stats[ind % MAX_NUM_UE_RB].sdu_tx_latency, latency_ns);
+        out->stats[ind % MAX_NUM_UE_RB].has_sdu_tx_latency = true;
     }
 
     *not_empty_stats = 1;
