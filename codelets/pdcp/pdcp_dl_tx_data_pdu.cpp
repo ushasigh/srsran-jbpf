@@ -66,8 +66,8 @@ uint64_t jbpf_main(void* state)
     int rb_id = RBID_2_EXPLICIT(pdcp_ctx.is_srb, pdcp_ctx.rb_id);
 
     // get data passed in metadata
-    uint32_t pdu_length = (uint32_t) (ctx->srs_meta_data1 & 0xFFFFFFFF);
-    uint32_t count = (uint32_t) (ctx->srs_meta_data1 >> 32);
+    uint32_t count = (uint32_t) (ctx->srs_meta_data1 & 0xFFFFFFFF);
+    uint32_t pdu_length = (uint32_t) (ctx->srs_meta_data1 >> 32);
     uint32_t latency_set = (uint32_t) (ctx->srs_meta_data2 & 0xFFFFFFFF);
     uint32_t is_retx = (uint32_t) (ctx->srs_meta_data2 >> 32);
     uint32_t latency_ns = (uint32_t) ctx->srs_meta_data3;
