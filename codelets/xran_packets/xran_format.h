@@ -17,12 +17,6 @@ struct vlan_hdr {
 #define ECPRI_RT_CONTROL_DATA \
   0x02                          // eCPRI Message Type for Real-Time Control Data
 
-enum {
-    XRAN_DIRECTION_DOWNLINK=0,
-    XRAN_DIRECTION_UPLINK
-};
-
-
 struct prb_stats_event 
 {
     __u32 num_prbs_used;
