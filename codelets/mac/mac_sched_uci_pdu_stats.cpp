@@ -280,5 +280,7 @@ uint64_t jbpf_main(void* state)
         return JBPF_CODELET_FAILURE;
     }
     
+    *not_empty_stats = 1;
+
     return JBPF_CODELET_SUCCESS;
 }
