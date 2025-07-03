@@ -131,11 +131,20 @@ This project includes two examples:
 
 ---
 
-# 3. Hooks 
+# 3. Hooks and Codelets
 
-The available Jbpf hooks are described [here](./docs/srsran_hooks.md)
+The available Jbpf hooks are described [here](./docs/srsran_hooks.md). Some of the codelets are documented [here](./docs/codelets.md).
 
-# 4. License
+
+# 4. Frequently Asked Questions
+
+**Q:** Can codelets and apps be loaded from a different server or even a different folder? 
+
+**A:** No. At the moment, the Helm chart maps local volumes `codelets_vol_mount` and `codelets_vol_mount` into the srsRAN and jrtc pods respectively. The loading is triggered through REST but the apps and codelet code are loaded from the local volumes. This is currently done for simplicity, but one can easily modify this design to fully support loading through REST API. 
+
+
+
+# 5. License
 
 This project is licensed under the [MIT License](LICENSE.md).
 
