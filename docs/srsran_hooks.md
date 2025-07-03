@@ -829,7 +829,7 @@ typedef enum {
 
 ### 11.1.4. __rlc_dl_lost_sdu__
      
-    Called when a new SDU is received from PDCP.
+    Called when an SDU is dropped due to an internal overflow.
        
     Context info:  
     ```

@@ -274,21 +274,23 @@ These are the downlink statistics.
 
 The output is defined in [pdcp_dl_stats.proto](../codelets/pdcp/pdcp_dl_stats.proto).
 
-__sdu_new_bytes__:  the number of SDU bytes received at the north interface.
+__sdu_new_bytes__:  the number of SDU bytes received at the north interface (SDAP).
 
-__sdu_discarded__:  the number of discarded SDUs.
+__sdu_discarded__:  the number of discarded SDUs arriving from SDAP.
 
-__pdu_tx_bytes__:  Number of DATA PDU bytes transmitted.
+__data_pdu_tx_bytes__:  Number of DATA PDU bytes transmitted to RLC.
 
-__pdu_retx_bytes__:  Number of DATA PDU bytes retransmitted.
+__data_pdu_retx_bytes__:  Number of DATA PDU bytes retransmitted to RLC.
 
-__control_pdu_tx_bytes__: Number of CONTROL PDU bytes transmitted.
+__control_pdu_tx_bytes__: Number of CONTROL PDU bytes transmitted to RLC.
 
-__pdu_window_pkts__: min/avg/max stats for the number of packets in the transmission buffer
+__pdu_window_pkts__: min/avg/max stats for the number of packets in the transmission buffer (queue).
+This is sampled in every PDCP hook. 
 
-__pdu_window_bytes__: min/avg/max stats for the number of bytes in the transmission buffer
+__pdu_window_bytes__: min/avg/max stats for the number of bytes in the transmission buffer (queue)
+This is sampled in every PDCP hook. 
 
-__sdu_tx_latency__:  min/avg/max stats for tx latency (in nanosecs).  This is the time from when the SDU arrives from the higher layers, to when is is transmitted to RLC.
+__sdu_tx_latency__:  min/avg/max stats for tx latency (in nanosecs).  This is the time from when the SDU arrives from the higher layers (SDAP), to when is is transmitted to RLC.
 
 ### 5.11.2. Uplink statistics
 
@@ -296,15 +298,15 @@ These are the uplink statistics.
 
 The output is defined in [pdcp_ul_stats.proto](../codelets/pdcp/pdcp_ul_stats.proto).
 
-__rx_data_pdu_bytes__: Number of DATA PDU bytes received.
+__rx_data_pdu_bytes__: Number of DATA PDU bytes received from RLC.
 
-__rx_control_pdu_bytes__: Number of CONTROL PDU bytes received.
+__rx_control_pdu_bytes__: Number of CONTROL PDU bytes received from RLC.
 
-__sdu_delivered_bytes__:  the number of SDU bytes delivered to the north interface.
+__sdu_delivered_bytes__:  the number of SDU bytes delivered to the north interface (SDAP).
 
-__pdu_window_pkts__: min/avg/max stats for the number of packets in the reception buffer
+__pdu_window_pkts__: min/avg/max stats for the number of packets in the reception buffer (to be delivered to SDAP). This is sampled in every PDCP hook. 
 
-__pdu_window_bytes__: min/avg/max stats for the number of bytes in the reception buffer
+__pdu_window_bytes__: min/avg/max stats for the number of bytes in the reception buffer (to be delivered to SDAP). This is sampled in every PDCP hook. 
 
 
 
@@ -359,25 +361,29 @@ This is the codelet which sends the RLC statistics to the higher layers.
 
 These are described in the following sections.
 
-### 6.12.1. Downlink "north" statistics
+### 6.12.1. Downlink statistics
 
 These are the downlink statistics.
 
 The output is defined in [rlc_dl_stats.proto](../codelets/rlc/rlc_dl_stats.proto).
 
-__sdu_queue_pkts__: min/avg/max stats for the number of packets in the squ queue
+__sdu_queue_pkts__: min/avg/max stats for the number of packets in the SDU queue. 
+This is a queue of packets coming from the PDCP and waiting to be sent. 
+This is sampled in every RLC DL hook. 
 
-__sdu_queue_pkts__: min/avg/max stats for the number of bytes in the  squ queue
+__sdu_queue_bytes__: min/avg/max stats for the number of bytes in the SDU queue.
+This is a queue of packets coming from the PDCP and waiting to be sent. 
+This is sampled in every RLC DL hook. 
 
 __sdu_new_bytes__:  the number of SDU bytes received from PDCP.
 
 __pdu_tx_bytes__:  the number of DATA PDU bytes transmitted to MAC.
 
-__sdu_tx_started__: min/avg/max stats for the "tx-started" latency.  This is the duration (in nansocs) from the sdu-arrival time, to when the first byte of that SDU to transmitted to MAC.
+__sdu_tx_started__: min/avg/max stats for the "tx-started" latency.  This is the duration (in nanosecs) from the sdu-arrival time, to when the first byte of that SDU to transmitted to MAC. These will not be reported if no packets sent. 
 
-__sdu_tx_completed__: min/avg/max stats for the "tx-completed" latency.  This is the duration (in nansocs) from the sdu-arrival time, to when all of the bytes of that SDU to transmitted to MAC.
+__sdu_tx_completed__: min/avg/max stats for the "tx-completed" latency.  This is the duration (in nanosecs) from the sdu-arrival time, to when all of the bytes of that SDU to transmitted to MAC. These will not be reported if no packets sent.
 
-__sdu_tx_delivered__: min/avg/max stats for the "tx-delivered" latency.  This is the duration (in nansocs) from the sdu-arrival time, to when all of the bytes of that SDU have been received by the UE.
+__sdu_tx_delivered__: min/avg/max stats for the "tx-delivered" latency.  This is the duration (in nanosecs) from the sdu-arrival time, to when all of the bytes of that SDU have been received by the UE. These will not be reported if no packets sent.
 
 The following are present just for AM mode:-
 
@@ -387,9 +393,14 @@ __pdu_status_bytes__:  the number of STATUS PDU bytes transmitted to MAC.
 
 __pdu_retx_count__: min/avg/max stats for the number of retx of a packet.
 
-__pdu_window_pkts__: min/avg/max stats for the number of packets in the reception buffer
+__pdu_window_pkts__: min/avg/max stats for the number of PDUs in the transmission buffer already sent to MAC, 
+waiting to be acknowledged. A single PDU can carry multiple SDUs or their fragments. 
+This is sampled in every RLC DL hook. 
 
-__pdu_window_bytes__: min/avg/max stats for the number of bytes in the reception buffer
+__pdu_window_bytes__: min/avg/max stats for the number of PDU bytes in the transmission buffer already sent to MAC, 
+waiting to be acknowledged. A single PDU can carry multiple SDUs or their fragments. 
+This is sampled in every RLC DL hook. 
+
 
 ### 6.12.2. Uplink statistics
 
@@ -401,11 +412,12 @@ __pdu_bytes__:  the number of PDU bytes received from MAC.
 
 __sdu_delivered_bytes__:  the number of SDU bytes delivered to PDCP.
 
-__sdu_delivered_latency__: min/avg/max stats for the "rx-delivered" latency.  This is the duration (in nansocs) from the time when the first byte of a PDU arrives, until the time when that SDU is delivered to PDCP.
+__sdu_delivered_latency__: min/avg/max stats for the "rx-delivered" latency.  This is the duration (in nanosecs) from the time when the first byte of a PDU arrives, until the time when that SDU is delivered to PDCP.
 
 The following is also present in UM and AM mode:
 
-__pdu_window_pkts__: min/avg/max stats for the number of packets in the reception buffer
+__pdu_window_pkts__: min/avg/max stats for the number of packets in the reception buffer.
+This is sampled in every RLC UL hook. 
 
 
 # 7. MAC
