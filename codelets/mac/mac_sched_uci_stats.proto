@@ -24,10 +24,8 @@ message uci_harq_stats_item {
 }
 
 message csi_stats_item {
-   optional uci_stat_item_t cri = 1;
-   optional uci_stat_item_t ri = 2;
-   optional uci_stat_item_t li = 3;
-   optional uci_stat_item_t cqi = 4;
+   optional uci_stat_item_t ri = 1;
+   optional uci_stat_item_t cqi = 2;
 }
 
 

@@ -1369,14 +1369,6 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
 
                     if stat.has_csi:
                         s["csi"] = {}
-                        if stat.csi.has_cri and stat.csi.cri.count > 0:
-                            s["csi"]["cri"] = {
-                                "count": stat.csi.cri.count,
-                                "total": stat.csi.cri.total,
-                                "avg": stat.csi.cri.total / stat.csi.cri.count,
-                                "min": stat.csi.cri.min,
-                                "max": stat.csi.cri.max
-                            }
                         if stat.csi.has_ri and stat.csi.ri.count > 0:
                             s["csi"]["ri"] = {
                                 "count": stat.csi.ri.count,
@@ -1384,14 +1376,6 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                                 "avg": stat.csi.ri.total / stat.csi.ri.count,
                                 "min": stat.csi.ri.min,
                                 "max": stat.csi.ri.max
-                            }
-                        if stat.csi.li is not None and stat.csi.li.count > 0:
-                            s["csi"]["li"] = {
-                                "count": stat.csi.li.count,
-                                "total": stat.csi.li.total,
-                                "avg": stat.csi.li.total / stat.csi.li.count,
-                                "min": stat.csi.li.min,
-                                "max": stat.csi.li.max
                             }
                         if stat.csi.has_cqi and stat.csi.cqi.count > 0:
                             s["csi"]["cqi"] = {

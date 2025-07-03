@@ -92,21 +92,11 @@ uint64_t jbpf_main(void* state)
         out->stats[ind % MAX_NUM_UE].harq.ack_count = 0;
         out->stats[ind % MAX_NUM_UE].harq.nack_count = 0;
         out->stats[ind % MAX_NUM_UE].harq.dtx_count = 0;
-        out->stats[ind % MAX_NUM_UE].csi.cri.count = 0;
-        out->stats[ind % MAX_NUM_UE].csi.cri.total = 0;
-        out->stats[ind % MAX_NUM_UE].csi.cri.min = UINT32_MAX;
-        out->stats[ind % MAX_NUM_UE].csi.cri.max = 0;
-        out->stats[ind % MAX_NUM_UE].csi.has_cri = false;
         out->stats[ind % MAX_NUM_UE].csi.ri.count = 0;
         out->stats[ind % MAX_NUM_UE].csi.ri.total = 0;
         out->stats[ind % MAX_NUM_UE].csi.ri.min = UINT32_MAX;
         out->stats[ind % MAX_NUM_UE].csi.ri.max = 0;
         out->stats[ind % MAX_NUM_UE].csi.has_ri = false;
-        out->stats[ind % MAX_NUM_UE].csi.li.count = 0;
-        out->stats[ind % MAX_NUM_UE].csi.li.total = 0;
-        out->stats[ind % MAX_NUM_UE].csi.li.min = UINT32_MAX;
-        out->stats[ind % MAX_NUM_UE].csi.li.max = 0;
-        out->stats[ind % MAX_NUM_UE].csi.has_li = false;
         out->stats[ind % MAX_NUM_UE].csi.cqi.count = 0;
         out->stats[ind % MAX_NUM_UE].csi.cqi.total = 0;
         out->stats[ind % MAX_NUM_UE].csi.cqi.min = UINT32_MAX;
@@ -170,22 +160,10 @@ uint64_t jbpf_main(void* state)
         // csi
         if (pusch_pdu->csi.has_value()) {
 
-            // cri            
-            if (pusch_pdu->csi->cri.has_value()) {
-                STATS_UPDATE(out->stats[ind % MAX_NUM_UE].csi.cri, pusch_pdu->csi->cri.value());
-                out->stats[ind % MAX_NUM_UE].csi.has_cri = true;
-            }
-
             // ri   
             if (pusch_pdu->csi->ri.has_value()) {
                 STATS_UPDATE(out->stats[ind % MAX_NUM_UE].csi.ri, static_cast<uint32_t>(static_cast<uint8_t>(pusch_pdu->csi->ri.value())));
                 out->stats[ind % MAX_NUM_UE].csi.has_ri = true;
-            }
-
-            // li
-            if (pusch_pdu->csi->li.has_value()) {
-                STATS_UPDATE(out->stats[ind % MAX_NUM_UE].csi.li, static_cast<uint32_t>(static_cast<uint8_t>(pusch_pdu->csi->li.value())));
-                out->stats[ind % MAX_NUM_UE].csi.has_li = true;
             }
 
             // first_tb_wideband_cqi
@@ -229,22 +207,10 @@ uint64_t jbpf_main(void* state)
         // csi
         if (pucch_f2f3f4->csi.has_value()) {
 
-            // cri
-            if (pucch_f2f3f4->csi->cri.has_value()) {
-                STATS_UPDATE(out->stats[ind % MAX_NUM_UE].csi.cri, pucch_f2f3f4->csi->cri.value());
-                out->stats[ind % MAX_NUM_UE].csi.has_cri = true;
-            }
-
             // ri
             if (pucch_f2f3f4->csi->ri.has_value()) {
                 STATS_UPDATE(out->stats[ind % MAX_NUM_UE].csi.ri, static_cast<uint32_t>(static_cast<uint8_t>(pucch_f2f3f4->csi->ri.value())));
                 out->stats[ind % MAX_NUM_UE].csi.has_ri = true;
-            }
-
-            // li
-            if (pucch_f2f3f4->csi->li.has_value()) {
-                STATS_UPDATE(out->stats[ind % MAX_NUM_UE].csi.li, static_cast<uint32_t>(static_cast<uint8_t>(pucch_f2f3f4->csi->li.value())));
-                out->stats[ind % MAX_NUM_UE].csi.has_li = true;
             }
 
             // first_tb_wideband_cqi
