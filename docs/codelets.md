@@ -456,6 +456,7 @@ It sends seperate messages as defined in:
 The output is defined in [mac_sched_bsr_stats.proto](../codelets/mac/mac_sched_bsr_stats.proto).
 The output is defined in [mac_sched_crc_stats.proto](../codelets/mac/mac_sched_crc_stats.proto).
 The output is defined in [mac_sched_phr_stats.proto](../codelets/mac/mac_sched_phr_stats.proto).
+The output is defined in [mac_sched_uci_stats.proto](../codelets/mac/mac_sched_uci_stats.proto).
 
 
 # 8. FAPI
