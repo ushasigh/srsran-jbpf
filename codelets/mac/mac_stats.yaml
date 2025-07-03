@@ -20,6 +20,11 @@ codelet_descriptor:
     hook_name: mac_sched_ul_phr_indication
     priority: 1
 
+  - codelet_name: mac_sched_uci_pdu_stats
+    codelet_path: ${JBPF_CODELETS}/mac/mac_sched_uci_pdu_stats.o
+    hook_name: mac_sched_uci_indication
+    priority: 1
+
 
   - codelet_name: mac_stats_collect
     codelet_path: ${JBPF_CODELETS}/mac/mac_stats_collect.o
