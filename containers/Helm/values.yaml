@@ -152,6 +152,9 @@ jrtc_controller:
   apps_vol_mount: ""
   image: ghcr.io/microsoft/jrt-controller/jrt-controller-azurelinux:latest
   port: 30500
+  logging:
+    jrtc_level: info
+    jbpf_level: info
   log_analytics:
     enabled: false
     workspace_id: "PUT_WORKSPACE_ID_HERE"
