@@ -146,9 +146,9 @@ uint64_t jbpf_main(void* state)
             // out->stats[ind % MAX_NUM_UE].ul_sinr_dB.count++;    
             // out->stats[ind % MAX_NUM_UE].ul_sinr_dB.total += static_cast<uint64_t>(pucch_f0f1->ul_sinr_dB.value());
 
-            // timing advance offset
-            STATS_UPDATE(out->stats[ind % MAX_NUM_UE].time_advance_offset, static_cast<uint64_t>(pucch_f0f1->time_advance_offset->to_Tc()));
-            out->stats[ind % MAX_NUM_UE].has_time_advance_offset = true;
+            // // timing advance offset
+            // STATS_UPDATE(out->stats[ind % MAX_NUM_UE].time_advance_offset, static_cast<uint64_t>(pucch_f0f1->time_advance_offset->to_Tc()));
+            // out->stats[ind % MAX_NUM_UE].has_time_advance_offset = true;
         }
 
     } else if (const auto* pusch_pdu = std::get_if<srsran::uci_indication::uci_pdu::uci_pusch_pdu>(&uci_pdu.pdu)) {
@@ -261,19 +261,19 @@ uint64_t jbpf_main(void* state)
             out->stats[ind % MAX_NUM_UE].has_csi = true;
         }
 
-        // timing advance
-        const bool is_uci_valid =
-            not pucch_f2f3f4->harqs.empty() or
-            (not pucch_f2f3f4->sr_info.empty() and pucch_f2f3f4->sr_info.test(sr_bit_position_with_1_sr_bit)) or
-            pucch_f2f3f4->csi.has_value();
-        // Process Timing Advance Offset.
-        if (is_uci_valid and pucch_f2f3f4->time_advance_offset.has_value() and
-            pucch_f2f3f4->ul_sinr_dB.has_value()) {
+        // // timing advance
+        // const bool is_uci_valid =
+        //     not pucch_f2f3f4->harqs.empty() or
+        //     (not pucch_f2f3f4->sr_info.empty() and pucch_f2f3f4->sr_info.test(sr_bit_position_with_1_sr_bit)) or
+        //     pucch_f2f3f4->csi.has_value();
+        // // Process Timing Advance Offset.
+        // if (is_uci_valid and pucch_f2f3f4->time_advance_offset.has_value() and
+        //     pucch_f2f3f4->ul_sinr_dB.has_value()) {
 
-            // Handle UL SINR and Timing Advance Offset
-            STATS_UPDATE(out->stats[ind % MAX_NUM_UE].time_advance_offset, static_cast<uint64_t>(pucch_f2f3f4->time_advance_offset->to_Tc()));
-            out->stats[ind % MAX_NUM_UE].has_time_advance_offset = true;
-        }
+        //     // Handle UL SINR and Timing Advance Offset
+        //     STATS_UPDATE(out->stats[ind % MAX_NUM_UE].time_advance_offset, static_cast<uint64_t>(pucch_f2f3f4->time_advance_offset->to_Tc()));
+        //     out->stats[ind % MAX_NUM_UE].has_time_advance_offset = true;
+        // }
 
     } else {
         // jbpf_printf_debug("Unknown UCI PDU type\n");

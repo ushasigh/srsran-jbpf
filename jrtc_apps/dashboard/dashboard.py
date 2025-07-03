@@ -1337,76 +1337,77 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     "stats": []
                 }
                 cnt = 0
-                for stat in crc_stats:
-                    if stat.cnt_tx > 0:
-                        ueid = state.ue_map.getid_by_du_index(deviceid, stat.du_ue_index)
-                        uectx = state.ue_map.getuectx(ueid)
-                        s ={
-                            "ueid": ueid,
-                            "ue_ctx": None if uectx is None else uectx.concise_dict(),
-                        }
-                        if uectx is None:
-                            s["du_ue_index"] = stat.du_ue_index,
 
+                for stat in uci_stats:
+                    ueid = state.ue_map.getid_by_du_index(deviceid, stat.du_ue_index)
+                    uectx = state.ue_map.getuectx(ueid)
+                    s ={
+                        "ueid": ueid,
+                        "ue_ctx": None if uectx is None else uectx.concise_dict(),
+                    }
+                    if uectx is None:
+                        s["du_ue_index"] = stat.du_ue_index,
+
+                    if stat.sr_detected > 0:
                         s["sr_detected"] = stat.sr_detected
 
-                        if stat.has_time_advance_offset:
-                            s["time_advance_offset"] = {
-                                "count": stat.time_advance_offset.count,
-                                "total": stat.time_advance_offset.total,
-                                "avg": stat.time_advance_offset.total / stat.time_advance_offset.count,
-                                "min": stat.time_advance_offset.min,
-                                "max": stat.time_advance_offset.max
-                            }
-
-                        s["harq"] = {
-                            "ack": stat.ack_count,
-                            "nack": stat.nack_count,
-                            "dtx": stat.dtx_count
+                    if stat.has_time_advance_offset and stat.time_advance_offset.count > 0:
+                        s["time_advance_offset"] = {
+                            "count": stat.time_advance_offset.count,
+                            "total": stat.time_advance_offset.total,
+                            "avg": stat.time_advance_offset.total / stat.time_advance_offset.count,
+                            "min": stat.time_advance_offset.min,
+                            "max": stat.time_advance_offset.max
                         }
 
-                        if stat.has_csi:
-                            s["csi"] = {}
-                            if stat.csi.has_cri:
-                                s["csi"]["cri"] = {
-                                    "count": stat.csi.cri.count,
-                                    "total": stat.csi.cri.total,
-                                    "avg": stat.csi.cri.total / stat.csi.cri.count,
-                                    "min": stat.csi.cri.min,
-                                    "max": stat.csi.cri.max
-                                }
-                            if stat.csi.has_ri:
-                                s["csi"]["ri"] = {
-                                    "count": stat.csi.ri.count,
-                                    "total": stat.csi.ri.total,
-                                    "avg": stat.csi.ri.total / stat.csi.ri.count,
-                                    "min": stat.csi.ri.min,
-                                    "max": stat.csi.ri.max
-                                }
-                            if stat.csi.li:
-                                s["csi"]["li"] = {
-                                    "count": stat.csi.li.count,
-                                    "total": stat.csi.li.total,
-                                    "avg": stat.csi.li.total / stat.csi.li.count,
-                                    "min": stat.csi.li.min,
-                                    "max": stat.csi.li.max
-                                }
-                            if stat.csi.has_cqi:
-                                s["csi"]["cqi"] = {
-                                    "count": stat.csi.cqi.count,
-                                    "total": stat.csi.cqi.total,
-                                    "avg": stat.csi.cqi.total / stat.csi.cqi.count,
-                                    "min": stat.csi.cqi.min,
-                                    "max": stat.csi.cqi.max
-                                }
+                    if stat.harq.ack_count > 0 or stat.harq.nack_count > 0 or stat.harq.dtx_count > 0:
+                        s["harq"] = {
+                            "ack": stat.harq.ack_count,
+                            "nack": stat.harq.nack_count,
+                            "dtx": stat.harq.dtx_count
+                        }
 
-                        output["stats"].append(s)
+                    if stat.has_csi:
+                        s["csi"] = {}
+                        if stat.csi.has_cri and stat.csi.cri.count > 0:
+                            s["csi"]["cri"] = {
+                                "count": stat.csi.cri.count,
+                                "total": stat.csi.cri.total,
+                                "avg": stat.csi.cri.total / stat.csi.cri.count,
+                                "min": stat.csi.cri.min,
+                                "max": stat.csi.cri.max
+                            }
+                        if stat.csi.has_ri and stat.csi.ri.count > 0:
+                            s["csi"]["ri"] = {
+                                "count": stat.csi.ri.count,
+                                "total": stat.csi.ri.total,
+                                "avg": stat.csi.ri.total / stat.csi.ri.count,
+                                "min": stat.csi.ri.min,
+                                "max": stat.csi.ri.max
+                            }
+                        if stat.csi.li is not None and stat.csi.li.count > 0:
+                            s["csi"]["li"] = {
+                                "count": stat.csi.li.count,
+                                "total": stat.csi.li.total,
+                                "avg": stat.csi.li.total / stat.csi.li.count,
+                                "min": stat.csi.li.min,
+                                "max": stat.csi.li.max
+                            }
+                        if stat.csi.has_cqi and stat.csi.cqi.count > 0:
+                            s["csi"]["cqi"] = {
+                                "count": stat.csi.cqi.count,
+                                "total": stat.csi.cqi.total,
+                                "avg": stat.csi.cqi.total / stat.csi.cqi.count,
+                                "min": stat.csi.cqi.min,
+                                "max": stat.csi.cqi.max
+                            }
+
+                    output["stats"].append(s)
                     cnt += 1
                     if cnt >= data.stats_count:
                         break
                 if len(output["stats"]) > 0:
                     state.logger.log_msg(log_enabled, rlog_enabled, "Dashboard", f"{json.dumps(output)}")
-
 
 
             #####################################################
