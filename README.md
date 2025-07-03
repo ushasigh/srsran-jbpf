@@ -140,7 +140,7 @@ The available Jbpf hooks are described [here](./docs/srsran_hooks.md). Some of t
 
 **Q:** Can codelets and apps be loaded from a different server or even a different folder? 
 
-**A:** No. At the moment, the Helm chart maps local volumes `codelets_vol_mount` and `codelets_vol_mount` into the srsRAN and jrtc pods respectively. The loading is triggered through REST but the apps and codelet code are loaded from the local volumes. This is currently done for simplicity, but one can easily modify this design to fully support loading through REST API. 
+**A:** No. At the moment, the [install.sh](./containers/Helm/install.sh) of the Helm chart maps local volumes `codelets_vol_mount` and `codelets_vol_mount` into the srsRAN and jrtc pods respectively, using a predefined folder structure. The loading process is triggered through REST but the apps and codelet source code and object files are loaded from the local volumes, not sent over REST. This is currently done for simplicity, but one can easily modify this design to fully support loading through REST API. 
 
 
 
