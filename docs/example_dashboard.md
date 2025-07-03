@@ -17,6 +17,8 @@
 The dashboard application collects various statistics at different levels of RAN, including throughput and latency at PDCP and RLC level, packet retransmissions at the MAC level, spectrum utilization at the PHY level, etc. 
 
 This application consists of multiple codelets and a python application running inside jrt-controller (for details, see [here](../jrtc_apps/dashboard/deployment.yaml)).
+Follow the links to get more information about the [hooks](./srsran_hooks.md) and [codelets](./codelets.md) used. 
+The dashboard python app is [here](../jrtc_apps/dashboard/dashboard.py) and the codelets are [here](../codelets/).
 
 
 ## 1.1. Prepare codelets

@@ -40,7 +40,7 @@
               "durationMs": 86400000
             },
             "value": {
-              "durationMs": 1800000
+              "durationMs": 900000
             }
           }
         ],
@@ -242,7 +242,7 @@
               "version": "KqlItem/1.0",
               "query": "let timeStart = todatetime({timeparameter:start});\nlet timeEnd = todatetime({timeparameter:end});\nlet duration = timeEnd - timeStart;\nlet maxPoints = 10000;  // Hard limit for visualization\nlet baseStep = case(\n    duration >= 7d, 15m,\n    duration >= 3d, 4m,     \n    duration >= 48h, 3m, \n    duration >= 24h, 2m,\n    duration >= 12h, 1m, \n    duration >= 4h, 30s,\n    duration >= 1h, 30s,\n    duration >= 15m, 20s,\n    10s  // Default step size\n);\nlet totalPoints = tolong(duration / baseStep);\nlet scaleFactor = ceiling(totalPoints * 1.0 / maxPoints);  // Ensure step scaling\nlet adjustedStep = baseStep * scaleFactor;\njrtc_dashboard_CL\n| where stream_id_s == \"dashboard\"\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\n| where stream_index_s == \"RLC_DL_STATS\"\n| mv-expand stream_payload_msg.stats\n| extend stats_d = todynamic(stream_payload_msg_stats)\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), isSRB = toint(stats_d.is_srb), rbID = tostring(stats_d.rb_id), avgReTX = todouble(stats_d.pdu_retx_count.avg), pduCount = todouble(stats_d.data_pdu_tx_bytes.count), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\n| extend imsi = iff(not(isempty(supi)), substring(supi, 5), timsi)\n| where isSRB == 0 // Ignore signalling bearers for data throughput\n| where not(isempty(imsi)) // Only include UEs connected for a longer time\n| project timestamp, imsi_rb = strcat(imsi, \"/\", rbID), avgReTX  // Append bearer ID to IMSI in case there are multiple bearers\n| where timestamp >= timeStart and timestamp <= timeEnd\n| make-series avgReTX=avg(avgReTX) default=0 \n  on timestamp from timeStart to timeEnd step adjustedStep by imsi_rb\n| render timechart\n",
               "size": 1,
-              "title": "Downlink RLC average retransmissions",
+              "title": "Downlink RLC average retransmissions per second",
               "timeContextFromParameter": "timeparameter",
               "queryType": 0,
               "resourceType": "microsoft.operationalinsights/workspaces",
@@ -590,7 +590,7 @@
               "version": "KqlItem/1.0",
               "query": "let timeStart = todatetime({timeparameter:start});\r\nlet timeEnd = todatetime({timeparameter:end});\r\nlet duration = timeEnd - timeStart;\r\nlet maxPoints = 10000;  // Hard limit for visualization\r\nlet baseStep = case(\r\n    duration >= 7d, 15m,\r\n    duration >= 3d, 8m,     \r\n    duration >= 48h, 4m, \r\n    duration >= 24h, 2m,\r\n    duration >= 12h, 1m, \r\n    duration >= 4h, 30s,\r\n    duration >= 1h, 30s,\r\n    duration >= 15m, 20s,\r\n    10s  // Default step size\r\n);\r\nlet totalPoints = tolong(duration / baseStep);\r\nlet scaleFactor = ceiling(totalPoints * 1.0 / maxPoints);  // Ensure step scaling\r\nlet adjustedStep = baseStep * scaleFactor;\r\njrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"FAPI_DL_CONFIG\"\r\n| mv-expand stream_payload_msg.ues\r\n| extend ues = todynamic(stream_payload_msg_ues)\r\n| extend ueIndex = tostring(ues.ueid), timsi = tostring(ues.ue_ctx.tmsi), supi = tostring(ues.ue_ctx.core_amf_info.supi), l1AntAvg = todouble(ues.l1_ant_avg), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| extend imsi = iff(not(isempty(supi)), substring(supi, 5), timsi)\r\n| project timestamp, imsi, l1AntAvg  // Select relevant columns\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| make-series l1AntAvg=avg(l1AntAvg) default=0 \r\n  on timestamp from timeStart to timeEnd step adjustedStep by imsi\r\n| render timechart\r\n",
               "size": 1,
-              "title": "Average number of antenna per user on downlink",
+              "title": "Average number of streams per user on downlink",
               "timeContextFromParameter": "timeparameter",
               "queryType": 0,
               "resourceType": "microsoft.operationalinsights/workspaces",
@@ -750,7 +750,7 @@
               "version": "KqlItem/1.0",
               "query": "let timeStart = todatetime({timeparameter:start});\r\nlet timeEnd = todatetime({timeparameter:end});\r\nlet duration = timeEnd - timeStart;\r\nlet maxPoints = 10000;  // Hard limit for visualization\r\nlet baseStep = case(\r\n    duration >= 7d, 15m,\r\n    duration >= 3d, 8m,     \r\n    duration >= 48h, 4m, \r\n    duration >= 24h, 2m,\r\n    duration >= 12h, 1m, \r\n    duration >= 4h, 30s,\r\n    duration >= 1h, 30s,\r\n    duration >= 15m, 20s,\r\n    10s  // Default step size\r\n);\r\nlet totalPoints = tolong(duration / baseStep);\r\nlet scaleFactor = ceiling(totalPoints * 1.0 / maxPoints);  // Ensure step scaling\r\nlet adjustedStep = baseStep * scaleFactor;\r\njrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"FAPI_UL_CONFIG\"\r\n| mv-expand stream_payload_msg.ues\r\n| extend ues = todynamic(stream_payload_msg_ues)\r\n| extend ueIndex = tostring(ues.ueid), timsi = tostring(ues.ue_ctx.tmsi), supi = tostring(ues.ue_ctx.core_amf_info.supi), l1AntAvg = todouble(ues.l1_ant_avg), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| extend imsi = iff(not(isempty(supi)), substring(supi, 5), timsi)\r\n| project timestamp, imsi, l1AntAvg  // Select relevant columns\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| make-series l1AntAvg=avg(l1AntAvg) default=0 \r\n  on timestamp from timeStart to timeEnd step adjustedStep by imsi\r\n| render timechart\r\n",
               "size": 1,
-              "title": "Average number of antenna per user on uplink",
+              "title": "Average number of streams per user on uplink",
               "timeContextFromParameter": "timeparameter",
               "queryType": 0,
               "resourceType": "microsoft.operationalinsights/workspaces",
