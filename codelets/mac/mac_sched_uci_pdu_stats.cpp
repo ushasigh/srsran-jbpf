@@ -26,14 +26,6 @@ struct jbpf_load_map_def SEC("maps") uci_not_empty = {
     .max_entries = 1,
 };
 
-// Consecutive packet losses
-struct jbpf_load_map_def SEC("maps") cnt_loss = {
-    .type = JBPF_MAP_TYPE_ARRAY,
-    .key_size = sizeof(uint64_t),
-    .value_size = sizeof(uint32_t),
-    .max_entries = MAX_NUM_UE,
-};
-
 // We store stats in this (single entry) map across runs
 struct jbpf_load_map_def SEC("maps") stats_map_uci = {
     .type = JBPF_MAP_TYPE_ARRAY,
@@ -89,10 +81,38 @@ uint64_t jbpf_main(void* state)
 
     // Increase loss count
     uint32_t ind = JBPF_PROTOHASH_LOOKUP_ELEM_32(out, stats, uci_hash, uci_pdu.ue_index, new_val);
-    if (ind >= MAX_NUM_UE) return JBPF_CODELET_FAILURE;
     if (new_val) {
-        // out->stats[ind % MAX_NUM_UE].cons_min = UINT32_MAX;
-        // out->stats[ind % MAX_NUM_UE].cons_max = 0;
+        out->stats[ind % MAX_NUM_UE].du_ue_index = uci_pdu.ue_index;
+        out->stats[ind % MAX_NUM_UE].sr_detected = 0;
+        out->stats[ind % MAX_NUM_UE].time_advance_offset.count = 0;
+        out->stats[ind % MAX_NUM_UE].time_advance_offset.total = 0;
+        out->stats[ind % MAX_NUM_UE].time_advance_offset.min = UINT32_MAX;
+        out->stats[ind % MAX_NUM_UE].time_advance_offset.max = 0;
+        out->stats[ind % MAX_NUM_UE].has_time_advance_offset = false;
+        out->stats[ind % MAX_NUM_UE].harq.ack_count = 0;
+        out->stats[ind % MAX_NUM_UE].harq.nack_count = 0;
+        out->stats[ind % MAX_NUM_UE].harq.dtx_count = 0;
+        out->stats[ind % MAX_NUM_UE].csi.cri.count = 0;
+        out->stats[ind % MAX_NUM_UE].csi.cri.total = 0;
+        out->stats[ind % MAX_NUM_UE].csi.cri.min = UINT32_MAX;
+        out->stats[ind % MAX_NUM_UE].csi.cri.max = 0;
+        out->stats[ind % MAX_NUM_UE].csi.has_cri = false;
+        out->stats[ind % MAX_NUM_UE].csi.ri.count = 0;
+        out->stats[ind % MAX_NUM_UE].csi.ri.total = 0;
+        out->stats[ind % MAX_NUM_UE].csi.ri.min = UINT32_MAX;
+        out->stats[ind % MAX_NUM_UE].csi.ri.max = 0;
+        out->stats[ind % MAX_NUM_UE].csi.has_ri = false;
+        out->stats[ind % MAX_NUM_UE].csi.li.count = 0;
+        out->stats[ind % MAX_NUM_UE].csi.li.total = 0;
+        out->stats[ind % MAX_NUM_UE].csi.li.min = UINT32_MAX;
+        out->stats[ind % MAX_NUM_UE].csi.li.max = 0;
+        out->stats[ind % MAX_NUM_UE].csi.has_li = false;
+        out->stats[ind % MAX_NUM_UE].csi.cqi.count = 0;
+        out->stats[ind % MAX_NUM_UE].csi.cqi.total = 0;
+        out->stats[ind % MAX_NUM_UE].csi.cqi.min = UINT32_MAX;
+        out->stats[ind % MAX_NUM_UE].csi.cqi.max = 0;
+        out->stats[ind % MAX_NUM_UE].csi.has_cqi = false;
+        out->stats[ind % MAX_NUM_UE].has_csi = false;
     }
 
     if (const auto* pucch_f0f1 = std::get_if<srsran::uci_indication::uci_pdu::uci_pucch_f0_or_f1_pdu>(&uci_pdu.pdu)) {
@@ -256,7 +276,7 @@ uint64_t jbpf_main(void* state)
         }
 
     } else {
-        jbpf_printf_debug("Unknown UCI PDU type\n");
+        // jbpf_printf_debug("Unknown UCI PDU type\n");
         return JBPF_CODELET_FAILURE;
     }
     
