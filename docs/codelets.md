@@ -52,8 +52,9 @@
   - [7.1. mac\_sched\_bsr\_stats](#71-mac_sched_bsr_stats)
   - [7.2. mac\_sched\_crc\_stats](#72-mac_sched_crc_stats)
   - [7.3. mac\_sched\_phr\_stats](#73-mac_sched_phr_stats)
-  - [7.4. mac\_sched\_ue\_deletion](#74-mac_sched_ue_deletion)
-  - [7.5. mac\_stats\_collect](#75-mac_stats_collect)
+  - [7.4. mac\_sched\_uci\_pdu\_stats](#74-mac_sched_uci_pdu_stats)
+  - [7.5. mac\_sched\_ue\_deletion](#75-mac_sched_ue_deletion)
+  - [7.6. mac\_stats\_collect](#76-mac_stats_collect)
 - [8. FAPI](#8-fapi)
   - [8.1. FAPI DL Configuration](#81-fapi-dl-configuration)
     - [8.1.1. fapi\_gnb\_dl\_config\_stats\_collect](#811-fapi_gnb_dl_config_stats_collect)
@@ -424,12 +425,17 @@ Binds to hook [mac_sched_ul_phr_indication](srsran_hooks.md#525-mac_sched_ul_phr
 
 Maintains statistics related to MAC Power Headroom Reports.
 
-## 7.4. [mac_sched_ue_deletion](../codelets/mac/mac_sched_ue_deletion.cpp)
+## 7.4. [mac_sched_uci_pdu_stats](../codelets/mac/mac_sched_uci_pdu_stats.cpp)
+Binds to hook [mac_sched_uci_indication](srsran_hooks.md#523-mac_sched_uci_indication).
+
+Maintains statistics related to MAC UCI.  This includes HARQ, Timing-Advance-Offsets, RI, and CQI.
+
+## 7.5. [mac_sched_ue_deletion](../codelets/mac/mac_sched_ue_deletion.cpp)
 Binds to hook [mac_sched_ue_deletion](srsran_hooks.md#513-mac_sched_ue_deletion).
 
 Invoked when a UE context is deleted at the MAC level.  
 
-## 7.5. [mac_stats_collect](../codelets/mac/mac_stats_collect.cpp)
+## 7.6. [mac_stats_collect](../codelets/mac/mac_stats_collect.cpp)
 Binds to hook [report_stats](srsran_hooks.md#121-report_stats).  
 
 This is the only MAC codelet that sends data to higher-layer components. It consolidates and transmits the BSR, CRC and PHR statistics collected by the other MAC codelets. 

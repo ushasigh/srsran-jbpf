@@ -47,6 +47,14 @@ codelet_descriptor:
           protobuf:
             package_path: ${JBPF_CODELETS}/mac/mac_sched_phr_stats.pb
             msg_name: phr_stats
+      - name: output_map_uci
+        forward_destination: DestinationNone
+        serde:
+          file_path: ${JBPF_CODELETS}/mac/mac_sched_uci_stats:uci_stats_serializer.so
+          protobuf:
+            package_path: ${JBPF_CODELETS}/mac/mac_sched_uci_stats.pb
+            msg_name: uci_stats
+
     linked_maps:
       - map_name: stats_map_crc
         linked_codelet_name: mac_sched_crc_stats
@@ -77,6 +85,17 @@ codelet_descriptor:
       - map_name: phr_not_empty
         linked_codelet_name: mac_sched_phr_stats
         linked_map_name: phr_not_empty
+
+      - map_name: stats_map_uci
+        linked_codelet_name: mac_sched_uci_pdu_stats
+        linked_map_name: stats_map_uci
+      - map_name: uci_hash
+        linked_codelet_name: mac_sched_uci_pdu_stats
+        linked_map_name: uci_hash
+      - map_name: uci_not_empty
+        linked_codelet_name: mac_sched_uci_pdu_stats
+        linked_map_name: uci_not_empty
+
 
   - codelet_name: mac_sched_ue_deletion
     codelet_path: ${JBPF_CODELETS}/mac/mac_sched_ue_deletion.o

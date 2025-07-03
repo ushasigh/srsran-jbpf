@@ -73,9 +73,11 @@ if params.include_mac:
     mac_sched_crc_stats = sys.modules.get('mac_sched_crc_stats')
     mac_sched_bsr_stats = sys.modules.get('mac_sched_bsr_stats')
     mac_sched_phr_stats = sys.modules.get('mac_sched_phr_stats')
+    mac_sched_uci_stats = sys.modules.get('mac_sched_uci_stats')
     from mac_sched_crc_stats import struct__crc_stats
     from mac_sched_bsr_stats import struct__bsr_stats
     from mac_sched_phr_stats import struct__phr_stats
+    from mac_sched_uci_stats import struct__uci_stats
 if params.include_fapi:
     fapi_gnb_dl_config_stats = sys.modules.get('fapi_gnb_dl_config_stats')
     fapi_gnb_ul_config_stats = sys.modules.get('fapi_gnb_ul_config_stats')
@@ -1321,6 +1323,90 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                 if len(output["stats"]) > 0:
                     state.logger.log_msg(log_enabled, rlog_enabled, "Dashboard", f"{json.dumps(output)}")
 
+            elif stream_idx == MAC_SCHED_UCI_STATS_SIDX:
+                
+                data_ptr = ctypes.cast(
+                    data_entry.data, ctypes.POINTER(struct__uci_stats)
+                )
+                data = data_ptr.contents
+                deviceid = str(jrtc_app_router_stream_id_get_device_id(state.app, MAC_SCHED_UCI_STATS_SIDX))
+                uci_stats = list(data.stats)
+                output = {
+                    "timestamp": data.timestamp,
+                    "stream_index": "MAC_SCHED_UCI_STATS",
+                    "stats": []
+                }
+                cnt = 0
+                for stat in crc_stats:
+                    if stat.cnt_tx > 0:
+                        ueid = state.ue_map.getid_by_du_index(deviceid, stat.du_ue_index)
+                        uectx = state.ue_map.getuectx(ueid)
+                        s ={
+                            "ueid": ueid,
+                            "ue_ctx": None if uectx is None else uectx.concise_dict(),
+                        }
+                        if uectx is None:
+                            s["du_ue_index"] = stat.du_ue_index,
+
+                        s["sr_detected"] = stat.sr_detected
+
+                        if stat.has_time_advance_offset:
+                            s["time_advance_offset"] = {
+                                "count": stat.time_advance_offset.count,
+                                "total": stat.time_advance_offset.total,
+                                "avg": stat.time_advance_offset.total / stat.time_advance_offset.count,
+                                "min": stat.time_advance_offset.min,
+                                "max": stat.time_advance_offset.max
+                            }
+
+                        s["harq"] = {
+                            "ack": stat.ack_count,
+                            "nack": stat.nack_count,
+                            "dtx": stat.dtx_count
+                        }
+
+                        if stat.has_csi:
+                            s["csi"] = {}
+                            if stat.csi.has_cri:
+                                s["csi"]["cri"] = {
+                                    "count": stat.csi.cri.count,
+                                    "total": stat.csi.cri.total,
+                                    "avg": stat.csi.cri.total / stat.csi.cri.count,
+                                    "min": stat.csi.cri.min,
+                                    "max": stat.csi.cri.max
+                                }
+                            if stat.csi.has_ri:
+                                s["csi"]["ri"] = {
+                                    "count": stat.csi.ri.count,
+                                    "total": stat.csi.ri.total,
+                                    "avg": stat.csi.ri.total / stat.csi.ri.count,
+                                    "min": stat.csi.ri.min,
+                                    "max": stat.csi.ri.max
+                                }
+                            if stat.csi.li:
+                                s["csi"]["li"] = {
+                                    "count": stat.csi.li.count,
+                                    "total": stat.csi.li.total,
+                                    "avg": stat.csi.li.total / stat.csi.li.count,
+                                    "min": stat.csi.li.min,
+                                    "max": stat.csi.li.max
+                                }
+                            if stat.csi.has_cqi:
+                                s["csi"]["cqi"] = {
+                                    "count": stat.csi.cqi.count,
+                                    "total": stat.csi.cqi.total,
+                                    "avg": stat.csi.cqi.total / stat.csi.cqi.count,
+                                    "min": stat.csi.cqi.min,
+                                    "max": stat.csi.cqi.max
+                                }
+
+                        output["stats"].append(s)
+                    cnt += 1
+                    if cnt >= data.stats_count:
+                        break
+                if len(output["stats"]) > 0:
+                    state.logger.log_msg(log_enabled, rlog_enabled, "Dashboard", f"{json.dumps(output)}")
+
 
 
             #####################################################
@@ -1534,6 +1620,7 @@ def jrtc_start_app(capsule):
     global MAC_SCHED_CRC_STATS_SIDX
     global MAC_SCHED_BSR_STATS_SIDX
     global MAC_SCHED_PHR_STATS_SIDX
+    global MAC_SCHED_UCI_STATS_SIDX
     global RLC_DL_STATS_SIDX
     global RLC_UL_STATS_SIDX
     global PDCP_DL_STATS_SIDX
@@ -1568,6 +1655,7 @@ def jrtc_start_app(capsule):
     MAC_SCHED_CRC_STATS_SIDX = -1
     MAC_SCHED_BSR_STATS_SIDX = -1
     MAC_SCHED_PHR_STATS_SIDX = -1
+    MAC_SCHED_UCI_STATS_SIDX = -1
     RLC_DL_STATS_SIDX = -1
     RLC_UL_STATS_SIDX = -1
     PDCP_DL_STATS_SIDX = -1
@@ -1999,6 +2087,18 @@ def jrtc_start_app(capsule):
         state.logger.log_msg(True, False, "", f"MAC_SCHED_PHR_STATS_SIDX: {MAC_SCHED_PHR_STATS_SIDX}")
         last_cnt += 1
 
+        streams.append(JrtcStreamCfg_t(
+                JrtcStreamIdCfg_t(
+                    JRTC_ROUTER_REQ_DEST_ANY, 
+                    JRTC_ROUTER_REQ_DEVICE_ID_ANY, 
+                    b"dashboard://jbpf_agent/mac_stats/mac_stats_collect", 
+                    b"output_map_uci"),
+                True,   # is_rx
+                None    # No AppChannelCfg 
+            ))
+        MAC_SCHED_UCI_STATS_SIDX = last_cnt
+        state.logger.log_msg(True, False, "", f"MAC_SCHED_UCI_STATS_SIDX: {MAC_SCHED_UCI_STATS_SIDX}")
+        last_cnt += 1
 
 
     #####################################################
