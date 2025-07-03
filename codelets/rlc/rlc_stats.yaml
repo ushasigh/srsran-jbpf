@@ -139,11 +139,6 @@ codelet_descriptor:
         linked_codelet_name: rlc_collect
         linked_map_name: dl_hash
 
-  - codelet_name: rlc_dl_am_tx_pdu_max_retx_count_reached
-    codelet_path: ${JBPF_CODELETS}/rlc/rlc_dl_am_tx_pdu_retx_max_reached.o
-    hook_name: rlc_dl_am_tx_pdu_max_retx_count_reached
-    priority: 1
-
   - codelet_name: rlc_ul_rx_pdu
     codelet_path: ${JBPF_CODELETS}/rlc/rlc_ul_rx_pdu.o
     hook_name: rlc_ul_rx_pdu
