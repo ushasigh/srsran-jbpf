@@ -1272,7 +1272,8 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                         s = {
                             "ueid": ueid,
                             "ue_ctx": None if uectx is None else uectx.concise_dict(),
-                            "cnt": stat.cnt
+                            "cnt": stat.cnt,
+                            "bytes": stat.bytes,
                         }
                         if uectx is None:
                             s["du_ue_index"] = stat.du_ue_index
