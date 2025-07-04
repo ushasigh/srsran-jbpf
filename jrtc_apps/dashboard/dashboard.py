@@ -1228,12 +1228,13 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     if stat.cnt_tx > 0:
                         ueid = state.ue_map.getid_by_du_index(deviceid, stat.du_ue_index)
                         uectx = state.ue_map.getuectx(ueid)
-                        s ={
+                        s = {
                             "ueid": ueid,
                             "ue_ctx": None if uectx is None else uectx.concise_dict(),
-                            "cons_min": stat.cons_min,
                             "cons_max": stat.cons_max,
                             "succ_rate": stat.succ_tx / stat.cnt_tx,
+                            "retx_hist": list(stat.retx_hist),
+                            "harq_failure": stat.harq_failure,
                             "min_sinr": stat.min_sinr,
                             "min_rsrp": stat.min_rsrp,
                             "max_sinr": stat.max_sinr,
@@ -1242,7 +1243,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                             "avg_rsrp": stat.sum_rsrp / stat.cnt_rsrp
                         }
                         if uectx is None:
-                            s["du_ue_index"] = stat.du_ue_index,
+                            s["du_ue_index"] = stat.du_ue_index
 
                         output["stats"].append(s)
                     cnt += 1
