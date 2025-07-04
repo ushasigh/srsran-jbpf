@@ -59,23 +59,20 @@ uint64_t jbpf_main(void* state)
     if (!out)
         return JBPF_CODELET_FAILURE;
     
-
-    // out->timestamp = jbpf_time_get_ns();
-    // out->cell_index = mac_ctx.cell_index;
-    // out->ue_index = ctx->du_ue_index;
-    // out->crnti = (uint32_t) mac_ctx.crnti;
-    // out->type = (uint32_t) mac_ctx.type;
-
-
     int new_val = 0;
 
     // Increase BSR count
-    uint32_t ind = JBPF_PROTOHASH_LOOKUP_ELEM_32(out, stats, bsr_hash, ctx->du_ue_index, new_val);
+    uint32_t ind = JBPF_PROTOHASH_LOOKUP_ELEM_32(out, stats, bsr_hash, mac_ctx.ue_index, new_val);
     if (new_val) {
+        out->stats[ind % MAX_NUM_UE].du_ue_index = mac_ctx.ue_index;
         out->stats[ind % MAX_NUM_UE].cnt = 0;
+        out->stats[ind % MAX_NUM_UE].bytes = 0;
     }
     out->stats[ind % MAX_NUM_UE].cnt++;
-
+    for (const auto& lcg_report : mac_ctx.reported_lcgs) {
+        out->stats[ind % MAX_NUM_UE].bytes += lcg_report.nof_bytes;
+    }
+  
     *not_empty_stats = 1;
 
     return JBPF_CODELET_SUCCESS;

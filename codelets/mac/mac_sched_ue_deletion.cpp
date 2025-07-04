@@ -86,6 +86,7 @@ uint64_t jbpf_main(void* state)
 
     uint32_t ind = JBPF_PROTOHASH_LOOKUP_ELEM_32(bsr_out, stats, bsr_hash, ctx->du_ue_index, new_val);
     bsr_out->stats[ind % MAX_NUM_UE].cnt = 0;
+    bsr_out->stats[ind % MAX_NUM_UE].bytes = 0;
 
     ind = JBPF_PROTOHASH_LOOKUP_ELEM_32(crc_out, stats, crc_hash, ctx->du_ue_index, new_val);
     crc_out->stats[ind % MAX_NUM_UE].cons_min = UINT32_MAX;
