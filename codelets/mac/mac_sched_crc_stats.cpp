@@ -39,7 +39,7 @@ DEFINE_PROTOHASH_32(crc_hash, MAX_NUM_UE);
 
 
 
-#define MAX_NUM_RETX_HIST 16
+//#define MAX_NUM_RETX_HIST 16
 
 
 //#define DEBUG_PRINT
@@ -78,11 +78,17 @@ uint64_t jbpf_main(void* state)
 
     // Increase loss count
     uint32_t ind = JBPF_PROTOHASH_LOOKUP_ELEM_32(out, stats, crc_hash, ctx->du_ue_index, new_val);
-    //if (ind >= MAX_NUM_UE) return JBPF_CODELET_FAILURE;
+
+    uint16_t MAX_NUM_RETX_HIST = (sizeof(out->stats[ind % MAX_NUM_UE].retx_hist) / sizeof(out->stats[ind % MAX_NUM_UE].retx_hist[0]));
+
     if (new_val) {
         out->stats[ind % MAX_NUM_UE].cons_max = 0;
         out->stats[ind % MAX_NUM_UE].succ_tx = 0;
         out->stats[ind % MAX_NUM_UE].cnt_tx = 0;
+        for (int i = 0; i < MAX_NUM_RETX_HIST; ++i) {
+            out->stats[ind % MAX_NUM_UE].retx_hist[i] = 0;
+        }
+        out->stats[ind % MAX_NUM_UE].harq_failure = 0;
         out->stats[ind % MAX_NUM_UE].min_sinr = UINT32_MAX;
         out->stats[ind % MAX_NUM_UE].min_rsrp = UINT32_MAX;
         out->stats[ind % MAX_NUM_UE].max_sinr = 0;
@@ -92,6 +98,7 @@ uint64_t jbpf_main(void* state)
         out->stats[ind % MAX_NUM_UE].cnt_sinr = 0;
         out->stats[ind % MAX_NUM_UE].cnt_rsrp = 0;
     }
+
 
 
     //////////////// Loss stats
