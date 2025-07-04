@@ -159,9 +159,25 @@ After that, the data will keep appearing almost instantaneously.
 You can also explore data using KQL language through a Log option. 
 The dashboard graphs are also defined in KQL. You can further modify each graph by editing its KQL query. 
 
-A part of a sample dashboard is shown in the figure below ![dashboard](./dashboard1.png).
-The Traffic section info shows PDCP throughput and queue size in bytes on the downlink in PDCP. 
-The Delay section shows various delays (see [here](./srsran_hooks.md) for more info on what is measured).
+Different parts of the sample dashboard are shown below (see [here](./srsran_hooks.md) for more info on what is measured and how).
+In this example we run a 500 Mbps downlink UDP for part of the time and then we run a 100 Mbps uplink UDP for the rest of the time. 
+
+### Traffic section
+The Traffic section info shows throughputs and queue sizes in bytes on the uplink and the downlink for PDCP and RLC:
+![Traffic dashboard](./dashboard_traffic.png)
+
+### Delays section
+The Delay section shows delays in various parts of the system. It also shows details about scheduling requests:
+![Delay dashboard](./dashboard_delays.png)
+
+### Link section
+The Link section shows various L1 and L2 statistics:
+![Link dashboard](./dashboard_link.png)
+
+### Others section
+The Link section shows miscellaneous statistics, such as the number of RRC signalling messages and the codelet runtimes:
+![Other dashboard](./dashboard_other.png)
+
 
 The UEs are indexed by IMSIs (if available) or TIMSIs. If none is present, data is not displayed. 
 The dashboard jrtc [app](../jrtc_apps/dashboard/dashboard.py) collects data from various codelets and creates mapping between various identifiers (e.g. RNTI, UE ID, TMSI, etc).
