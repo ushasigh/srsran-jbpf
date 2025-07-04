@@ -11,7 +11,7 @@ codelet_descriptor:
     priority: 1
     out_io_channel:
       - name: rrc_ue_add_output_map
-        forward_destination: DestinationUDP
+        forward_destination: DestinationNone
         serde:
           file_path: ${JBPF_CODELETS}/rrc/rrc_ue_add:rrc_ue_add_serializer.so
           protobuf:
@@ -24,7 +24,7 @@ codelet_descriptor:
     priority: 1
     out_io_channel:
       - name: rrc_ue_procedure_output_map
-        forward_destination: DestinationUDP
+        forward_destination: DestinationNone
         serde:
           file_path: ${JBPF_CODELETS}/rrc/rrc_ue_procedure:rrc_ue_procedure_serializer.so
           protobuf:
@@ -37,7 +37,7 @@ codelet_descriptor:
     priority: 1
     out_io_channel:
       - name: rrc_ue_remove_output_map
-        forward_destination: DestinationUDP
+        forward_destination: DestinationNone
         serde:
           file_path: ${JBPF_CODELETS}/rrc/rrc_ue_remove:rrc_ue_remove_serializer.so
           protobuf:
@@ -50,7 +50,7 @@ codelet_descriptor:
     priority: 1
     out_io_channel:
       - name: rrc_ue_update_context_output_map
-        forward_destination: DestinationUDP
+        forward_destination: DestinationNone
         serde:
           file_path: ${JBPF_CODELETS}/rrc/rrc_ue_update_context:rrc_ue_update_context_serializer.so
           protobuf:
@@ -63,7 +63,7 @@ codelet_descriptor:
     priority: 1
     out_io_channel:
       - name: rrc_ue_update_id_output_map
-        forward_destination: DestinationUDP
+        forward_destination: DestinationNone
         serde:
           file_path: ${JBPF_CODELETS}/rrc/rrc_ue_update_id:rrc_ue_update_id_serializer.so
           protobuf:

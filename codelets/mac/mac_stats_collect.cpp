@@ -8,6 +8,7 @@
 #include "mac_sched_crc_stats.pb.h"
 #include "mac_sched_bsr_stats.pb.h"
 #include "mac_sched_phr_stats.pb.h"
+#include "mac_sched_uci_stats.pb.h"
 
 
 #include "jbpf_defs.h"
@@ -108,6 +109,33 @@ struct jbpf_load_map_def SEC("maps") stats_map_phr = {
 DEFINE_PROTOHASH_64(phr_hash, MAX_NUM_UE_CELL);
 
 
+//// UCI
+
+jbpf_ringbuf_map(output_map_uci, uci_stats, 1000);
+
+struct jbpf_load_map_def SEC("maps") last_time_uci = {
+    .type = JBPF_MAP_TYPE_ARRAY,
+    .key_size = sizeof(int),
+    .value_size = sizeof(uint64_t),
+    .max_entries = 1,
+};
+
+// We store stats in this (single entry) map across runs
+struct jbpf_load_map_def SEC("maps") stats_map_uci = {
+    .type = JBPF_MAP_TYPE_ARRAY,
+    .key_size = sizeof(int),
+    .value_size = sizeof(uci_stats),
+    .max_entries = 1,
+};
+
+DEFINE_PROTOHASH_32(uci_hash, MAX_NUM_UE);
+
+struct jbpf_load_map_def SEC("maps") uci_not_empty = {
+    .type = JBPF_MAP_TYPE_ARRAY,
+    .key_size = sizeof(int),
+    .value_size = sizeof(uint32_t),
+    .max_entries = 1,
+};
 
 
 //#define DEBUG_PRINT 1
@@ -167,7 +195,6 @@ uint64_t jbpf_main(void *state)
         if (ret < 0) {
             return JBPF_CODELET_FAILURE;
         }
-
     }
 
 
@@ -261,6 +288,49 @@ uint64_t jbpf_main(void *state)
 
     }
 
+
+    ////////////////////////////////////////////////////////////////////////////////
+    ///// UCI stats
+
+    uint32_t *not_empty_uci_stats = (uint32_t*)jbpf_map_lookup_elem(&uci_not_empty, &zero_index);
+    if (!not_empty_uci_stats)
+        return JBPF_CODELET_FAILURE;
+
+    // Get stats map buffer to save output across invocations
+    c = jbpf_map_lookup_elem(&stats_map_uci, &zero_index);
+    if (!c)
+        return JBPF_CODELET_FAILURE;
+    uci_stats *out_uci = (uci_stats *)c;
+
+    uint64_t *last_timestamp_uci = (uint64_t*)jbpf_map_lookup_elem(&last_time_uci, &zero_index);
+    if (!last_timestamp_uci)
+        return JBPF_CODELET_FAILURE;
+
+        
+    if (*not_empty_uci_stats && *last_timestamp_uci < timestamp32)
+    {
+        out_uci->timestamp = timestamp;
+
+#ifdef DEBUG_PRINT
+        jbpf_printf_debug("CRC OUTPUT: %lu\n", out_uci->timestamp);
+#endif
+
+        int ret = jbpf_ringbuf_output(&output_map_uci, (void *) out_uci, sizeof(uci_stats));
+
+        JBPF_HASHMAP_CLEAR(&uci_hash);
+        
+        // Reset the info
+        // NOTE: this is not thread safe, but we don't care here
+        // The worst case we can overwrite someone else writing
+        jbpf_map_clear(&stats_map_uci);
+
+        *not_empty_uci_stats = 0;
+        *last_timestamp_uci = timestamp32;
+
+        if (ret < 0) {
+            return JBPF_CODELET_FAILURE;
+        }
+    }    
 
     return JBPF_CODELET_SUCCESS;
 }

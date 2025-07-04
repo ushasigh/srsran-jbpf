@@ -4,7 +4,7 @@
 syntax = "proto2";
 
 
-message t_stats {
+message t_crc_stats {
    required uint32 du_ue_index = 1;
    required uint32 cons_min = 2;
    required uint32 cons_max = 3;
@@ -22,7 +22,7 @@ message t_stats {
 
 message crc_stats {
    required uint64 timestamp = 1;
-   repeated t_stats stats = 2;
+   repeated t_crc_stats stats = 2;
 }
 
 

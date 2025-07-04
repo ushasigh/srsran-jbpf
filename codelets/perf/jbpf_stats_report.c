@@ -23,6 +23,8 @@ struct jbpf_load_map_def SEC("maps") stats_tmp = {
     .max_entries = 1,
 };
 
+// #define BIN_TO_APPROX_VAL(j) ((1ULL << (j))                      // lower bound
+#define BIN_TO_APPROX_VAL(j) ((1ULL << (j)) + (1ULL << (j)) / 2) // midpoint approximation
 
 //#define DEBUG_PRINT 1
 
@@ -89,11 +91,44 @@ jbpf_main(void* state)
             memcpy(
                 out_hook_list->hook_perf[out_hook_list->hook_perf_count & 31].hist,
                 hook_list->perf_data[i & 63].hist,
-                NUM_HIST_BINS * sizeof(uint64_t));
+                NUM_HIST_BINS * sizeof(uint32_t));
             memcpy(
                 out_hook_list->hook_perf[out_hook_list->hook_perf_count & 31].hook_name,
                 hook_list->perf_data[i & 63].hook_name,
                 32);
+
+            // calculate percentiles
+            uint64_t total_count = 0;
+            for (int j = 0; j < NUM_HIST_BINS; j++)
+            {
+                total_count += out_hook_list->hook_perf[out_hook_list->hook_perf_count & 31].hist[j];
+            }
+            out_hook_list->hook_perf[out_hook_list->hook_perf_count & 31].p50 = 0;
+            out_hook_list->hook_perf[out_hook_list->hook_perf_count & 31].p90 = 0;
+            out_hook_list->hook_perf[out_hook_list->hook_perf_count & 31].p95 = 0;
+            out_hook_list->hook_perf[out_hook_list->hook_perf_count & 31].p99 = 0;
+
+            if (total_count > 0) {
+                uint64_t count = 0;
+                for (int j = 0; j < NUM_HIST_BINS; j++)
+                {
+                    count += out_hook_list->hook_perf[out_hook_list->hook_perf_count & 31
+                        ].hist[j];
+                    if (count * 100 >= total_count * 50 && out_hook_list->hook_perf[out_hook_list->hook_perf_count & 31].p50 == 0) {
+                        out_hook_list->hook_perf[out_hook_list->hook_perf_count & 31].p50 = BIN_TO_APPROX_VAL(j);
+                    }
+                    if (count * 100 >= total_count * 90 && out_hook_list->hook_perf[out_hook_list->hook_perf_count & 31].p90 == 0) {
+                        out_hook_list->hook_perf[out_hook_list->hook_perf_count & 31].p90 = BIN_TO_APPROX_VAL(j);
+                    }
+                    if (count * 100 >= total_count * 95 && out_hook_list->hook_perf[out_hook_list->hook_perf_count & 31].p95 == 0) {
+                        out_hook_list->hook_perf[out_hook_list->hook_perf_count & 31].p95 = BIN_TO_APPROX_VAL(j);
+                    }
+                    if (count * 100 >= total_count * 99 && out_hook_list->hook_perf[out_hook_list->hook_perf_count & 31].p99 == 0) {
+                        out_hook_list->hook_perf[out_hook_list->hook_perf_count & 31].p99 = BIN_TO_APPROX_VAL(j);
+                    }
+                }
+            }
+
             out_hook_list->hook_perf_count++;
             total++;
         }

@@ -16,7 +16,7 @@ codelet_descriptor:
     priority: 1
     out_io_channel:
       - name: output_map
-        forward_destination: DestinationUDP
+        forward_destination: DestinationNone
         serde:
           file_path: ${JBPF_CODELETS}/fapi_ul_crc/fapi_gnb_crc_stats:crc_stats_serializer.so
           protobuf:

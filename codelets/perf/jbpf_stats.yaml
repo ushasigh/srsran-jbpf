@@ -10,7 +10,7 @@ codelet_descriptor:
     priority: 2
     out_io_channel:
       - name: output_map
-        forward_destination: DestinationUDP
+        forward_destination: DestinationNone
         serde:
           file_path: ${JBPF_CODELETS}/perf/jbpf_stats_report:jbpf_out_perf_list_serializer.so
           protobuf:

@@ -10,22 +10,15 @@ codelet_descriptor:
     hook_name: report_stats
     priority: 1
     out_io_channel:
-      - name: output_map_dl_north
-        forward_destination: DestinationUDP
+      - name: output_map_dl
+        forward_destination: DestinationNone
         serde:
-          file_path: ${JBPF_CODELETS}/rlc/rlc_dl_north_stats:rlc_dl_north_stats_serializer.so
+          file_path: ${JBPF_CODELETS}/rlc/rlc_dl_stats:rlc_dl_stats_serializer.so
           protobuf:
-            package_path: ${JBPF_CODELETS}/rlc/rlc_dl_north_stats.pb
-            msg_name: rlc_dl_north_stats
-      - name: output_map_dl_south
-        forward_destination: DestinationUDP
-        serde:
-          file_path: ${JBPF_CODELETS}/rlc/rlc_dl_south_stats:rlc_dl_south_stats_serializer.so
-          protobuf:
-            package_path: ${JBPF_CODELETS}/rlc/rlc_dl_south_stats.pb
-            msg_name: rlc_dl_south_stats
+            package_path: ${JBPF_CODELETS}/rlc/rlc_dl_stats.pb
+            msg_name: rlc_dl_stats
       - name: output_map_ul
-        forward_destination: DestinationUDP
+        forward_destination: DestinationNone
         serde:
           file_path: ${JBPF_CODELETS}/rlc/rlc_ul_stats:rlc_ul_stats_serializer.so
           protobuf:
@@ -37,33 +30,72 @@ codelet_descriptor:
     hook_name: rlc_dl_new_sdu
     priority: 1
     linked_maps:
-      - map_name: stats_map_dl_north
+      - map_name: stats_map_dl
         linked_codelet_name: rlc_collect
-        linked_map_name: stats_map_dl_north
-      - map_name: dl_north_not_empty
+        linked_map_name: stats_map_dl
+      - map_name: dl_not_empty
         linked_codelet_name: rlc_collect
-        linked_map_name: dl_north_not_empty
-      - map_name: dl_north_hash
+        linked_map_name: dl_not_empty
+      - map_name: dl_hash
         linked_codelet_name: rlc_collect
-        linked_map_name: dl_north_hash
+        linked_map_name: dl_hash
+
+  - codelet_name: rlc_dl_tx_sdu_started
+    codelet_path: ${JBPF_CODELETS}/rlc/rlc_dl_tx_sdu_started.o
+    hook_name: rlc_dl_sdu_send_started
+    priority: 1
+    linked_maps:
+      - map_name: stats_map_dl
+        linked_codelet_name: rlc_collect
+        linked_map_name: stats_map_dl
+      - map_name: dl_not_empty
+        linked_codelet_name: rlc_collect
+        linked_map_name: dl_not_empty
+      - map_name: dl_hash
+        linked_codelet_name: rlc_collect
+        linked_map_name: dl_hash
+
+  - codelet_name: rlc_dl_tx_sdu_completed
+    codelet_path: ${JBPF_CODELETS}/rlc/rlc_dl_tx_sdu_completed.o
+    hook_name: rlc_dl_sdu_send_completed
+    priority: 1
+    linked_maps:
+      - map_name: stats_map_dl
+        linked_codelet_name: rlc_collect
+        linked_map_name: stats_map_dl
+      - map_name: dl_not_empty
+        linked_codelet_name: rlc_collect
+        linked_map_name: dl_not_empty
+      - map_name: dl_hash
+        linked_codelet_name: rlc_collect
+        linked_map_name: dl_hash
+
+  - codelet_name: rlc_dl_tx_sdu_delivered
+    codelet_path: ${JBPF_CODELETS}/rlc/rlc_dl_tx_sdu_delivered.o
+    hook_name: rlc_dl_sdu_delivered
+    priority: 1
+    linked_maps:
+      - map_name: stats_map_dl
+        linked_codelet_name: rlc_collect
+        linked_map_name: stats_map_dl
+      - map_name: dl_not_empty
+        linked_codelet_name: rlc_collect
+        linked_map_name: dl_not_empty
+      - map_name: dl_hash
+        linked_codelet_name: rlc_collect
+        linked_map_name: dl_hash
 
   - codelet_name: rlc_dl_deletion
     codelet_path: ${JBPF_CODELETS}/rlc/rlc_dl_deletion.o
     hook_name: rlc_dl_deletion
     priority: 1
     linked_maps:
-      - map_name: stats_map_dl_north
+      - map_name: stats_map_dl
         linked_codelet_name: rlc_collect
-        linked_map_name: stats_map_dl_north
-      - map_name: dl_north_hash
+        linked_map_name: stats_map_dl
+      - map_name: dl_hash
         linked_codelet_name: rlc_collect
-        linked_map_name: dl_north_hash
-      - map_name: stats_map_dl_south
-        linked_codelet_name: rlc_collect
-        linked_map_name: stats_map_dl_south
-      - map_name: dl_south_hash
-        linked_codelet_name: rlc_collect
-        linked_map_name: dl_south_hash
+        linked_map_name: dl_hash
 
   - codelet_name: rlc_ul_deletion
     codelet_path: ${JBPF_CODELETS}/rlc/rlc_ul_deletion.o
@@ -82,35 +114,30 @@ codelet_descriptor:
     hook_name: rlc_dl_tx_pdu
     priority: 1
     linked_maps:
-      - map_name: stats_map_dl_south
+      - map_name: stats_map_dl
         linked_codelet_name: rlc_collect
-        linked_map_name: stats_map_dl_south
-      - map_name: dl_south_not_empty
+        linked_map_name: stats_map_dl
+      - map_name: dl_not_empty
         linked_codelet_name: rlc_collect
-        linked_map_name: dl_south_not_empty
-      - map_name: dl_south_hash
+        linked_map_name: dl_not_empty
+      - map_name: dl_hash
         linked_codelet_name: rlc_collect
-        linked_map_name: dl_south_hash
+        linked_map_name: dl_hash
 
   - codelet_name: rlc_dl_am_tx_pdu_retx_count
     codelet_path: ${JBPF_CODELETS}/rlc/rlc_dl_am_tx_pdu_retx_count.o
     hook_name: rlc_dl_am_tx_pdu_retx_count
     priority: 1
     linked_maps:
-      - map_name: stats_map_dl_south
+      - map_name: stats_map_dl
         linked_codelet_name: rlc_collect
-        linked_map_name: stats_map_dl_south
-      - map_name: dl_south_not_empty
+        linked_map_name: stats_map_dl
+      - map_name: dl_not_empty
         linked_codelet_name: rlc_collect
-        linked_map_name: dl_south_not_empty
-      - map_name: dl_south_hash
+        linked_map_name: dl_not_empty
+      - map_name: dl_hash
         linked_codelet_name: rlc_collect
-        linked_map_name: dl_south_hash
-
-  - codelet_name: rlc_dl_am_tx_pdu_max_retx_count_reached
-    codelet_path: ${JBPF_CODELETS}/rlc/rlc_dl_am_tx_pdu_retx_max_reached.o
-    hook_name: rlc_dl_am_tx_pdu_max_retx_count_reached
-    priority: 1
+        linked_map_name: dl_hash
 
   - codelet_name: rlc_ul_rx_pdu
     codelet_path: ${JBPF_CODELETS}/rlc/rlc_ul_rx_pdu.o

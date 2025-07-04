@@ -240,10 +240,10 @@ uint64_t jbpf_main(void *state)
             return JBPF_CODELET_FAILURE;
         }
 
-        if (ctx->direction == XRAN_DIRECTION_UPLINK) { 
+        if (ctx->direction == JBPF_UL) { 
             data_item = &out->ul_packet_stats.data_packet_stats;
             last_timestamp_index = LAST_TS_UL_UPLANE;
-        } else if (ctx->direction == XRAN_DIRECTION_DOWNLINK) {
+        } else if (ctx->direction == JBPF_DL) {
             data_item = &out->dl_packet_stats.data_packet_stats;
             last_timestamp_index = LAST_TS_DL_UPLANE;
         } else {
@@ -266,7 +266,7 @@ uint64_t jbpf_main(void *state)
         // process c plane message
 
         // we only expect CONTROL in dl
-        if (ctx->direction != XRAN_DIRECTION_DOWNLINK) {
+        if (ctx->direction != JBPF_DL) {
             return JBPF_CODELET_FAILURE;
         }
 

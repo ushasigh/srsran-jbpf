@@ -57,10 +57,12 @@
   ind & (sizeof(out->hist) / sizeof(out->hist[0]) - 1) ; \
 })
 
+#define JBPF_PROTOHASH_COMPOUND_KEY_64(key1, key2) ((((uint64_t)(key2)) << 31) << 1 | (uint64_t)(key1))
+
 #define JBPF_PROTOHASH_LOOKUP_ELEM_64(out, hist, hashmap, key1, key2, is_new) ({\
   _Static_assert(IS_POWER_OF_2(sizeof(out->hist) / sizeof(out->hist[0])), "histogram length has to be power of 2"); \
   _Static_assert(sizeof(__##hashmap##_type) == 8, "This hashmap should have 64-bit keys"); \
-  uint64_t compound_key = ((uint64_t)key2 << 31) << 1 | (uint64_t)key1; \
+  uint64_t compound_key = JBPF_PROTOHASH_COMPOUND_KEY_64(key1, key2); \
   uint32_t *pind = (uint32_t *)jbpf_map_lookup_elem(&hashmap, &compound_key); \
   uint32_t ind; \
   if (!pind) { \
@@ -83,7 +85,7 @@
 #define JBPF_PROTOHASH_REMOVE_ELEM_64(out, hist, hashmap, key1, key2) ({\
   _Static_assert(IS_POWER_OF_2(sizeof(out->hist) / sizeof(out->hist[0])), "histogram length has to be power of 2"); \
   _Static_assert(sizeof(__##hashmap##_type) == 8, "This hashmap should have 64-bit keys"); \
-  uint64_t compound_key = ((uint64_t)key2 << 31) << 1 | (uint64_t)key1; \
+  uint64_t compound_key = JBPF_PROTOHASH_COMPOUND_KEY_64(key1, key2); \
   int ret = jbpf_map_delete_elem(&hashmap, &compound_key); \
   if (ret == JBPF_MAP_ERROR) return JBPF_MAP_UPDATE_ERROR; \
   ret; \

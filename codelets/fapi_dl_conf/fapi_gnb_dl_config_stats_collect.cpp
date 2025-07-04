@@ -121,6 +121,8 @@ uint64_t jbpf_main(void *state)
                 out->stats[ind].l1_mcs_min = __UINT32_MAX__;
             }
 
+            out->stats[ind].l1_cnt++;
+
             // get pertinent values
             uint16_t rb_size = msg.pdus[pdu].pdsch_pdu.rb_size;
             uint16_t mcs = 0;
@@ -151,6 +153,7 @@ uint64_t jbpf_main(void *state)
             prb = prb & (sizeof(out->stats[ind].l1_dlc_prb_hist) / sizeof(out->stats[ind].l1_dlc_prb_hist[0]) - 1);
             out->stats[ind].l1_dlc_prb_hist_count = MAX(out->stats[ind].l1_dlc_prb_hist_count, prb+1);
             out->stats[ind].l1_dlc_prb_hist[prb]++;
+            out->stats[ind].l1_prb_avg += rb_size;
 #ifdef DEBUG_PRINT
             jbpf_printf_debug("Hist PRB: rnti=%d PRB=%d (%d)\n", rnti, rb_size, prb);
 #endif
@@ -174,6 +177,7 @@ uint64_t jbpf_main(void *state)
             mcs = mcs & (sizeof(out->stats[ind].l1_dlc_mcs_hist) / sizeof(out->stats[ind].l1_dlc_mcs_hist[0]) - 1);
             out->stats[ind].l1_dlc_mcs_hist_count = MAX(out->stats[ind].l1_dlc_mcs_hist_count, mcs+1);
             out->stats[ind].l1_dlc_mcs_hist[mcs]++;
+            out->stats[ind].l1_mcs_avg += orig_mcs;
 #ifdef DEBUG_PRINT
             // We can print only 3 here
             jbpf_printf_debug("Hist MCS: rnti=%d MCS=%d (%d)\n", rnti, orig_mcs, mcs);
@@ -202,6 +206,7 @@ uint64_t jbpf_main(void *state)
             tbs = tbs & (sizeof(out->stats[ind].l1_dlc_tbs_hist) / sizeof(out->stats[ind].l1_dlc_tbs_hist[0]) - 1);
             out->stats[ind].l1_dlc_tbs_hist_count = MAX(out->stats[ind].l1_dlc_tbs_hist_count, tbs+1);
             out->stats[ind].l1_dlc_tbs_hist[tbs]++;
+            out->stats[ind].l1_tbs_avg += orig_tbs;
 #ifdef DEBUG_PRINT
             jbpf_printf_debug("Hist TBS: rnti=%d TBS=%d (%d)\n", rnti, orig_tbs, tbs);
 #endif
@@ -224,6 +229,7 @@ uint64_t jbpf_main(void *state)
             ant = ant & (sizeof(out->stats[ind].l1_dlc_ant_hist) / sizeof(out->stats[ind].l1_dlc_ant_hist[0]) - 1);
             out->stats[ind].l1_dlc_ant_hist_count = MAX(out->stats[ind].l1_dlc_ant_hist_count, ant+1);
             out->stats[ind].l1_dlc_ant_hist[ant]++;
+            out->stats[ind].l1_ant_avg += ant;
 #ifdef DEBUG_PRINT
             // We can print only 3 here
             jbpf_printf_debug("Hist ANT: rnti=%d ANT=%d (%d)\n", rnti, msg.pdus[pdu].pdsch_pdu.num_layers, ant);

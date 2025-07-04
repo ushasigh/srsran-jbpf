@@ -62,14 +62,24 @@
 # PDCP hooks are invoked in both CU-CP (for SRBs) and CU-UP (for DRBs), and share a unified 
 # context structure:
 #
-#     struct jbpf_pdcp_ctx_info {
-#         uint16_t ctx_id;       # Context ID (implementation specific)
-#         uint32_t cu_index;  # SRB: cu_cp_index, DRB: cu_up_index
-#         uint8_t  is_srb;       # true = SRB, false = DRB
-#         uint8_t  rb_id;        # SRB: 0=srb0, 1=srb1, 2=srb2
-#                                # DRB: 1=drb1, 2=drb2, 3=drb3, etc.
-#         uint8_t  rlc_mode;     # 0 = UM, 1 = AM
-#     }
+    # typedef struct {
+    #     uint8_t used;      /* Is the window used, 0 = not-used, 1 = used */
+    #     uint32_t pkts;     /* Total packets */
+    #     uint32_t bytes;    /* Total bytes*/
+    # } jbpf_queue_info_t;
+
+    # struct jbpf_pdcp_ctx_info {
+    #     uint16_t ctx_id;   /* Context id (could be implementation specific) */
+    #     uint32_t cu_ue_index;   /* if is_srb=True is cu_cp_ue_index, if is_srb=False is cu_up_ue_index */
+    #     uint8_t is_srb; /* true=srb, false=drb */
+    #     uint8_t rb_id;   /* if is_srb=True:    0=srb0, 1=srb1, 2=srb2,
+    #                         if is_srb=False:   1=drb1, 2=drb2, 3-drb3 ... */
+    #     uint8_t rlc_mode;  /* 0=UM, 1=AM*/
+
+    #     // window details
+    #     jbpf_queue_info_t window_info;  /* Window info */
+    # };  
+#     
 #
 # Notes:
 #     - In CU-CP, hooks are called for SRBs. Thus, `cu_index` refers to `cu_cp_index`.
@@ -122,14 +132,25 @@ class JbpfNgapProcedure(IntEnum):
     NGAP_PROCEDURE_RESOURCE_ALLOCATION = 6
     NGAP_PROCEDURE_MAX = 7
 
+def ngap_procedure_to_str(proc: int) -> str:
+    try:
+        return JbpfNgapProcedure(proc).name
+    except ValueError:
+        return "UNKNOWN"
+
 
 ##########################################
 class JbpRrcProcedure(IntEnum):
     RRC_PROCEDURE_SETUP = 1
-    RRC_PROCEDURE_RECONFIGURATION = 1
-    RRC_PROCEDURE_REESTABLISHMENT = 1
-    RRC_PROCEDURE_UE_CAPABILITY = 1
+    RRC_PROCEDURE_RECONFIGURATION = 2
+    RRC_PROCEDURE_REESTABLISHMENT = 3
+    RRC_PROCEDURE_UE_CAPABILITY = 4
     
+def rrc_procedure_to_str(proc: int) -> str:
+    try:
+        return JbpRrcProcedure(proc).name
+    except ValueError:
+        return "UNKNOWN"
 
 ##########################################
 @dataclass(frozen=True)

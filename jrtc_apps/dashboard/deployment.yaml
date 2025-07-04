@@ -4,18 +4,14 @@
 # Licensed under the MIT license.
 
 name: dashboard
-    
-decoder:
-  - type: decodergrpc
-    port: 30501
-    #port: 20789
-      
+
 app:
   - name: dashboard
     path: ${JRTC_APPS}/dashboard/dashboard.py
     type: python
     port: 30500
     modules:
+      - ${JRTC_APPS}/dashboard/dashboard_params.py
       - ${JRTC_APPS}/libs/logger.py
       - ${JRTC_APPS}/libs/la_logger.py
       - ${JRTC_APPS}/libs/ue_contexts_map.py
@@ -24,13 +20,12 @@ app:
       - ${JBPF_CODELETS}/mac/mac_sched_bsr_stats.py
       - ${JBPF_CODELETS}/mac/mac_sched_crc_stats.py
       - ${JBPF_CODELETS}/mac/mac_sched_phr_stats.py
+      - ${JBPF_CODELETS}/mac/mac_sched_uci_stats.py
 
-      - ${JBPF_CODELETS}/rlc/rlc_dl_north_stats.py
-      - ${JBPF_CODELETS}/rlc/rlc_dl_south_stats.py
+      - ${JBPF_CODELETS}/rlc/rlc_dl_stats.py
       - ${JBPF_CODELETS}/rlc/rlc_ul_stats.py
 
-      - ${JBPF_CODELETS}/pdcp/pdcp_dl_north_stats.py
-      - ${JBPF_CODELETS}/pdcp/pdcp_dl_south_stats.py
+      - ${JBPF_CODELETS}/pdcp/pdcp_dl_stats.py
       - ${JBPF_CODELETS}/pdcp/pdcp_ul_stats.py
 
       - ${JBPF_CODELETS}/rrc/rrc_ue_add.py

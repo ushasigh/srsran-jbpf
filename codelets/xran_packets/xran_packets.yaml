@@ -15,7 +15,7 @@ codelet_descriptor:
     priority: 2
     out_io_channel:
       - name: output_map
-        forward_destination: DestinationUDP
+        forward_destination: DestinationNone
         serde:
           file_path: ${JBPF_CODELETS}/xran_packets/xran_packet_info:packet_stats_serializer.so
           protobuf:
