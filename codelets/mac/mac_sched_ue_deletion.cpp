@@ -54,13 +54,6 @@ struct jbpf_load_map_def SEC("maps") stats_map_uci = {
     .max_entries = 1,
 };
 
-struct jbpf_load_map_def SEC("maps") stats_map_uci = {
-    .type = JBPF_MAP_TYPE_ARRAY,
-    .key_size = sizeof(int),
-    .value_size = sizeof(uci_stats),
-    .max_entries = 1,
-};
-
 struct jbpf_load_map_def SEC("maps") stats_map_dl_harq = {
     .type = JBPF_MAP_TYPE_ARRAY,
     .key_size = sizeof(int),
