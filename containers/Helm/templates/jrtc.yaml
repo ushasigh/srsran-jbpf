@@ -180,6 +180,8 @@ spec:
         tty: true
         stdin: true
         env:
+          - name: HOSTNAME
+            value: "{{ $.Values.HOSTNAME }}"
           - name: JRTC_PATH
             value: "/jrtc"
           - name: JRTC_APP_PATH

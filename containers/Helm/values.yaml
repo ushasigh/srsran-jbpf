@@ -7,6 +7,7 @@ image:
   srs_jbpf_proxy: ghcr.io/microsoft/jrtc-apps/srs-jbpf-sdk:latest
   pullPolicy: Always
 
+HOSTNAME: ""
 
 resources:
   gnb:
