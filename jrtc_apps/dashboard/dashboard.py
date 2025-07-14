@@ -18,6 +18,7 @@ if JRTC_APP_PATH is None:
 sys.path.append(f"{JRTC_APP_PATH}")
 
 from jrtc_router_stream_id import jrtc_app_router_stream_id_get_device_id
+from jrtc_wrapper_utils import get_ctx_from_capsule
 
 import jrtc_app
 from jrtc_app import *
@@ -128,6 +129,7 @@ class AppStateVars:
     logger: Logger
     ue_map: UeContextsMap
     app: JrtcApp
+    device: str
 
 
 
@@ -266,6 +268,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
             
             stream_id = data_entry.stream_id
             deviceid = jrtc_router_stream_id_get_device_id(stream_id)
+            print("Device Addr = {}, Device ID = {}".format(state.device, deviceid), flush=True)
 
             output = {}
 
@@ -1578,6 +1581,12 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
 ##########################################################################
 # Main function to start the app (converted from jrtc_start_app)
 def jrtc_start_app(capsule):
+    env_ctx = get_ctx_from_capsule(capsule)
+    if not env_ctx:
+        raise ValueError("Failed to retrieve JrtcAppEnv from capsule")
+    device_mapping = env_ctx.device_mapping
+    device = device_mapping[0].value.decode("utf-8")
+    print(f"Starting JRTC Dashboard app for device: {device}", flush=True)
 
     global UECTX_DU_ADD_SIDX
     global UECTX_DU_UPDATE_CRNTI_SIDX
@@ -1681,7 +1690,8 @@ def jrtc_start_app(capsule):
     state = AppStateVars(
         logger=Logger(hostname, stream_id, stream_type, remote_logger=la_logger),
         ue_map=UeContextsMap(dbg=False) if params.include_ue_contexts else None, 
-        app=None)
+        app=None,
+        device=device)
 
     # if LA is configured and intitialised, send to LA, and not write to console.
     # else, write to console
