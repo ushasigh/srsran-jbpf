@@ -189,7 +189,7 @@ class JsonUDPServer:
 
         global rlog_enabled
         global log_enabled
-    
+
         with app_lock:
 
             j = json.loads(json_str)
