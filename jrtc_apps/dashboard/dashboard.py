@@ -1689,7 +1689,7 @@ def jrtc_start_app(capsule):
 
     # Initialize the app
     state = AppStateVars(
-        logger=Logger(hostname, stream_id, stream_type, remote_logger=la_logger),
+        logger=Logger(device, hostname, stream_id, stream_type, remote_logger=la_logger),
         ue_map=UeContextsMap(dbg=False) if params.include_ue_contexts else None, 
         app=None,
         device=device)
