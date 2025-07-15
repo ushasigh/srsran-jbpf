@@ -17,7 +17,7 @@ if JRTC_APP_PATH is None:
     raise ValueError("JRTC_APP_PATH not set")
 sys.path.append(f"{JRTC_APP_PATH}")
 
-from jrtc_router_stream_id import jrtc_app_router_stream_id_get_device_id
+from jrtc_router_stream_id import jrtc_router_stream_id_get_device_id
 from jrtc_wrapper_utils import get_ctx_from_capsule
 
 import jrtc_app
@@ -268,7 +268,8 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
             
             stream_id = data_entry.stream_id
             deviceid = jrtc_router_stream_id_get_device_id(stream_id)
-            print("Device Addr = {}, Device ID = {}".format(state.device, deviceid), flush=True)
+            hostname = os.environ.get("HOSTNAME", "")
+            print("Device Addr = {}, Device ID = {}, HostName = {}".format(state.device, deviceid, hostname), flush=True)
 
             output = {}
 
