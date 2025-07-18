@@ -269,7 +269,6 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
             stream_id = data_entry.stream_id
             deviceid = jrtc_router_stream_id_get_device_id(stream_id)
             hostname = os.environ.get("HOSTNAME", "")
-            print("Device Addr = {}, Device ID = {}, HostName = {}".format(state.device, deviceid, hostname), flush=True)
 
             output = {}
 
