@@ -1397,7 +1397,6 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     data_entry.data, ctypes.POINTER(struct__harq_stats)
                 )
                 data = data_ptr.contents
-                deviceid = str(jrtc_app_router_stream_id_get_device_id(state.app, MAC_SCHED_DL_HARQ_SIDX))
                 harq_stats = list(data.stats)
                 output = {
                     "timestamp": data.timestamp,
@@ -1470,7 +1469,6 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     data_entry.data, ctypes.POINTER(struct__harq_stats)
                 )
                 data = data_ptr.contents
-                deviceid = str(jrtc_app_router_stream_id_get_device_id(state.app, MAC_SCHED_UL_HARQ_SIDX))
                 harq_stats = list(data.stats)
                 output = {
                     "timestamp": data.timestamp,
