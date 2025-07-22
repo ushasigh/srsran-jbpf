@@ -112,7 +112,9 @@ if [ "$USE_JRTC" -eq 1 ]; then
     if [ -z "$JBPF_APPS" ]; then
         JBPF_APPS=$(realpath "${CURRENT_DIR}/../../jrtc_apps/")
     fi
-    JRTC_OPTIONS=" --set-string  jrtc_controller.apps_vol_mount=$JBPF_APPS "
+    JRTC_OPTIONS=" --set-string  jrtc_controller.apps_vol_mount=$JBPF_APPS \
+                   --set-string  HOSTNAME=$(hostname) \
+    "
     echo "App mount point: ${JBPF_APPS}"
 else
     JRTC_OPTIONS=""

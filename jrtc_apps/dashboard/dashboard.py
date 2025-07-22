@@ -17,6 +17,9 @@ if JRTC_APP_PATH is None:
     raise ValueError("JRTC_APP_PATH not set")
 sys.path.append(f"{JRTC_APP_PATH}")
 
+from jrtc_router_stream_id import jrtc_router_stream_id_get_device_id
+from jrtc_wrapper_utils import get_ctx_from_capsule
+
 import jrtc_app
 from jrtc_app import *
 
@@ -141,6 +144,7 @@ class AppStateVars:
     logger: Logger
     ue_map: UeContextsMap
     app: JrtcApp
+    device: str
 
 
 
@@ -200,7 +204,7 @@ class JsonUDPServer:
 
         global rlog_enabled
         global log_enabled
-    
+
         with app_lock:
 
             j = json.loads(json_str)
@@ -265,7 +269,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
 
     global rlog_enabled
     global log_enabled
-
+    
     with app_lock:
 
         ##########################################################################
@@ -277,6 +281,10 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
 
         else:
             
+            stream_id = data_entry.stream_id
+            deviceid = jrtc_router_stream_id_get_device_id(stream_id)
+            hostname = os.environ.get("HOSTNAME", "")
+
             output = {}
 
             # Check the stream index and process the data accordingly
@@ -289,7 +297,6 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     data_entry.data, ctypes.POINTER(struct__du_ue_ctx_creation)
                 )
                 data = data_ptr.contents
-                deviceid = str(jrtc_app_router_stream_id_get_device_id(state.app, UECTX_DU_ADD_SIDX))
                 state.ue_map.hook_du_ue_ctx_creation(deviceid,
                                 data.du_ue_index,    
                                 data.plmn,
@@ -314,7 +321,6 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     data_entry.data, ctypes.POINTER(struct__du_ue_ctx_update_crnti)
                 )
                 data = data_ptr.contents
-                deviceid = str(jrtc_app_router_stream_id_get_device_id(state.app, UECTX_DU_UPDATE_CRNTI_SIDX))
                 state.ue_map.hook_du_ue_ctx_update_crnti(deviceid, data.du_ue_index, data.crnti)
 
                 ueid = state.ue_map.getid_by_du_index(deviceid, data.du_ue_index)
@@ -338,7 +344,6 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     data_entry.data, ctypes.POINTER(struct__du_ue_ctx_deletion)
                 )
                 data = data_ptr.contents
-                deviceid = str(jrtc_app_router_stream_id_get_device_id(state.app, UECTX_DU_DEL_SIDX))
 
                 ueid = state.ue_map.getid_by_du_index(deviceid, data.du_ue_index)
                 uectx = state.ue_map.getuectx(ueid)
@@ -362,7 +367,6 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     data_entry.data, ctypes.POINTER(struct__cucp_ue_ctx_creation)
                 )
                 data = data_ptr.contents
-                deviceid = str(jrtc_app_router_stream_id_get_device_id(state.app, UECTX_CUCP_ADD_SIDX))
 
                 if data.has_pci and data.has_crnti:
                     state.ue_map.hook_cucp_uemgr_ue_add(
@@ -392,7 +396,6 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     data_entry.data, ctypes.POINTER(struct__cucp_ue_ctx_update)
                 )
                 data = data_ptr.contents
-                deviceid = str(jrtc_app_router_stream_id_get_device_id(state.app, UECTX_CUCP_UPDATE_CRNTI_SIDX))
                 state.ue_map.hook_cucp_uemgr_ue_add(
                                     deviceid,
                                     data.cucp_ue_index,    
@@ -414,7 +417,6 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     data_entry.data, ctypes.POINTER(struct__cucp_ue_ctx_deletion)
                 )
                 data = data_ptr.contents
-                deviceid = str(jrtc_app_router_stream_id_get_device_id(state.app, UECTX_CUCP_DEL_SIDX))
 
                 ueid = state.ue_map.getid_by_cucp_index(deviceid, data.cucp_ue_index)
                 uectx = state.ue_map.getuectx(ueid)
@@ -438,7 +440,6 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     data_entry.data, ctypes.POINTER(struct__e1ap_cucp_bearer_ctx_setup)
                 )
                 data = data_ptr.contents
-                deviceid = str(jrtc_app_router_stream_id_get_device_id(state.app, UECTX_CUCP_E1AP_BEARER_SETUP_SIDX))
                 state.ue_map.hook_e1_cucp_bearer_context_setup(
                                     deviceid,
                                     data.cucp_ue_index, 
@@ -464,7 +465,6 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     data_entry.data, ctypes.POINTER(struct__e1ap_cuup_bearer_ctx_setup)
                 )
                 data = data_ptr.contents
-                deviceid = str(jrtc_app_router_stream_id_get_device_id(state.app, UECTX_CUUP_E1AP_BEARER_SETUP_SIDX))
                 state.ue_map.hook_e1_cuup_bearer_context_setup(
                                     deviceid,
                                     data.cuup_ue_index,
@@ -493,7 +493,6 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     data_entry.data, ctypes.POINTER(struct__e1ap_cuup_bearer_ctx_release)
                 )
                 data = data_ptr.contents
-                deviceid = str(jrtc_app_router_stream_id_get_device_id(state.app, UECTX_CUUP_E1AP_BEARER_DEL_SIDX))
 
                 ueid = state.ue_map.getid_by_cuup_index(deviceid, data.cuup_ue_index)
                 uectx = state.ue_map.getuectx(ueid)
@@ -562,7 +561,6 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                 )
                 data = data_ptr.contents
 
-                deviceid = str(jrtc_app_router_stream_id_get_device_id(state.app, RRC_UE_ADD_SIDX))
                 ueid = state.ue_map.getid_by_cucp_index(deviceid, data.cucp_ue_index)
                 uectx = state.ue_map.getuectx(ueid)
 
@@ -584,7 +582,6 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                 )
                 data = data_ptr.contents
 
-                deviceid = str(jrtc_app_router_stream_id_get_device_id(state.app, RRC_UE_PROCEDURE_SIDX))
                 ueid = state.ue_map.getid_by_cucp_index(deviceid, data.cucp_ue_index)
                 uectx = state.ue_map.getuectx(ueid)
 
@@ -609,7 +606,6 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                 )
                 data = data_ptr.contents
 
-                deviceid = str(jrtc_app_router_stream_id_get_device_id(state.app, RRC_UE_REMOVE_SIDX))
                 ueid = state.ue_map.getid_by_cucp_index(deviceid, data.cucp_ue_index)
                 uectx = state.ue_map.getuectx(ueid)
 
@@ -631,7 +627,6 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                 )
                 data = data_ptr.contents
 
-                deviceid = str(jrtc_app_router_stream_id_get_device_id(state.app, RRC_UE_UPDATE_CONTEXT_SIDX))
                 ueid = state.ue_map.getid_by_cucp_index(deviceid, data.cucp_ue_index)
                 uectx = state.ue_map.getuectx(ueid)
 
@@ -656,7 +651,6 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                 )
                 data = data_ptr.contents
 
-                deviceid = str(jrtc_app_router_stream_id_get_device_id(state.app, RRC_UE_UPDATE_ID_SIDX))
                 state.ue_map.add_tmsi(deviceid, data.cucp_ue_index, data.tmsi)
                 ueid = state.ue_map.getid_by_cucp_index(deviceid, data.cucp_ue_index)
                 uectx = state.ue_map.getuectx(ueid)
@@ -682,8 +676,6 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     data_entry.data, ctypes.POINTER(struct__ngap_procedure_started)
                 )
                 data = data_ptr.contents
-
-                deviceid = str(jrtc_app_router_stream_id_get_device_id(state.app, NGAP_PROCEDURE_STARTED_SIDX))
                 
                 state.ue_map.hook_ngap_procedure_started(deviceid, data.ue_ctx.cucp_ue_index, 
                                                      data.procedure,
@@ -711,8 +703,6 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     data_entry.data, ctypes.POINTER(struct__ngap_procedure_completed)
                 )
                 data = data_ptr.contents
-
-                deviceid = str(jrtc_app_router_stream_id_get_device_id(state.app, NGAP_PROCEDURE_COMPLETED_SIDX))
 
 
                 # if the procedure is not a context release, run it first, so that the UE will be updated
@@ -755,8 +745,6 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                 )
                 data = data_ptr.contents
 
-                deviceid = str(jrtc_app_router_stream_id_get_device_id(state.app, NGAP_RESET_SIDX))
-             
                 output = {
                     "timestamp": data.timestamp,
                     "stream_index": "NGAP_RESET",
@@ -786,7 +774,6 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     data_entry.data, ctypes.POINTER(struct__rlc_dl_stats)
                 )
                 data = data_ptr.contents
-                deviceid = str(jrtc_app_router_stream_id_get_device_id(state.app, RLC_DL_STATS_SIDX))
                 dl_stats = list(data.stats)
                 output = {
                     "timestamp": data.timestamp,
@@ -940,7 +927,6 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     data_entry.data, ctypes.POINTER(struct__rlc_ul_stats)
                 )
                 data = data_ptr.contents
-                deviceid = str(jrtc_app_router_stream_id_get_device_id(state.app, RLC_UL_STATS_SIDX))
                 ul_stats = list(data.stats)
                 output = {
                     "timestamp": data.timestamp,
@@ -1029,7 +1015,6 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     data_entry.data, ctypes.POINTER(struct__dl_stats)
                 )
                 data = data_ptr.contents
-                deviceid = str(jrtc_app_router_stream_id_get_device_id(state.app, PDCP_DL_STATS_SIDX))
                 dl_stats = list(data.stats)
                 output = {
                     "timestamp": data.timestamp,
@@ -1139,7 +1124,6 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     data_entry.data, ctypes.POINTER(struct__ul_stats)
                 )
                 data = data_ptr.contents
-                deviceid = str(jrtc_app_router_stream_id_get_device_id(state.app, PDCP_UL_STATS_SIDX))
                 ul_stats = list(data.stats)
                 output = {
                     "timestamp": data.timestamp,
@@ -1231,7 +1215,6 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     data_entry.data, ctypes.POINTER(struct__crc_stats)
                 )
                 data = data_ptr.contents
-                deviceid = str(jrtc_app_router_stream_id_get_device_id(state.app, MAC_SCHED_CRC_STATS_SIDX))
                 crc_stats = list(data.stats)
                 output = {
                     "timestamp": data.timestamp,
@@ -1273,7 +1256,6 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     data_entry.data, ctypes.POINTER(struct__bsr_stats)
                 )
                 data = data_ptr.contents
-                deviceid = str(jrtc_app_router_stream_id_get_device_id(state.app, MAC_SCHED_BSR_STATS_SIDX))
                 bsr_stats = list(data.stats)
                 output = {
                     "timestamp": data.timestamp,
@@ -1307,7 +1289,6 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     data_entry.data, ctypes.POINTER(struct__phr_stats)
                 )
                 data = data_ptr.contents
-                deviceid = str(jrtc_app_router_stream_id_get_device_id(state.app, MAC_SCHED_PHR_STATS_SIDX))
                 phr_stats = list(data.stats)
                 output = {
                     "timestamp": data.timestamp,
@@ -1346,7 +1327,6 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     data_entry.data, ctypes.POINTER(struct__uci_stats)
                 )
                 data = data_ptr.contents
-                deviceid = str(jrtc_app_router_stream_id_get_device_id(state.app, MAC_SCHED_UCI_STATS_SIDX))
                 uci_stats = list(data.stats)
                 output = {
                     "timestamp": data.timestamp,
@@ -1763,6 +1743,12 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
 ##########################################################################
 # Main function to start the app (converted from jrtc_start_app)
 def jrtc_start_app(capsule):
+    env_ctx = get_ctx_from_capsule(capsule)
+    if not env_ctx:
+        raise ValueError("Failed to retrieve JrtcAppEnv from capsule")
+    device_mapping = env_ctx.device_mapping
+    device = device_mapping[0].value.decode("utf-8")
+    print(f"Starting JRTC Dashboard app for device: {device}", flush=True)
 
     global UECTX_DU_ADD_SIDX
     global UECTX_DU_UPDATE_CRNTI_SIDX
@@ -1864,14 +1850,14 @@ def jrtc_start_app(capsule):
     stream_id = "dashboard"
     stream_type = "dashboard"
 
-    # TODO: pass hostname into JRTC pod
-    hostname = ""
+    hostname = os.environ.get("HOSTNAME", "")
 
     # Initialize the app
     state = AppStateVars(
-        logger=Logger(hostname, stream_id, stream_type, remote_logger=la_logger),
+        logger=Logger(device, hostname, stream_id, stream_type, remote_logger=la_logger),
         ue_map=UeContextsMap(dbg=False) if params.include_ue_contexts else None, 
-        app=None)
+        app=None,
+        device=device)
 
     # if LA is configured and intitialised, send to LA, and not write to console.
     # else, write to console
