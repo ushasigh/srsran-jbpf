@@ -38,6 +38,12 @@ codelet_descriptor:
           protobuf:
             package_path: ${JBPF_CODELETS}/mac/mac_sched_uci_stats.pb
             msg_name: uci_stats
+
+  - codelet_name: mac_stats_collect_harq
+    codelet_path: ${JBPF_CODELETS}/mac/mac_stats_collect_harq.o
+    hook_name: report_stats
+    priority: 1
+    out_io_channel:
       - name: output_map_dl_harq
         forward_destination: DestinationNone
         serde:
@@ -52,7 +58,6 @@ codelet_descriptor:
           protobuf:
             package_path: ${JBPF_CODELETS}/mac/mac_sched_harq_stats.pb
             msg_name: harq_stats
-
 
 
 
@@ -122,13 +127,13 @@ codelet_descriptor:
     priority: 1
     linked_maps:    
       - map_name: stats_map_dl_harq
-        linked_codelet_name: mac_stats_collect
+        linked_codelet_name: mac_stats_collect_harq
         linked_map_name: stats_map_dl_harq
       - map_name: dl_harq_hash
-        linked_codelet_name: mac_stats_collect
+        linked_codelet_name: mac_stats_collect_harq
         linked_map_name: dl_harq_hash
       - map_name: dl_harq_not_empty
-        linked_codelet_name: mac_stats_collect
+        linked_codelet_name: mac_stats_collect_harq
         linked_map_name: dl_harq_not_empty
 
 
@@ -138,13 +143,13 @@ codelet_descriptor:
     priority: 1
     linked_maps:    
       - map_name: stats_map_ul_harq
-        linked_codelet_name: mac_stats_collect
+        linked_codelet_name: mac_stats_collect_harq
         linked_map_name: stats_map_ul_harq
       - map_name: ul_harq_hash
-        linked_codelet_name: mac_stats_collect
+        linked_codelet_name: mac_stats_collect_harq
         linked_map_name: ul_harq_hash
       - map_name: ul_harq_not_empty
-        linked_codelet_name: mac_stats_collect
+        linked_codelet_name: mac_stats_collect_harq
         linked_map_name: ul_harq_not_empty
 
 
@@ -177,15 +182,15 @@ codelet_descriptor:
         linked_map_name: uci_hash
 
       - map_name: stats_map_dl_harq
-        linked_codelet_name: mac_stats_collect
+        linked_codelet_name: mac_stats_collect_harq
         linked_map_name: stats_map_dl_harq
       - map_name: dl_harq_hash
-        linked_codelet_name: mac_stats_collect
+        linked_codelet_name: mac_stats_collect_harq
         linked_map_name: dl_harq_hash
 
       - map_name: stats_map_ul_harq
-        linked_codelet_name: mac_stats_collect
+        linked_codelet_name: mac_stats_collect_harq
         linked_map_name: stats_map_ul_harq
       - map_name: ul_harq_hash
-        linked_codelet_name: mac_stats_collect
+        linked_codelet_name: mac_stats_collect_harq
         linked_map_name: ul_harq_hash

@@ -1439,35 +1439,36 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     s["max_nof_harq_retxs"] = stat.max_nof_harq_retxs
                     s["mcs_table"] = stat.mcs_table
 
-                    s["cons_retx"] = {
-                        "count": stat.cons_retx.count,
-                        "total": stat.cons_retx.total,
-                        "avg": stat.cons_retx.total / stat.cons_retx.count,
-                        "min": stat.cons_retx.min,
-                        "max": stat.cons_retx.max
-                    }
+                    if stat.cons_retx.count > 0:
+                        s["cons_retx"] = {
+                            "count": stat.cons_retx.count,
+                            "total": stat.cons_retx.total,
+                            "avg": stat.cons_retx.total / stat.cons_retx.count,
+                            "min": stat.cons_retx.min,
+                            "max": stat.cons_retx.max
+                        }
 
-                    s["mcs"] = {
-                        "count": stat.mcs.count,
-                        "total": stat.mcs.total,
-                        "avg": stat.mcs.total / stat.mcs.count,
-                        "min": stat.mcs.min,
-                        "max": stat.mcs.max
-                    }
+                    if stat.mcs.count > 0:
+                        s["mcs"] = {
+                            "count": stat.mcs.count,
+                            "total": stat.mcs.total,
+                            "avg": stat.mcs.total / stat.mcs.count,
+                            "min": stat.mcs.min,
+                            "max": stat.mcs.max
+                        }
 
                     s["perHarqTypeStats"] = {}
                     for i, h in enumerate(stat.perHarqTypeStats):
+                        hs = {}
+                        s["perHarqTypeStats"][mac_harq_event_to_str(i)] = hs
                         if h.count > 0:
-                            s[k] = {}
-                            s[k]["tbs_bytes"] = {
-                                "count": h.tbs_bytes.count,
-                                "total": h.tbs_bytes.total,
-                                "avg": h.tbs_bytes.total / h.tbs_bytes.count,
-                                "min": h.tbs_bytes.min,
-                                "max": h.tbs_bytes.max
-                            }
-                            if h.has_cqi:
-                                s[k]["cqi"] = {
+                            if h.tbs_bytes.count > 0:
+                                hs["tbs"] = {
+                                    "pkts": h.tbs_bytes.count,
+                                    "bytes": h.tbs_bytes.total
+                                }
+                            if h.has_cqi and h.cqi.count>0:
+                                hs["cqi"] = {
                                     "count": h.cqi.count,
                                     "total": h.cqi.total,
                                     "avg": h.cqi.total / h.cqi.count,
@@ -1511,35 +1512,36 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     s["max_nof_harq_retxs"] = stat.max_nof_harq_retxs
                     s["mcs_table"] = stat.mcs_table
 
-                    s["cons_retx"] = {
-                        "count": stat.cons_retx.count,
-                        "total": stat.cons_retx.total,
-                        "avg": stat.cons_retx.total / stat.cons_retx.count,
-                        "min": stat.cons_retx.min,
-                        "max": stat.cons_retx.max
-                    }
+                    if stat.cons_retx.count > 0:
+                        s["cons_retx"] = {
+                            "count": stat.cons_retx.count,
+                            "total": stat.cons_retx.total,
+                            "avg": stat.cons_retx.total / stat.cons_retx.count,
+                            "min": stat.cons_retx.min,
+                            "max": stat.cons_retx.max
+                        }
 
-                    s["mcs"] = {
-                        "count": stat.mcs.count,
-                        "total": stat.mcs.total,
-                        "avg": stat.mcs.total / stat.mcs.count,
-                        "min": stat.mcs.min,
-                        "max": stat.mcs.max
-                    }
+                    if stat.mcs.count > 0:
+                        s["mcs"] = {
+                            "count": stat.mcs.count,
+                            "total": stat.mcs.total,
+                            "avg": stat.mcs.total / stat.mcs.count,
+                            "min": stat.mcs.min,
+                            "max": stat.mcs.max
+                        }
 
                     s["perHarqTypeStats"] = {}
                     for i, h in enumerate(stat.perHarqTypeStats):
+                        hs = {}
+                        s["perHarqTypeStats"][mac_harq_event_to_str(i)] = hs
                         if h.count > 0:
-                            s[k] = {}
-                            s[k]["tbs_bytes"] = {
-                                "count": h.tbs_bytes.count,
-                                "total": h.tbs_bytes.total,
-                                "avg": h.tbs_bytes.total / h.tbs_bytes.count,
-                                "min": h.tbs_bytes.min,
-                                "max": h.tbs_bytes.max
-                            }
-                            if h.has_cqi:
-                                s[k]["cqi"] = {
+                            if h.tbs_bytes.count > 0:
+                                hs["tbs"] = {
+                                    "pkts": h.tbs_bytes.count,
+                                    "bytes": h.tbs_bytes.total
+                                }
+                            if h.has_cqi and h.cqi.count>0:
+                                hs["cqi"] = {
                                     "count": h.cqi.count,
                                     "total": h.cqi.total,
                                     "avg": h.cqi.total / h.cqi.count,
@@ -1553,7 +1555,6 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                         break
                 if len(output["stats"]) > 0:
                     state.logger.log_msg(log_enabled, rlog_enabled, "Dashboard", f"{json.dumps(output)}")
-
 
 
             #####################################################
@@ -2263,7 +2264,7 @@ def jrtc_start_app(capsule):
                 JrtcStreamIdCfg_t(
                     JRTC_ROUTER_REQ_DEST_ANY, 
                     JRTC_ROUTER_REQ_DEVICE_ID_ANY, 
-                    b"dashboard://jbpf_agent/mac_stats/mac_stats_collect", 
+                    b"dashboard://jbpf_agent/mac_stats/mac_stats_collect_harq", 
                     b"output_map_dl_harq"),
                 True,   # is_rx
                 None    # No AppChannelCfg 
@@ -2277,7 +2278,7 @@ def jrtc_start_app(capsule):
                 JrtcStreamIdCfg_t(
                     JRTC_ROUTER_REQ_DEST_ANY, 
                     JRTC_ROUTER_REQ_DEVICE_ID_ANY, 
-                    b"dashboard://jbpf_agent/mac_stats/mac_stats_collect", 
+                    b"dashboard://jbpf_agent/mac_stats/mac_stats_collect_harq", 
                     b"output_map_ul_harq"),
                 True,   # is_rx
                 None    # No AppChannelCfg 
