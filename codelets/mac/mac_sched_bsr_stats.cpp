@@ -6,6 +6,7 @@
 #include "jbpf_srsran_contexts.h"
 #include "srsran/scheduler/scheduler_feedback_handler.h"
 
+#include "mac_helpers.h"
 #include "mac_sched_bsr_stats.pb.h"
 
 #include "../utils/misc_utils.h"
@@ -14,8 +15,6 @@
 
 #include "jbpf_defs.h"
 #include "jbpf_helper.h"
-
-#define MAX_NUM_UE (32)
 
 
 struct jbpf_load_map_def SEC("maps") bsr_not_empty = {

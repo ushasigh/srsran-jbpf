@@ -6,6 +6,7 @@
 #include "jbpf_srsran_contexts.h"
 #include "srsran/scheduler/scheduler_feedback_handler.h"
 
+#include "mac_helpers.h"
 #include "mac_sched_uci_stats.pb.h"
 
 #include "../utils/misc_utils.h"
@@ -17,7 +18,7 @@
 #include "jbpf_helper.h"
 #include "jbpf_helper_utils.h"
 
-#define MAX_NUM_UE (32)
+
 
 struct jbpf_load_map_def SEC("maps") uci_not_empty = {
     .type = JBPF_MAP_TYPE_ARRAY,

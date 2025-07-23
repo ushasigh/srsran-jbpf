@@ -40,7 +40,7 @@
               "durationMs": 86400000
             },
             "value": {
-              "durationMs": 900000
+              "durationMs": 14400000
             }
           }
         ],
@@ -741,6 +741,90 @@
             "name": "query - 7 - Copy - Copy - Copy - Copy"
           },
           {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "let timeStart = todatetime({timeparameter:start});\r\nlet timeEnd = todatetime({timeparameter:end});\r\nlet duration = timeEnd - timeStart;\r\nlet maxPoints = 10000;  // Hard limit for visualization\r\nlet baseStep = case(\r\n    duration >= 7d, 15m,\r\n    duration >= 3d, 6m,     \r\n    duration >= 48h, 4m, \r\n    duration >= 24h, 2m,\r\n    duration >= 12h, 1m, \r\n    duration >= 4h, 30s,\r\n    duration >= 1h, 30s,\r\n    duration >= 15m, 20s,\r\n    20s  // Default step size\r\n);\r\nlet totalPoints = tolong(duration / baseStep);\r\nlet scaleFactor = ceiling(totalPoints * 1.0 / maxPoints);  // Ensure step scaling\r\nlet adjustedStep = baseStep * scaleFactor;\r\njrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"MAC_SCHED_DL_HARQ\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| extend txCount=toint(stats_d.perHarqTypeStats.MAC_HARQ_EVENT_TX.tbs.pkts), reTxCount=toint(stats_d.perHarqTypeStats.MAC_HARQ_EVENT_RETX.tbs.pkts)\r\n| extend imsi = iff(not(isempty(supi)), substring(supi, 5), timsi)\r\n| where not(isempty(imsi)) // Only include UEs connected for a longer time\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| make-series tx=sum(txCount), reTx=sum(reTxCount) default=0 \r\n    on timestamp \r\n    from timeStart to timeEnd \r\n    step adjustedStep \r\n    by imsi\r\n| extend zipped = zip(timestamp, tx, reTx)\r\n| mv-expand point = zipped\r\n| extend timestamp = todatetime(point[0]),\r\n         txVal = todouble(point[1]),\r\n         reTxVal = todouble(point[2])\r\n| extend failureRate = iif(txVal + reTxVal == 0, 0.0, reTxVal  * 100.0 / (txVal + reTxVal))\r\n| project imsi, timestamp, failureRate\r\n| render timechart\r\n\r\n",
+              "size": 1,
+              "title": "MAC DL HARQ Failure rates",
+              "timeContextFromParameter": "timeparameter",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "chartSettings": {
+                "showMetrics": false,
+                "showLegend": true,
+                "ySettings": {
+                  "min": 0
+                }
+              }
+            },
+            "customWidth": "25",
+            "name": "query - 6 - Copy - Copy"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "let timeStart = todatetime({timeparameter:start});\r\nlet timeEnd = todatetime({timeparameter:end});\r\nlet duration = timeEnd - timeStart;\r\nlet maxPoints = 10000;  // Hard limit for visualization\r\nlet baseStep = case(\r\n    duration >= 7d, 15m,\r\n    duration >= 3d, 6m,     \r\n    duration >= 48h, 4m, \r\n    duration >= 24h, 2m,\r\n    duration >= 12h, 1m, \r\n    duration >= 4h, 30s,\r\n    duration >= 1h, 30s,\r\n    duration >= 15m, 20s,\r\n    20s  // Default step size\r\n);\r\nlet totalPoints = tolong(duration / baseStep);\r\nlet scaleFactor = ceiling(totalPoints * 1.0 / maxPoints);  // Ensure step scaling\r\nlet adjustedStep = baseStep * scaleFactor;\r\njrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"MAC_SCHED_DL_HARQ\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| extend failureCount=toint(stats_d.perHarqTypeStats.MAC_HARQ_EVENT_FAILURE.tbs.pkts)\r\n| extend imsi = iff(not(isempty(supi)), substring(supi, 5), timsi)\r\n| where not(isempty(imsi)) // Only include UEs connected for a longer time\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| make-series failures=sum(failureCount) default=0 \r\n  on timestamp from timeStart to timeEnd step adjustedStep by imsi\r\n| render timechart\r\n\r\n",
+              "size": 1,
+              "title": "Number of MAC DL HARQ Process failures",
+              "timeContextFromParameter": "timeparameter",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "chartSettings": {
+                "showMetrics": false,
+                "showLegend": true,
+                "ySettings": {
+                  "min": 0
+                }
+              }
+            },
+            "customWidth": "25",
+            "name": "query - 6 - Copy - Copy - Copy - Copy"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "let timeStart = todatetime({timeparameter:start});\r\nlet timeEnd = todatetime({timeparameter:end});\r\nlet duration = timeEnd - timeStart;\r\nlet maxPoints = 10000;  // Hard limit for visualization\r\nlet baseStep = case(\r\n    duration >= 7d, 15m,\r\n    duration >= 3d, 6m,     \r\n    duration >= 48h, 4m, \r\n    duration >= 24h, 2m,\r\n    duration >= 12h, 1m, \r\n    duration >= 4h, 30s,\r\n    duration >= 1h, 30s,\r\n    duration >= 15m, 20s,\r\n    20s  // Default step size\r\n);\r\nlet totalPoints = tolong(duration / baseStep);\r\nlet scaleFactor = ceiling(totalPoints * 1.0 / maxPoints);  // Ensure step scaling\r\nlet adjustedStep = baseStep * scaleFactor;\r\njrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"MAC_SCHED_DL_HARQ\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| extend txCount=toint(stats_d.perHarqTypeStats.MAC_HARQ_EVENT_TX.tbs.bytes)\r\n| extend imsi = iff(not(isempty(supi)), substring(supi, 5), timsi)\r\n| where not(isempty(imsi)) // Only include UEs connected for a longer time\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| make-series Tx=sum(txCount) default=0 \r\n  on timestamp from timeStart to timeEnd step adjustedStep by imsi\r\n| mv-expand timestamp to typeof(datetime), Tx to typeof(long)\r\n| extend Mbps = Tx * 8.0 / (adjustedStep / 1s) / 1000000.0\r\n| project imsi, timestamp, Mbps\r\n| render timechart\r\n\r\n\r\n",
+              "size": 1,
+              "title": "MAC DL HARQ TBS Tx Mbps",
+              "timeContextFromParameter": "timeparameter",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "chartSettings": {
+                "showMetrics": false,
+                "showLegend": true,
+                "ySettings": {
+                  "min": 0
+                }
+              }
+            },
+            "customWidth": "25",
+            "name": "query - 6 - Copy - Copy - Copy - Copy"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "let timeStart = todatetime({timeparameter:start});\r\nlet timeEnd = todatetime({timeparameter:end});\r\nlet duration = timeEnd - timeStart;\r\nlet maxPoints = 10000;  // Hard limit for visualization\r\nlet baseStep = case(\r\n    duration >= 7d, 15m,\r\n    duration >= 3d, 6m,     \r\n    duration >= 48h, 4m, \r\n    duration >= 24h, 2m,\r\n    duration >= 12h, 1m, \r\n    duration >= 4h, 30s,\r\n    duration >= 1h, 30s,\r\n    duration >= 15m, 20s,\r\n    20s  // Default step size\r\n);\r\nlet totalPoints = tolong(duration / baseStep);\r\nlet scaleFactor = ceiling(totalPoints * 1.0 / maxPoints);  // Ensure step scaling\r\nlet adjustedStep = baseStep * scaleFactor;\r\njrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"MAC_SCHED_DL_HARQ\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| extend reTxCount=toint(stats_d.perHarqTypeStats.MAC_HARQ_EVENT_RETX.tbs.bytes)\r\n| extend imsi = iff(not(isempty(supi)), substring(supi, 5), timsi)\r\n| where not(isempty(imsi)) // Only include UEs connected for a longer time\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| make-series reTx=sum(reTxCount) default=0 \r\n  on timestamp from timeStart to timeEnd step adjustedStep by imsi\r\n| mv-expand timestamp to typeof(datetime), reTx to typeof(long)\r\n| extend Mbps = reTx * 8.0 / (adjustedStep / 1s) / 1000000.0\r\n| project imsi, timestamp, Mbps\r\n| render timechart\r\n\r\n\r\n",
+              "size": 1,
+              "title": "MAC DL HARQ TBS ReTx Mbps",
+              "timeContextFromParameter": "timeparameter",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "chartSettings": {
+                "showMetrics": false,
+                "showLegend": true,
+                "ySettings": {
+                  "min": 0
+                }
+              }
+            },
+            "customWidth": "25",
+            "name": "query - 6 - Copy - Copy - Copy - Copy"
+          },
+          {
             "type": 1,
             "content": {
               "json": "<h4 style=\"background-color:#CAEEFB; color:#222; padding:3px 12px; text-align:left; \r\n            border-left:5px solid #005a9c; border-radius:3px; \r\n            box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.15);\">\r\n    Uplink\r\n</h4>"
@@ -878,6 +962,90 @@
             },
             "customWidth": "25",
             "name": "query - 7 - Copy - Copy - Copy"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "let timeStart = todatetime({timeparameter:start});\r\nlet timeEnd = todatetime({timeparameter:end});\r\nlet duration = timeEnd - timeStart;\r\nlet maxPoints = 10000;  // Hard limit for visualization\r\nlet baseStep = case(\r\n    duration >= 7d, 15m,\r\n    duration >= 3d, 6m,     \r\n    duration >= 48h, 4m, \r\n    duration >= 24h, 2m,\r\n    duration >= 12h, 1m, \r\n    duration >= 4h, 30s,\r\n    duration >= 1h, 30s,\r\n    duration >= 15m, 20s,\r\n    20s  // Default step size\r\n);\r\nlet totalPoints = tolong(duration / baseStep);\r\nlet scaleFactor = ceiling(totalPoints * 1.0 / maxPoints);  // Ensure step scaling\r\nlet adjustedStep = baseStep * scaleFactor;\r\njrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"MAC_SCHED_UL_HARQ\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| extend txCount=toint(stats_d.perHarqTypeStats.MAC_HARQ_EVENT_TX.tbs.pkts), reTxCount=toint(stats_d.perHarqTypeStats.MAC_HARQ_EVENT_RETX.tbs.pkts)\r\n| extend imsi = iff(not(isempty(supi)), substring(supi, 5), timsi)\r\n| where not(isempty(imsi)) // Only include UEs connected for a longer time\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| make-series tx=sum(txCount), reTx=sum(reTxCount) default=0 \r\n    on timestamp \r\n    from timeStart to timeEnd \r\n    step adjustedStep \r\n    by imsi\r\n| extend zipped = zip(timestamp, tx, reTx)\r\n| mv-expand point = zipped\r\n| extend timestamp = todatetime(point[0]),\r\n         txVal = todouble(point[1]),\r\n         reTxVal = todouble(point[2])\r\n| extend failureRate = iif(txVal + reTxVal == 0, 0.0, reTxVal * 100.0 / (txVal + reTxVal))\r\n| project imsi, timestamp, failureRate\r\n| render timechart\r\n\r\n",
+              "size": 1,
+              "title": "MAC UL HARQ Failure rates",
+              "timeContextFromParameter": "timeparameter",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "chartSettings": {
+                "showMetrics": false,
+                "showLegend": true,
+                "ySettings": {
+                  "min": 0
+                }
+              }
+            },
+            "customWidth": "25",
+            "name": "query - 6 - Copy - Copy - Copy"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "let timeStart = todatetime({timeparameter:start});\r\nlet timeEnd = todatetime({timeparameter:end});\r\nlet duration = timeEnd - timeStart;\r\nlet maxPoints = 10000;  // Hard limit for visualization\r\nlet baseStep = case(\r\n    duration >= 7d, 15m,\r\n    duration >= 3d, 6m,     \r\n    duration >= 48h, 4m, \r\n    duration >= 24h, 2m,\r\n    duration >= 12h, 1m, \r\n    duration >= 4h, 30s,\r\n    duration >= 1h, 30s,\r\n    duration >= 15m, 20s,\r\n    20s  // Default step size\r\n);\r\nlet totalPoints = tolong(duration / baseStep);\r\nlet scaleFactor = ceiling(totalPoints * 1.0 / maxPoints);  // Ensure step scaling\r\nlet adjustedStep = baseStep * scaleFactor;\r\njrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"MAC_SCHED_UL_HARQ\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| extend failureCount=toint(stats_d.perHarqTypeStats.MAC_HARQ_EVENT_FAILURE.tbs.pkts)\r\n| extend imsi = iff(not(isempty(supi)), substring(supi, 5), timsi)\r\n| where not(isempty(imsi)) // Only include UEs connected for a longer time\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| make-series failures=sum(failureCount) default=0 \r\n  on timestamp from timeStart to timeEnd step adjustedStep by imsi\r\n| render timechart\r\n\r\n",
+              "size": 1,
+              "title": "Number of MAC UL HARQ Process failures",
+              "timeContextFromParameter": "timeparameter",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "chartSettings": {
+                "showMetrics": false,
+                "showLegend": true,
+                "ySettings": {
+                  "min": 0
+                }
+              }
+            },
+            "customWidth": "25",
+            "name": "query - 6 - Copy - Copy - Copy"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "let timeStart = todatetime({timeparameter:start});\r\nlet timeEnd = todatetime({timeparameter:end});\r\nlet duration = timeEnd - timeStart;\r\nlet maxPoints = 10000;  // Hard limit for visualization\r\nlet baseStep = case(\r\n    duration >= 7d, 15m,\r\n    duration >= 3d, 6m,     \r\n    duration >= 48h, 4m, \r\n    duration >= 24h, 2m,\r\n    duration >= 12h, 1m, \r\n    duration >= 4h, 30s,\r\n    duration >= 1h, 30s,\r\n    duration >= 15m, 20s,\r\n    20s  // Default step size\r\n);\r\nlet totalPoints = tolong(duration / baseStep);\r\nlet scaleFactor = ceiling(totalPoints * 1.0 / maxPoints);  // Ensure step scaling\r\nlet adjustedStep = baseStep * scaleFactor;\r\njrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"MAC_SCHED_UL_HARQ\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| extend txCount=toint(stats_d.perHarqTypeStats.MAC_HARQ_EVENT_TX.tbs.bytes)\r\n| extend imsi = iff(not(isempty(supi)), substring(supi, 5), timsi)\r\n| where not(isempty(imsi)) // Only include UEs connected for a longer time\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| make-series Tx=sum(txCount) default=0 \r\n  on timestamp from timeStart to timeEnd step adjustedStep by imsi\r\n| mv-expand timestamp to typeof(datetime), Tx to typeof(long)\r\n| extend Mbps = Tx * 8.0 / (adjustedStep / 1s) / 1000000.0\r\n| project imsi, timestamp, Mbps\r\n| render timechart\r\n\r\n\r\n",
+              "size": 1,
+              "title": "MAC UL HARQ TBS Tx Mbps",
+              "timeContextFromParameter": "timeparameter",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "chartSettings": {
+                "showMetrics": false,
+                "showLegend": true,
+                "ySettings": {
+                  "min": 0
+                }
+              }
+            },
+            "customWidth": "25",
+            "name": "query - 6 - Copy - Copy - Copy"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "let timeStart = todatetime({timeparameter:start});\r\nlet timeEnd = todatetime({timeparameter:end});\r\nlet duration = timeEnd - timeStart;\r\nlet maxPoints = 10000;  // Hard limit for visualization\r\nlet baseStep = case(\r\n    duration >= 7d, 15m,\r\n    duration >= 3d, 6m,     \r\n    duration >= 48h, 4m, \r\n    duration >= 24h, 2m,\r\n    duration >= 12h, 1m, \r\n    duration >= 4h, 30s,\r\n    duration >= 1h, 30s,\r\n    duration >= 15m, 20s,\r\n    20s  // Default step size\r\n);\r\nlet totalPoints = tolong(duration / baseStep);\r\nlet scaleFactor = ceiling(totalPoints * 1.0 / maxPoints);  // Ensure step scaling\r\nlet adjustedStep = baseStep * scaleFactor;\r\njrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"MAC_SCHED_UL_HARQ\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| extend reTxCount=toint(stats_d.perHarqTypeStats.MAC_HARQ_EVENT_RETX.tbs.bytes)\r\n| extend imsi = iff(not(isempty(supi)), substring(supi, 5), timsi)\r\n| where not(isempty(imsi)) // Only include UEs connected for a longer time\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| make-series reTx=sum(reTxCount) default=0 \r\n  on timestamp from timeStart to timeEnd step adjustedStep by imsi\r\n| mv-expand timestamp to typeof(datetime), reTx to typeof(long)\r\n| extend Mbps = reTx * 8.0 / (adjustedStep / 1s) / 1000000.0\r\n| project imsi, timestamp, Mbps\r\n| render timechart\r\n\r\n\r\n",
+              "size": 1,
+              "title": "MAC UL HARQ TBS ReTx Mbps",
+              "timeContextFromParameter": "timeparameter",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "chartSettings": {
+                "showMetrics": false,
+                "showLegend": true,
+                "ySettings": {
+                  "min": 0
+                }
+              }
+            },
+            "customWidth": "25",
+            "name": "query - 6 - Copy - Copy - Copy - Copy - Copy"
           }
         ]
       },

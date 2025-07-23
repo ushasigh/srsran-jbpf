@@ -77,10 +77,12 @@ if params.include_mac:
     mac_sched_bsr_stats = sys.modules.get('mac_sched_bsr_stats')
     mac_sched_phr_stats = sys.modules.get('mac_sched_phr_stats')
     mac_sched_uci_stats = sys.modules.get('mac_sched_uci_stats')
+    mac_sched_harq_stats = sys.modules.get('mac_sched_harq_stats')
     from mac_sched_crc_stats import struct__crc_stats
     from mac_sched_bsr_stats import struct__bsr_stats
     from mac_sched_phr_stats import struct__phr_stats
     from mac_sched_uci_stats import struct__uci_stats
+    from mac_sched_harq_stats import struct__harq_stats
 if params.include_fapi:
     fapi_gnb_dl_config_stats = sys.modules.get('fapi_gnb_dl_config_stats')
     fapi_gnb_ul_config_stats = sys.modules.get('fapi_gnb_ul_config_stats')
@@ -120,6 +122,19 @@ def int_2_RLCMode(m: int) -> RLCMode:
     if m >= 1 and m <= 3:
         return RLCMode(m)
     return RLCMode.RLC_UNKNOWN
+
+
+class MACHarqEvent(Enum):
+    MAC_HARQ_EVENT_TX = 0
+    MAC_HARQ_EVENT_RETX = 1
+    MAC_HARQ_EVENT_FAILURE = 2
+
+def mac_harq_event_to_str(event: int) -> str:
+    try:
+        return MACHarqEvent(event).name
+    except ValueError:
+        return "UNKNOWN"
+
 
 
 ##########################################################################
@@ -1211,12 +1226,13 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                     if stat.cnt_tx > 0:
                         ueid = state.ue_map.getid_by_du_index(deviceid, stat.du_ue_index)
                         uectx = state.ue_map.getuectx(ueid)
-                        s ={
+                        s = {
                             "ueid": ueid,
                             "ue_ctx": None if uectx is None else uectx.concise_dict(),
-                            "cons_min": stat.cons_min,
                             "cons_max": stat.cons_max,
                             "succ_rate": stat.succ_tx / stat.cnt_tx,
+                            "retx_hist": list(stat.retx_hist),
+                            "harq_failure": stat.harq_failure,
                             "min_sinr": stat.min_sinr,
                             "min_rsrp": stat.min_rsrp,
                             "max_sinr": stat.max_sinr,
@@ -1225,7 +1241,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                             "avg_rsrp": stat.sum_rsrp / stat.cnt_rsrp
                         }
                         if uectx is None:
-                            s["du_ue_index"] = stat.du_ue_index,
+                            s["du_ue_index"] = stat.du_ue_index
 
                         output["stats"].append(s)
                     cnt += 1
@@ -1366,6 +1382,150 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                                 "min": stat.csi.cqi.min,
                                 "max": stat.csi.cqi.max
                             }
+
+                    output["stats"].append(s)
+                    cnt += 1
+                    if cnt >= data.stats_count:
+                        break
+                if len(output["stats"]) > 0:
+                    state.logger.log_msg(log_enabled, rlog_enabled, "Dashboard", f"{json.dumps(output)}")
+
+
+            elif stream_idx == MAC_SCHED_DL_HARQ_SIDX:
+                
+                data_ptr = ctypes.cast(
+                    data_entry.data, ctypes.POINTER(struct__harq_stats)
+                )
+                data = data_ptr.contents
+                harq_stats = list(data.stats)
+                output = {
+                    "timestamp": data.timestamp,
+                    "stream_index": "MAC_SCHED_DL_HARQ",
+                    "stats": []
+                }
+                cnt = 0
+
+                for stat in harq_stats:
+                    ueid = state.ue_map.getid_by_du_index(deviceid, stat.du_ue_index)
+                    uectx = state.ue_map.getuectx(ueid)
+                    s ={
+                        "ueid": ueid,
+                        "ue_ctx": None if uectx is None else uectx.concise_dict(),
+                    }
+                    if uectx is None:
+                        s["du_ue_index"] = stat.du_ue_index,
+
+                    s["max_nof_harq_retxs"] = stat.max_nof_harq_retxs
+                    s["mcs_table"] = stat.mcs_table
+
+                    if stat.cons_retx.count > 0:
+                        s["cons_retx"] = {
+                            "count": stat.cons_retx.count,
+                            "total": stat.cons_retx.total,
+                            "avg": stat.cons_retx.total / stat.cons_retx.count,
+                            "min": stat.cons_retx.min,
+                            "max": stat.cons_retx.max
+                        }
+
+                    if stat.mcs.count > 0:
+                        s["mcs"] = {
+                            "count": stat.mcs.count,
+                            "total": stat.mcs.total,
+                            "avg": stat.mcs.total / stat.mcs.count,
+                            "min": stat.mcs.min,
+                            "max": stat.mcs.max
+                        }
+
+                    s["perHarqTypeStats"] = {}
+                    for i, h in enumerate(stat.perHarqTypeStats):
+                        hs = {}
+                        s["perHarqTypeStats"][mac_harq_event_to_str(i)] = hs
+                        if h.count > 0:
+                            if h.tbs_bytes.count > 0:
+                                hs["tbs"] = {
+                                    "pkts": h.tbs_bytes.count,
+                                    "bytes": h.tbs_bytes.total
+                                }
+                            if h.has_cqi and h.cqi.count>0:
+                                hs["cqi"] = {
+                                    "count": h.cqi.count,
+                                    "total": h.cqi.total,
+                                    "avg": h.cqi.total / h.cqi.count,
+                                    "min": h.cqi.min,
+                                    "max": h.cqi.max
+                                }
+
+                    output["stats"].append(s)
+                    cnt += 1
+                    if cnt >= data.stats_count:
+                        break
+                if len(output["stats"]) > 0:
+                    state.logger.log_msg(log_enabled, rlog_enabled, "Dashboard", f"{json.dumps(output)}")
+
+
+            elif stream_idx == MAC_SCHED_UL_HARQ_SIDX:
+                
+                data_ptr = ctypes.cast(
+                    data_entry.data, ctypes.POINTER(struct__harq_stats)
+                )
+                data = data_ptr.contents
+                harq_stats = list(data.stats)
+                output = {
+                    "timestamp": data.timestamp,
+                    "stream_index": "MAC_SCHED_UL_HARQ",
+                    "stats": []
+                }
+                cnt = 0
+
+                for stat in harq_stats:
+                    ueid = state.ue_map.getid_by_du_index(deviceid, stat.du_ue_index)
+                    uectx = state.ue_map.getuectx(ueid)
+                    s ={
+                        "ueid": ueid,
+                        "ue_ctx": None if uectx is None else uectx.concise_dict(),
+                    }
+                    if uectx is None:
+                        s["du_ue_index"] = stat.du_ue_index,
+
+                    s["max_nof_harq_retxs"] = stat.max_nof_harq_retxs
+                    s["mcs_table"] = stat.mcs_table
+
+                    if stat.cons_retx.count > 0:
+                        s["cons_retx"] = {
+                            "count": stat.cons_retx.count,
+                            "total": stat.cons_retx.total,
+                            "avg": stat.cons_retx.total / stat.cons_retx.count,
+                            "min": stat.cons_retx.min,
+                            "max": stat.cons_retx.max
+                        }
+
+                    if stat.mcs.count > 0:
+                        s["mcs"] = {
+                            "count": stat.mcs.count,
+                            "total": stat.mcs.total,
+                            "avg": stat.mcs.total / stat.mcs.count,
+                            "min": stat.mcs.min,
+                            "max": stat.mcs.max
+                        }
+
+                    s["perHarqTypeStats"] = {}
+                    for i, h in enumerate(stat.perHarqTypeStats):
+                        hs = {}
+                        s["perHarqTypeStats"][mac_harq_event_to_str(i)] = hs
+                        if h.count > 0:
+                            if h.tbs_bytes.count > 0:
+                                hs["tbs"] = {
+                                    "pkts": h.tbs_bytes.count,
+                                    "bytes": h.tbs_bytes.total
+                                }
+                            if h.has_cqi and h.cqi.count>0:
+                                hs["cqi"] = {
+                                    "count": h.cqi.count,
+                                    "total": h.cqi.total,
+                                    "avg": h.cqi.total / h.cqi.count,
+                                    "min": h.cqi.min,
+                                    "max": h.cqi.max
+                                }
 
                     output["stats"].append(s)
                     cnt += 1
@@ -1601,6 +1761,8 @@ def jrtc_start_app(capsule):
     global MAC_SCHED_BSR_STATS_SIDX
     global MAC_SCHED_PHR_STATS_SIDX
     global MAC_SCHED_UCI_STATS_SIDX
+    global MAC_SCHED_DL_HARQ_SIDX
+    global MAC_SCHED_UL_HARQ_SIDX
     global RLC_DL_STATS_SIDX
     global RLC_UL_STATS_SIDX
     global PDCP_DL_STATS_SIDX
@@ -1636,6 +1798,8 @@ def jrtc_start_app(capsule):
     MAC_SCHED_BSR_STATS_SIDX = -1
     MAC_SCHED_PHR_STATS_SIDX = -1
     MAC_SCHED_UCI_STATS_SIDX = -1
+    MAC_SCHED_DL_HARQ_SIDX = -1
+    MAC_SCHED_UL_HARQ_SIDX = -1
     RLC_DL_STATS_SIDX = -1
     RLC_UL_STATS_SIDX = -1
     PDCP_DL_STATS_SIDX = -1
@@ -2078,6 +2242,33 @@ def jrtc_start_app(capsule):
             ))
         MAC_SCHED_UCI_STATS_SIDX = last_cnt
         state.logger.log_msg(True, False, "", f"MAC_SCHED_UCI_STATS_SIDX: {MAC_SCHED_UCI_STATS_SIDX}")
+        last_cnt += 1
+
+        streams.append(JrtcStreamCfg_t(
+                JrtcStreamIdCfg_t(
+                    JRTC_ROUTER_REQ_DEST_ANY, 
+                    JRTC_ROUTER_REQ_DEVICE_ID_ANY, 
+                    b"dashboard://jbpf_agent/mac_stats/mac_stats_collect_harq", 
+                    b"output_map_dl_harq"),
+                True,   # is_rx
+                None    # No AppChannelCfg 
+            ))
+        MAC_SCHED_DL_HARQ_SIDX = last_cnt
+        state.logger.log_msg(True, False, "", f"MAC_SCHED_DL_HARQ_SIDX: {MAC_SCHED_DL_HARQ_SIDX}")
+        last_cnt += 1
+
+
+        streams.append(JrtcStreamCfg_t(
+                JrtcStreamIdCfg_t(
+                    JRTC_ROUTER_REQ_DEST_ANY, 
+                    JRTC_ROUTER_REQ_DEVICE_ID_ANY, 
+                    b"dashboard://jbpf_agent/mac_stats/mac_stats_collect_harq", 
+                    b"output_map_ul_harq"),
+                True,   # is_rx
+                None    # No AppChannelCfg 
+            ))
+        MAC_SCHED_UL_HARQ_SIDX = last_cnt
+        state.logger.log_msg(True, False, "", f"MAC_SCHED_UL_HARQ_SIDX: {MAC_SCHED_UL_HARQ_SIDX}")
         last_cnt += 1
 
 
