@@ -45,11 +45,11 @@ class UDPForwarder:
             # Create forwarding socket
             self.forward_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             
-            print(f"Listening on {self.listen_ip}:{self.listen_port}")
-            print(f"Forwarding to {self.forward_ip}:{self.forward_port}")
+            print(f"Listening on {self.listen_ip}:{self.listen_port}", flush=True)
+            print(f"Forwarding to {self.forward_ip}:{self.forward_port}", flush=True)
             
         except Exception as e:
-            print(f"Error setting up sockets: {e}")
+            print(f"Error setting up sockets: {e}", flush=True)
             self.cleanup()
             sys.exit(1)
     
@@ -68,20 +68,20 @@ class UDPForwarder:
                         continue
                     
                     message_count += 1
-                    print(f"[{message_count}] Received {len(data)} bytes from {addr[0]}:{addr[1]}")
+                    print(f"[{message_count}] Received {len(data)} bytes from {addr[0]}:{addr[1]}", flush=True)
                     
                     # Forward message to destination
                     self.forward_socket.sendto(data, (self.forward_ip, self.forward_port))
-                    print(f"[{message_count}] Forwarded to {self.forward_ip}:{self.forward_port}")
+                    print(f"[{message_count}] Forwarded to {self.forward_ip}:{self.forward_port}", flush=True)
                     
                 except socket.timeout:
                     continue
                 except Exception as e:
                     if self.running:
-                        print(f"Error forwarding message: {e}")
+                        print(f"Error forwarding message: {e}", flush=True)
                         
         except KeyboardInterrupt:
-            print("\nReceived interrupt signal, shutting down...")
+            print("\nReceived interrupt signal, shutting down...", flush=True)
         finally:
             self.cleanup()
     
@@ -110,7 +110,7 @@ class UDPForwarder:
         try:
             self.forward_messages()
         except Exception as e:
-            print(f"Unexpected error: {e}")
+            print(f"Unexpected error: {e}", flush=True)
             self.cleanup()
 
 
@@ -195,14 +195,14 @@ def main():
     
     # Validate that we're not creating a loop
     if (args.listen_ip == args.forward_ip) and (args.listen_port == args.forward_port):
-        print("Error: Listen and forward sockets cannot be the same!")
+        print("Error: Listen and forward sockets cannot be the same!", flush=True)
         sys.exit(1)
     
-    print("UDP Message Forwarder starting...")
-    print(f"Configuration:")
-    print(f"  Listen:  {args.listen_ip}:{args.listen_port}")
-    print(f"  Forward: {args.forward_ip}:{args.forward_port}")
-    print()
+    print("UDP Message Forwarder starting...", flush=True)
+    print(f"Configuration:", flush=True)
+    print(f"  Listen:  {args.listen_ip}:{args.listen_port}", flush=True)
+    print(f"  Forward: {args.forward_ip}:{args.forward_port}", flush=True)
+    print(flush=True)
     
     # Create and start the forwarder
     forwarder = UDPForwarder(
