@@ -114,13 +114,14 @@ class UDPForwarder:
             self.cleanup()
 
 
-def validate_ip_address(ip: str) -> str:
-    """Validate IP address format."""
+def validate_ip_or_hostname(host: str) -> str:
+    """Validate IP address or hostname format."""
     try:
-        socket.inet_aton(ip)
-        return ip
-    except socket.error:
-        raise argparse.ArgumentTypeError(f"Invalid IP address: {ip}")
+        # Try to resolve the hostname/IP to validate it
+        socket.getaddrinfo(host, None)
+        return host
+    except socket.gaierror:
+        raise argparse.ArgumentTypeError(f"Invalid IP address or hostname: {host}")
 
 
 def validate_port(port: str) -> int:
@@ -153,9 +154,9 @@ Examples:
     listen_group = parser.add_argument_group('Listening Socket Configuration')
     listen_group.add_argument(
         '--listen-ip', '-li',
-        type=validate_ip_address,
+        type=validate_ip_or_hostname,
         default='0.0.0.0',
-        help='IP address to listen on (default: 0.0.0.0 - all interfaces)'
+        help='IP address or hostname to listen on (default: 0.0.0.0 - all interfaces)'
     )
     listen_group.add_argument(
         '--listen-port', '-lp',
@@ -168,9 +169,9 @@ Examples:
     forward_group = parser.add_argument_group('Forwarding Socket Configuration')
     forward_group.add_argument(
         '--forward-ip', '-fi',
-        type=validate_ip_address,
+        type=validate_ip_or_hostname,
         required=True,
-        help='IP address to forward messages to (required)'
+        help='IP address or hostname to forward messages to (required)'
     )
     forward_group.add_argument(
         '--forward-port', '-fp',
@@ -194,7 +195,7 @@ def main():
     args = parse_arguments()
     
     # Validate that we're not creating a loop
-    if (args.listen_ip == args.forward_ip) and (args.listen_port == args.forward_port):
+    if (args.listen_ip == args.forward_ip or args.listen_ip == '0.0.0.0') and args.listen_port == args.forward_port:
         print("Error: Listen and forward sockets cannot be the same!", flush=True)
         sys.exit(1)
     

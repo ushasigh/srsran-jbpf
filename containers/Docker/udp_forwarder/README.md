@@ -22,7 +22,7 @@ A Python script that receives UDP messages on one socket and forwards them to an
 ### UDP Forwarder
 
 ```bash
-python udp_forwarder.py --listen-ip <IP> --listen-port <PORT> --forward-ip <IP> --forward-port <PORT>
+python3 udp_forwarder.py --listen-ip <IP> --listen-port <PORT> --forward-ip <IP> --forward-port <PORT>
 ```
 
 #### Required Arguments
@@ -41,13 +41,13 @@ python udp_forwarder.py --listen-ip <IP> --listen-port <PORT> --forward-ip <IP> 
 
 ```bash
 # Listen on all interfaces port 8080, forward to localhost port 9090
-python udp_forwarder.py --listen-port 8080 --forward-ip 127.0.0.1 --forward-port 9090
+python3 udp_forwarder.py --listen-port 8080 --forward-ip 127.0.0.1 --forward-port 9090
 
 # Listen on specific interface, forward to remote server
-python udp_forwarder.py --listen-ip 192.168.1.10 --listen-port 5000 --forward-ip 10.0.0.1 --forward-port 5001
+python3 udp_forwarder.py --listen-ip 192.168.1.10 --listen-port 5000 --forward-ip 10.0.0.1 --forward-port 5001
 
 # Using short argument names
-python udp_forwarder.py -lp 8080 -fi 192.168.1.100 -fp 9090
+python3 udp_forwarder.py -lp 8080 -fi 192.168.1.100 -fp 9090
 ```
 
 ### Test Client
@@ -57,7 +57,7 @@ The included test client can send messages or listen for forwarded messages:
 #### Send Messages
 
 ```bash
-python udp_test_client.py send --target-ip <IP> --target-port <PORT> [options]
+python3 udp_test_client.py send --target-ip <IP> --target-port <PORT> [options]
 ```
 
 Options:
@@ -68,7 +68,7 @@ Options:
 #### Listen for Messages
 
 ```bash
-python udp_test_client.py listen --listen-port <PORT> [options]
+python3 udp_test_client.py listen --listen-port <PORT> [options]
 ```
 
 Options:
@@ -81,17 +81,17 @@ Here's a complete testing scenario:
 
 1. **Terminal 1** - Start the listener (destination):
 ```bash
-python udp_test_client.py listen --listen-port 9090
+python3 udp_test_client.py listen --listen-port 9090
 ```
 
 2. **Terminal 2** - Start the forwarder:
 ```bash
-python udp_forwarder.py --listen-port 8080 --forward-ip 127.0.0.1 --forward-port 9090
+python3 udp_forwarder.py --listen-port 8080 --forward-ip 127.0.0.1 --forward-port 9090
 ```
 
 3. **Terminal 3** - Send test messages:
 ```bash
-python udp_test_client.py send --target-ip 127.0.0.1 --target-port 8080 --message "Hello World" --count 3
+python3 udp_test_client.py send --target-ip 127.0.0.1 --target-port 8080 --message "Hello World" --count 3
 ```
 
 You should see:
