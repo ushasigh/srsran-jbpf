@@ -14,8 +14,6 @@ LABEL org.opencontainers.image.authors="Microsoft Corporation"
 LABEL org.opencontainers.image.licenses="MIT"
 LABEL org.opencontainers.image.description="SRSRAN with JBPF support"
 
-ADD udp_forwarder /udp_forwarder 
-
 ADD srsRAN_Project /src 
 
 ENV PKG_CONFIG_PATH=/opt/dpdk-23.11/build/meson-private:/usr/lib/pkgconfig:/usr/local/lib/pkgconfig:/usr/local/lib64/pkgconfig:$PKG_CONFIG_PATH
@@ -35,6 +33,8 @@ RUN make install
 ADD Scripts /opt/Scripts
 WORKDIR /opt/Scripts
 RUN pip3 install -r requirements.txt
+
+ADD udp_forwarder /udp_forwarder 
 
 ENTRYPOINT [ "run.sh" ]
 
