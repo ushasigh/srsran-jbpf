@@ -34,6 +34,8 @@ ADD Scripts /opt/Scripts
 WORKDIR /opt/Scripts
 RUN pip3 install -r requirements.txt
 
+ADD udp_forwarder /udp_forwarder 
+
 ENTRYPOINT [ "run.sh" ]
 
 
