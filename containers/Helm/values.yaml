@@ -168,9 +168,10 @@ jrtc_controller:
     log_analytics:
       enabled: false
 
-  app_json_input:
-    enabled: true
-    port: 30502
+udp_forwarder:
+  enabled: true
+  port: 30502
+ 
 
 
 # RANBooster configurations
