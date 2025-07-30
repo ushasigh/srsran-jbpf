@@ -17,7 +17,7 @@
 #include "jbpf_defs.h"
 #include "jbpf_helper.h"
 #include "jbpf_helper_utils.h"
-
+#include "../utils/stats_utils.h"
 
 
 struct jbpf_load_map_def SEC("maps") uci_not_empty = {
@@ -39,19 +39,6 @@ struct jbpf_load_map_def SEC("maps") stats_map_uci = {
 DEFINE_PROTOHASH_32(uci_hash, MAX_NUM_UE);
 
 
-
-
-#define STATS_UPDATE(dest, src)   \
-    do {                                  \
-        dest.count++;                     \
-        if (src < dest.min) {             \
-            dest.min = src;               \
-        }                                 \
-        if (src > dest.max) {             \
-            dest.max = src;               \
-        }                                 \
-        dest.total += src;                \
-    } while (0)
 
 
 //#define DEBUG_PRINT

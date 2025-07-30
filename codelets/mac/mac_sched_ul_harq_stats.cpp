@@ -17,7 +17,7 @@
 #include "jbpf_defs.h"
 #include "jbpf_helper.h"
 #include "jbpf_helper_utils.h"
-
+#include "../utils/stats_utils.h"
 
 struct jbpf_load_map_def SEC("maps") ul_harq_not_empty = {
     .type = JBPF_MAP_TYPE_ARRAY,
@@ -37,20 +37,6 @@ struct jbpf_load_map_def SEC("maps") stats_map_ul_harq = {
 
 DEFINE_PROTOHASH_32(ul_harq_hash, MAX_NUM_UE);
 
-
-
-
-#define STATS_UPDATE(dest, src)   \
-    do {                                  \
-        dest.count++;                     \
-        if (src < dest.min) {             \
-            dest.min = src;               \
-        }                                 \
-        if (src > dest.max) {             \
-            dest.max = src;               \
-        }                                 \
-        dest.total += src;                \
-    } while (0)
 
 
 //#define DEBUG_PRINT
@@ -91,15 +77,15 @@ uint64_t jbpf_main(void* state)
     if (reinterpret_cast<const uint8_t*>(&harq_info) + sizeof(jbpf_mac_sched_harq_ctx_info) <= reinterpret_cast<const uint8_t*>(ctx->data_end)) {    
 
         // cons_retx
-        MAC_STATS_UPDATE(out->stats[ind % MAX_NUM_UE].cons_retx, harq_info.nof_retxs); 
+        STATS_UPDATE(out->stats[ind % MAX_NUM_UE].cons_retx, harq_info.nof_retxs); 
 
         // mcs
-        MAC_STATS_UPDATE(out->stats[ind % MAX_NUM_UE].mcs, harq_info.mcs); 
+        STATS_UPDATE(out->stats[ind % MAX_NUM_UE].mcs, harq_info.mcs); 
 
         // perHarqTypeStats
         t_harq_type_stats& hts = out->stats[ind % MAX_NUM_UE].perHarqTypeStats[harq_info.harq_type % JBPF_HARQ_EVENT_NUM];
         hts.count++;
-        MAC_TRAFFIC_STATS_UPDATE(hts.tbs_bytes, harq_info.tbs_bytes);
+        TRAFFIC_STATS_UPDATE(hts.tbs_bytes, harq_info.tbs_bytes);
     }
 
     *not_empty_stats = 1;
