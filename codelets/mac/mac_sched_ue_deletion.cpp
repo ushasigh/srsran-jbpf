@@ -124,13 +124,13 @@ uint64_t jbpf_main(void* state)
         crc_out->stats[ind % MAX_NUM_UE].retx_hist[i] = 0;
     }
     crc_out->stats[ind % MAX_NUM_UE].harq_failure = 0;
-    crc_out->stats[ind % MAX_NUM_UE].min_sinr = UINT32_MAX;
-    crc_out->stats[ind % MAX_NUM_UE].min_rsrp = UINT32_MAX;
-    crc_out->stats[ind % MAX_NUM_UE].max_sinr = 0;
-    crc_out->stats[ind % MAX_NUM_UE].max_rsrp = INT32_MIN;
+    crc_out->stats[ind % MAX_NUM_UE].min_sinr = INT16_MAX;
+    crc_out->stats[ind % MAX_NUM_UE].max_sinr = INT16_MIN;
     crc_out->stats[ind % MAX_NUM_UE].sum_sinr = 0;
-    crc_out->stats[ind % MAX_NUM_UE].sum_rsrp = 0;
     crc_out->stats[ind % MAX_NUM_UE].cnt_sinr = 0;
+    crc_out->stats[ind % MAX_NUM_UE].min_rsrp = UINT32_MAX;
+    crc_out->stats[ind % MAX_NUM_UE].max_rsrp = 0;
+    crc_out->stats[ind % MAX_NUM_UE].sum_rsrp = 0;
     crc_out->stats[ind % MAX_NUM_UE].cnt_rsrp = 0;
 
     ind = JBPF_PROTOHASH_LOOKUP_ELEM_32(uci_out, stats, uci_hash, ctx->du_ue_index, new_val);

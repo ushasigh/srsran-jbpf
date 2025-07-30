@@ -90,13 +90,16 @@ uint64_t jbpf_main(void* state)
             out->stats[ind % MAX_NUM_UE].retx_hist[i] = 0;
         }
         out->stats[ind % MAX_NUM_UE].harq_failure = 0;
-        out->stats[ind % MAX_NUM_UE].min_sinr = UINT32_MAX;
-        out->stats[ind % MAX_NUM_UE].min_rsrp = UINT32_MAX;
-        out->stats[ind % MAX_NUM_UE].max_sinr = 0;
-        out->stats[ind % MAX_NUM_UE].max_rsrp = INT32_MIN;
+
+        // Initialise to int16 limits as original SINR is an int16
+        out->stats[ind % MAX_NUM_UE].min_sinr = INT16_MAX;
+        out->stats[ind % MAX_NUM_UE].max_sinr = INT16_MIN;
         out->stats[ind % MAX_NUM_UE].sum_sinr = 0;
-        out->stats[ind % MAX_NUM_UE].sum_rsrp = 0;
         out->stats[ind % MAX_NUM_UE].cnt_sinr = 0;
+
+        out->stats[ind % MAX_NUM_UE].min_rsrp = UINT32_MAX;
+        out->stats[ind % MAX_NUM_UE].max_rsrp = 0;
+        out->stats[ind % MAX_NUM_UE].sum_rsrp = 0;
         out->stats[ind % MAX_NUM_UE].cnt_rsrp = 0;
     }
 
@@ -140,8 +143,11 @@ uint64_t jbpf_main(void* state)
 
 
     if (mac_ctx.ul_sinr_dB.has_value()) {
+
+        // valid range of ul_sinr_dB is [-65.534, 65.534]
+
         // We ignore decimal part of SINR
-        uint32_t ul_sinr_dB = (uint32_t) fixedpt_toint(float_to_fixed(mac_ctx.ul_sinr_dB.value()));
+        int32_t ul_sinr_dB = (int32_t)fixedpt_toint(float_to_fixed(mac_ctx.ul_sinr_dB.value()));
         if (ul_sinr_dB < out->stats[ind].min_sinr) {
             out->stats[ind].min_sinr = ul_sinr_dB;
         }
@@ -165,6 +171,9 @@ uint64_t jbpf_main(void* state)
     } 
 
     if (mac_ctx.ul_rsrp_dBFS.has_value()) {
+
+        // valid range of ul_rsrp_dBFS is [-128.0, 6425.4]
+
         // We ignore decimal part of RSRP
         int32_t ul_rsrp_dB = (int32_t) fixedpt_toint(float_to_fixed(mac_ctx.ul_rsrp_dBFS.value()));
 

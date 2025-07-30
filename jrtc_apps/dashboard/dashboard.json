@@ -40,7 +40,7 @@
               "durationMs": 86400000
             },
             "value": {
-              "durationMs": 14400000
+              "durationMs": 300000
             }
           }
         ],
@@ -651,27 +651,6 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "let timeStart = todatetime({timeparameter:start});\r\nlet timeEnd = todatetime({timeparameter:end});\r\nlet duration = timeEnd - timeStart;\r\nlet maxPoints = 10000;  // Hard limit for visualization\r\nlet baseStep = case(\r\n    duration >= 7d, 15m,\r\n    duration >= 3d, 6m,     \r\n    duration >= 48h, 4m, \r\n    duration >= 24h, 2m,\r\n    duration >= 12h, 1m, \r\n    duration >= 4h, 30s,\r\n    duration >= 1h, 30s,\r\n    duration >= 15m, 20s,\r\n    20s  // Default step size\r\n);\r\nlet totalPoints = tolong(duration / baseStep);\r\nlet scaleFactor = ceiling(totalPoints * 1.0 / maxPoints);  // Ensure step scaling\r\nlet adjustedStep = baseStep * scaleFactor;\r\njrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"MAC_SCHED_UCI_STATS\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), isSRB = toint(stats_d.is_srb), rbID = tostring(stats_d.rb_id), avgHarqAck = todouble(stats_d.harq.ack), avgHarqNack = todouble(stats_d.harq.nack), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| extend imsi = iff(not(isempty(supi)), substring(supi, 5), timsi)\r\n| where not(isempty(imsi)) // Only include UEs connected for a longer time\r\n| project imsi_rb = strcat(imsi, \"/\", rbID), avgErr = avgHarqNack / (avgHarqNack + avgHarqAck), timestamp\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| make-series avgErr=avg(avgErr*100) default=0 \r\n  on timestamp from timeStart to timeEnd step adjustedStep by imsi_rb\r\n| render timechart",
-              "size": 1,
-              "title": "Downlink loss rate at MAC level [%]",
-              "timeContextFromParameter": "timeparameter",
-              "queryType": 0,
-              "resourceType": "microsoft.operationalinsights/workspaces",
-              "chartSettings": {
-                "showMetrics": false,
-                "showLegend": true,
-                "ySettings": {
-                  "min": 0
-                }
-              }
-            },
-            "customWidth": "33",
-            "name": "query - 6 - Copy - Copy - Copy"
-          },
-          {
-            "type": 3,
-            "content": {
-              "version": "KqlItem/1.0",
               "query": "let timeStart = todatetime({timeparameter:start});\r\nlet timeEnd = todatetime({timeparameter:end});\r\nlet duration = timeEnd - timeStart;\r\nlet maxPoints = 10000;  // Hard limit for visualization\r\nlet baseStep = case(\r\n    duration >= 7d, 15m,\r\n    duration >= 3d, 8m,     \r\n    duration >= 48h, 4m, \r\n    duration >= 24h, 2m,\r\n    duration >= 12h, 1m, \r\n    duration >= 4h, 30s,\r\n    duration >= 1h, 30s,\r\n    duration >= 15m, 20s,\r\n    10s  // Default step size\r\n);\r\nlet totalPoints = tolong(duration / baseStep);\r\nlet scaleFactor = ceiling(totalPoints * 1.0 / maxPoints);  // Ensure step scaling\r\nlet adjustedStep = baseStep * scaleFactor;\r\njrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"FAPI_DL_CONFIG\"\r\n| mv-expand stream_payload_msg.ues\r\n| extend ues = todynamic(stream_payload_msg_ues)\r\n| extend ueIndex = tostring(ues.ueid), timsi = tostring(ues.ue_ctx.tmsi), supi = tostring(ues.ue_ctx.core_amf_info.supi), l1PrbAvg = todouble(ues.l1_prb_avg), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| extend imsi = iff(not(isempty(supi)), substring(supi, 5), timsi)\r\n| project timestamp, imsi, l1PrbAvg  // Select relevant columns\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| make-series l1PrbAvg=avg(l1PrbAvg) default=0 \r\n  on timestamp from timeStart to timeEnd step adjustedStep by imsi\r\n| render timechart\r\n",
               "size": 1,
               "title": "Average downlink spectrum utilization (in PRB) per user",
@@ -683,7 +662,7 @@
                 "showLegend": true
               }
             },
-            "customWidth": "25",
+            "customWidth": "33",
             "name": "query - 7"
           },
           {
@@ -701,7 +680,7 @@
                 "showLegend": true
               }
             },
-            "customWidth": "25",
+            "customWidth": "33",
             "name": "query - 7 - Copy"
           },
           {
@@ -719,7 +698,7 @@
                 "showLegend": true
               }
             },
-            "customWidth": "25",
+            "customWidth": "33",
             "name": "query - 7 - Copy - Copy"
           },
           {
@@ -737,7 +716,7 @@
                 "showLegend": true
               }
             },
-            "customWidth": "25",
+            "customWidth": "33",
             "name": "query - 7 - Copy - Copy - Copy - Copy"
           },
           {
@@ -835,7 +814,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "let timeStart = todatetime({timeparameter:start});\r\nlet timeEnd = todatetime({timeparameter:end});\r\nlet duration = timeEnd - timeStart;\r\nlet maxPoints = 10000;  // Hard limit for visualization\r\nlet baseStep = case(\r\n    duration >= 7d, 15m,\r\n    duration >= 3d, 8m,     \r\n    duration >= 48h, 4m, \r\n    duration >= 24h, 2m,\r\n    duration >= 12h, 1m, \r\n    duration >= 4h, 30s,\r\n    duration >= 1h, 30s,\r\n    duration >= 15m, 20s,\r\n    20s  // Default step size\r\n);\r\nlet totalPoints = tolong(duration / baseStep);\r\nlet scaleFactor = ceiling(totalPoints * 1.0 / maxPoints);  // Ensure step scaling\r\nlet adjustedStep = baseStep * scaleFactor;\r\njrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"MAC_SCHED_CRC_STATS\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), maxSinr = todouble(stats_d.max_sinr), minSinr = todouble(stats_d.min_sinr), avgSinr = todouble(stats_d.avg_sinr), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| extend imsi = iff(not(isempty(supi)), substring(supi, 5), timsi)\r\n| project timestamp, imsi, maxSinr, avgSinr  // Select relevant columns\r\n| where not(isempty(imsi)) // Only include UEs connected for a longer time\r\n| where timestamp >= timeStart and timestamp <= timeEnd and not(isempty(imsi))\r\n| make-series avgSinr=avg(avgSinr) default=0 \r\n  on timestamp from timeStart to timeEnd step adjustedStep by imsi\r\n| render timechart\r\n",
+              "query": "let timeStart = todatetime({timeparameter:start});\r\nlet timeEnd = todatetime({timeparameter:end});\r\nlet duration = timeEnd - timeStart;\r\nlet maxPoints = 10000;  // Hard limit for visualization\r\nlet baseStep = case(\r\n    duration >= 7d, 15m,\r\n    duration >= 3d, 8m,     \r\n    duration >= 48h, 4m, \r\n    duration >= 24h, 2m,\r\n    duration >= 12h, 1m, \r\n    duration >= 4h, 30s,\r\n    duration >= 1h, 30s,\r\n    duration >= 15m, 20s,\r\n    20s  // Default step size\r\n);\r\nlet totalPoints = tolong(duration / baseStep);\r\nlet scaleFactor = ceiling(totalPoints * 1.0 / maxPoints);  // Ensure step scaling\r\nlet adjustedStep = baseStep * scaleFactor;\r\njrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"MAC_SCHED_CRC_STATS\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), maxSinr = todouble(stats_d.max_sinr), minSinr = todouble(stats_d.min_sinr), avgSinr = todouble(stats_d.avg_sinr), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| extend imsi = iff(not(isempty(supi)), substring(supi, 5), timsi)\r\n| project timestamp, imsi, maxSinr, avgSinr  // Select relevant columns\r\n| where not(isempty(imsi)) // Only include UEs connected for a longer time\r\n| where timestamp >= timeStart and timestamp <= timeEnd and not(isempty(imsi))\r\n| make-series avgSinr=avg(avgSinr) default=-65.0\r\n  on timestamp from timeStart to timeEnd step adjustedStep by imsi\r\n| render timechart\r\n",
               "size": 1,
               "title": "Avg uplink SINR [dB]",
               "timeContextFromParameter": "timeparameter",
@@ -844,8 +823,12 @@
               "chartSettings": {
                 "showMetrics": false,
                 "showLegend": true,
+                "customThresholdLine": "10",
+                "customThresholdLineStyle": 5,
                 "ySettings": {
-                  "min": 0
+                  "min": -66,
+                  "max": 66,
+                  "label": ""
                 }
               }
             },
@@ -856,19 +839,21 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "let timeStart = todatetime({timeparameter:start});\r\nlet timeEnd = todatetime({timeparameter:end});\r\nlet duration = timeEnd - timeStart;\r\nlet maxPoints = 10000;  // Hard limit for visualization\r\nlet baseStep = case(\r\n    duration >= 7d, 15m,\r\n    duration >= 3d, 8m,     \r\n    duration >= 48h, 4m, \r\n    duration >= 24h, 2m,\r\n    duration >= 12h, 1m, \r\n    duration >= 4h, 20s,\r\n    duration >= 1h, 10s,\r\n    duration >= 15m, 5s,\r\n    1s  // Default step size\r\n);\r\nlet totalPoints = tolong(duration / baseStep);\r\nlet scaleFactor = ceiling(totalPoints * 1.0 / maxPoints);  // Ensure step scaling\r\nlet adjustedStep = baseStep * scaleFactor;\r\njrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"MAC_SCHED_CRC_STATS\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), loss = 1-todouble(stats_d.succ_rate), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| extend imsi = iff(not(isempty(supi)), substring(supi, 5), timsi)\r\n| project timestamp, imsi, loss  // Select relevant columns\r\n| where not(isempty(imsi)) // Only include UEs connected for a longer time\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| make-series loss=avg(loss)*100 default=0 \r\n  on timestamp from timeStart to timeEnd step adjustedStep by imsi\r\n| render timechart\r\n",
+              "query": "\r\nlet timeStart = todatetime({timeparameter:start});\r\nlet timeEnd = todatetime({timeparameter:end});\r\nlet duration = timeEnd - timeStart;\r\nlet maxPoints = 10000;  // Hard limit for visualization\r\nlet baseStep = case(\r\n    duration >= 7d, 15m,\r\n    duration >= 3d, 8m,     \r\n    duration >= 48h, 4m, \r\n    duration >= 24h, 2m,\r\n    duration >= 12h, 1m, \r\n    duration >= 4h, 30s,\r\n    duration >= 1h, 30s,\r\n    duration >= 15m, 20s,\r\n    20s  // Default step size\r\n);\r\nlet totalPoints = tolong(duration / baseStep);\r\nlet scaleFactor = ceiling(totalPoints * 1.0 / maxPoints);  // Ensure step scaling\r\nlet adjustedStep = baseStep * scaleFactor;\r\njrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"MAC_SCHED_CRC_STATS\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), maxRsrp = todouble(stats_d.max_rsrp), minRsrp = todouble(stats_d.min_rsrp), avgRsrp = todouble(stats_d.avg_rsrp), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| extend imsi = iff(not(isempty(supi)), substring(supi, 5), timsi)\r\n| project timestamp, imsi, maxRsrp, avgRsrp  // Select relevant columns\r\n| where not(isempty(imsi)) // Only include UEs connected for a longer time\r\n| where timestamp >= timeStart and timestamp <= timeEnd and not(isempty(imsi))\r\n| make-series avgRsrp=avg(avgRsrp) default=-128\r\n  on timestamp from timeStart to timeEnd step adjustedStep by imsi\r\n| render timechart\r\n\r\n",
               "size": 1,
-              "title": "Average uplink MAC packet loss rate [%]",
+              "title": "Avg uplink RSRP [dBm]",
               "timeContextFromParameter": "timeparameter",
               "queryType": 0,
               "resourceType": "microsoft.operationalinsights/workspaces",
               "chartSettings": {
                 "showMetrics": false,
-                "showLegend": true
+                "showLegend": true,
+                "customThresholdLine": "-80",
+                "customThresholdLineStyle": 5
               }
             },
             "customWidth": "33",
-            "name": "query - 5"
+            "name": "query - 4 - Copy"
           },
           {
             "type": 3,
