@@ -1,0 +1,1416 @@
+{
+  "version": "Notebook/1.0",
+  "items": [
+    {
+      "type": 9,
+      "content": {
+        "version": "KqlParameterItem/1.0",
+        "parameters": [
+          {
+            "id": "9662a12c-f7f6-4625-8922-ec596adbc165",
+            "version": "KqlParameterItem/1.0",
+            "name": "timeparameter",
+            "label": "Select time",
+            "type": 4,
+            "description": "Query range",
+            "value": {
+              "durationMs": 900000
+            },
+            "typeSettings": {
+              "selectableValues": [
+                {
+                  "durationMs": 300000
+                },
+                {
+                  "durationMs": 900000
+                },
+                {
+                  "durationMs": 1800000
+                },
+                {
+                  "durationMs": 3600000
+                },
+                {
+                  "durationMs": 14400000
+                },
+                {
+                  "durationMs": 43200000
+                },
+                {
+                  "durationMs": 86400000
+                },
+                {
+                  "durationMs": 172800000
+                },
+                {
+                  "durationMs": 259200000
+                },
+                {
+                  "durationMs": 604800000
+                },
+                {
+                  "durationMs": 1209600000
+                },
+                {
+                  "durationMs": 2419200000
+                },
+                {
+                  "durationMs": 2592000000
+                },
+                {
+                  "durationMs": 5184000000
+                },
+                {
+                  "durationMs": 7776000000
+                }
+              ],
+              "allowCustom": true
+            },
+            "timeContext": {
+              "durationMs": 86400000
+            }
+          }
+        ],
+        "style": "pills",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces"
+      },
+      "name": "parameters - 6"
+    },
+    {
+      "type": 11,
+      "content": {
+        "version": "LinkItem/1.0",
+        "style": "tabs",
+        "links": [
+          {
+            "id": "20cd7132-3fa4-4a44-8a40-f7b05f0f68a3",
+            "cellValue": "selectedTab",
+            "linkTarget": "parameter",
+            "linkLabel": "Core",
+            "subTarget": "CoreStatus",
+            "preText": "Overview",
+            "style": "link"
+          },
+          {
+            "id": "6c386590-bc02-40e8-9d56-eb039fa362d6",
+            "cellValue": "selectedTab",
+            "linkTarget": "parameter",
+            "linkLabel": "RAN",
+            "subTarget": "RANStatus",
+            "style": "link"
+          },
+          {
+            "id": "dd505396-e0cc-419c-8040-28713c111f32",
+            "cellValue": "selectedTab",
+            "linkTarget": "parameter",
+            "linkLabel": "UEs",
+            "subTarget": "UEStatus",
+            "style": "link"
+          }
+        ]
+      },
+      "name": "links - 5"
+    },
+    {
+      "type": 12,
+      "content": {
+        "version": "NotebookGroup/1.0",
+        "groupType": "editable",
+        "items": [
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "// how far to look back for GUTI/SUCI mappings\nlet guti_lookback_duration_days = 7;\n// A rnti will have been created shortly before the GUTI mapping is seen. Therefore times are adjusted accordinly.\nlet rnti_guti_tolerance_secs = 3;\n\n// capture the main data\nlet data = Janus_CL\n| where stream_type_s == \"janus\"\n    and stream_context_info_codelet_set_id_s == \"fapi_gnb_dl_config_stats\"\n| project stream_payload_time_t, p=todynamic(stream_payload_msg_s)\n| project stream_payload_time_t, stats=p.stats\n| order by stream_payload_time_t asc\n| mv-expand stats\n| project stream_payload_time_t, cell_id=todouble(stats.cellId), rnti=tostring(stats.rnti), tx=todouble(stats.l1DlcTx)\n| where toint(rnti) >= 20000 and toint(rnti) <= 22000;\n// calulate the latest time in data\nlet t_end = toscalar(data | summarize max_time = max(stream_payload_time_t));\n\n// create table of imsi_stmsi mappings from <guti_lookback_duration_days> days before start of query time range\nlet guti_suci_start_time = datetime_add('day', -guti_lookback_duration_days, {TimeRange:start});\nlet imsi_stmsi = PcapF1AP_CL\n| where stream_payload_structure_s == \"5GNAS:GUTI/SUCI-Event\" and stream_payload_time_t >= guti_suci_start_time and stream_payload_time_t <= t_end\n| order by stream_payload_time_t asc\n| project stream_payload_time_t, msg=todynamic(stream_payload_msg_s)\n| project stream_payload_time_t=datetime_add('second', -rnti_guti_tolerance_secs, stream_payload_time_t), stmsi=tostring(todynamic(msg.guti)[\"5g_stmsi_hex\"]), imsi=tostring(todynamic(msg.suci).imsi)\n| extend stmsi_imsi = strcat(stmsi, \"/\", imsi);\n\n// create table of stmsi/crnti/nrcgi/pci mappings by looking at the STMSI_ASSIGN events\nlet stmsi_crnti_nrcgi_pci = PcapF1AP_CL\n| where stream_payload_structure_s == \"pcapDecoderF1AP:Report\"  and stream_payload_time_t >= guti_suci_start_time and stream_payload_time_t <= t_end\n| project stream_payload_time_t, msg=todynamic(stream_payload_msg_s)\n| project stream_payload_time_t, events=todynamic(msg.ue_events), ue=todynamic(msg.ue)\n| where isnotnull(events) and isnotnull(ue)\n| mv-expand events\n| where events.event == \"5G_STMSI_ASSIGN\"\n| mv-expand ue.ids.contexts\n| project stream_payload_time_t=datetime_add('second', -rnti_guti_tolerance_secs, stream_payload_time_t), stmsi=tostring(ue.ids.5g_stmsi_hex), rnti=tostring(ue_ids_contexts.crnti), nrcgi=tostring(ue_ids_contexts.nrcgi), cell_id=todouble(ue_ids_contexts.pci)\n| distinct *;\n\n// add the imsi to the stmsi/crnti/nrcgi/pci mappings table\nlet stmsi_crnti_nrcgi_pci_imsi = stmsi_crnti_nrcgi_pci\n| join kind=inner (imsi_stmsi | project stmsi, imsi) on stmsi\n| distinct *;\n\n\n// Add nearest latest timestamp from stmsi_crnti_nrcgi_pci_imsi i.e. \n//\n// if \"stmsi_crnti_nrcgi_pci_imsi\" table has this ..\n//  time   cell_id    rnti   ...   imsi\n//  13:00       11   20000            1\n//  14:00       11   20000            2\n//  15:00       11   20000            3\n//\n// and \"data\" table has this ..\n//  time   cell_id    rnti   ...   tx\n//  12:55       11   20000          1\n//  13:00       11   20000          2\n//  13:55       11   20000          3\n//  14:05       11   20000          4\n//  14:55       11   20000          5\n//  15:00       11   20000          6\n//\n// the resulting table should be ..\n//  time   cell_id    rnti   ...   tx    imsi\n//  12:55       11   20000          1\n//  13:00       11   20000          2       1\n//  13:55       11   20000          3       1\n//  14:05       11   20000          4       2\n//  14:55       11   20000          5       2\n//  15:00       11   20000          6       3\n \nlet data_imsi_union = data\n| join kind=leftouter (\n    stmsi_crnti_nrcgi_pci_imsi\n    | project imsi_time = stream_payload_time_t, stmsi, rnti, cell_id, imsi\n) on rnti, cell_id\n| order by stream_payload_time_t asc;\n\nlet data_with_imsi = data_imsi_union\n| where stream_payload_time_t >= imsi_time\n| order by stream_payload_time_t asc\n| summarize arg_max(imsi_time, imsi) by stream_payload_time_t, rnti, cell_id, tx\n| project stream_payload_time_t, rnti, cell_id, tx, imsi\n| extend ueid=strcat(\"imsi=\",imsi)\n| order by stream_payload_time_t asc;\n\nlet data_without_imsi = data_imsi_union\n| where (stream_payload_time_t < imsi_time) or isnull(imsi_time)\n| project-away imsi, imsi_time\n| extend ueid=strcat(\"rnti=\",rnti)\n| summarize arg_min(stream_payload_time_t, *) by stream_payload_time_t\n| order by stream_payload_time_t asc;\n\nlet data_final = data_without_imsi\n| union kind=outer data_with_imsi\n| summarize arg_max(imsi, *) by stream_payload_time_t, cell_id, rnti\n| order by stream_payload_time_t asc;\n\ndata_final\n| summarize tx_Bps=sum(tx*8/1000000) by bin(stream_payload_time_t, 1s), ueid\n| render timechart with (ycolumns=tx_Bps, series=ueid, ytitle=\"Downlink throughput [Mbps]\")\n",
+              "size": 1,
+              "title": "Downlink L1 throughputs per IMSI/RNTI [Mbps]",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "gridSettings": {
+                "sortBy": [
+                  {
+                    "itemKey": "rnti",
+                    "sortOrder": 1
+                  }
+                ]
+              },
+              "sortBy": [
+                {
+                  "itemKey": "rnti",
+                  "sortOrder": 1
+                }
+              ],
+              "chartSettings": {
+                "showMetrics": false,
+                "showLegend": true,
+                "ySettings": {
+                  "min": 0
+                }
+              }
+            },
+            "customWidth": "50",
+            "showPin": false,
+            "name": "Overview"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "// how far to look back for GUTI/SUCI mappings\r\nlet guti_lookback_duration_days = 7;\r\n// A rnti will have been created shortly before the GUTI mapping is seen. Therefore times are adjusted accordinly.\r\nlet rnti_guti_tolerance_secs = 3;\r\n\r\n// Uplink TX throughput\r\nlet data = Janus_CL\r\n| where stream_type_s == \"janus\"\r\n    and stream_context_info_codelet_set_id_s == \"fapi_gnb_ul_config_stats\"\r\n| project stream_payload_time_t, p=todynamic(stream_payload_msg_s)\r\n| project stream_payload_time_t, cell_id=todouble(p.cellId), stats=p.stats\r\n| mv-expand stats\r\n| project stream_payload_time_t, cell_id=todouble(stats.cellId), rnti=tostring(stats.rnti), tx=todouble(stats.l1UlcTx)\r\n| where toint(rnti) >= 20000 and toint(rnti) <= 22000;\r\n\r\n// calculate the latest time in data\r\nlet t_end = toscalar(data | summarize max_time = max(stream_payload_time_t));\r\n\r\n// create table of imsi_stmsi mappings from <guti_lookback_duration_days> days before start of query time range\r\nlet guti_suci_start_time = datetime_add('day', -guti_lookback_duration_days, {TimeRange:start});\r\nlet imsi_stmsi = PcapF1AP_CL\r\n| where stream_payload_structure_s == \"5GNAS:GUTI/SUCI-Event\" and stream_payload_time_t >= guti_suci_start_time and stream_payload_time_t <= t_end\r\n| order by stream_payload_time_t\r\n| project stream_payload_time_t, msg=todynamic(stream_payload_msg_s)\r\n| project stream_payload_time_t=datetime_add('second', -rnti_guti_tolerance_secs, stream_payload_time_t), stmsi=tostring(todynamic(msg.guti)[\"5g_stmsi_hex\"]), imsi=tostring(todynamic(msg.suci).imsi)\r\n| extend stmsi_imsi = strcat(stmsi, \"/\", imsi);\r\n\r\n// create table of stmsi/crnti/nrcgi/pci mappings by looking at the STMSI_ASSIGN events\r\nlet stmsi_crnti_nrcgi_pci = PcapF1AP_CL\r\n| where stream_payload_structure_s == \"pcapDecoderF1AP:Report\"  and stream_payload_time_t >= guti_suci_start_time and stream_payload_time_t <= t_end\r\n| project stream_payload_time_t, msg=todynamic(stream_payload_msg_s)\r\n| project stream_payload_time_t, events=todynamic(msg.ue_events), ue=todynamic(msg.ue)\r\n| where isnotnull(events) and isnotnull(ue)\r\n| mv-expand events\r\n| where events.event == \"5G_STMSI_ASSIGN\"\r\n| mv-expand ue.ids.contexts\r\n| project stream_payload_time_t=datetime_add('second', -rnti_guti_tolerance_secs, stream_payload_time_t), stmsi=tostring(ue.ids.5g_stmsi_hex), rnti=tostring(ue_ids_contexts.crnti), nrcgi=tostring(ue_ids_contexts.nrcgi), cell_id=todouble(ue_ids_contexts.pci)\r\n| distinct *;\r\n\r\n// add the imsi to the stmsi/crnti/nrcgi/pci mappings table\r\nlet stmsi_crnti_nrcgi_pci_imsi = stmsi_crnti_nrcgi_pci\r\n| join kind=inner (imsi_stmsi | project stmsi, imsi) on stmsi\r\n| distinct *;\r\n\r\n// Add nearest latest timestamp from stmsi_crnti_nrcgi_pci_imsi i.e. \r\n//\r\n// if \"stmsi_crnti_nrcgi_pci_imsi\" table has this ..\r\n//  time   cell_id    rnti   ...   imsi\r\n//  13:00       11   20000            1\r\n//  14:00       11   20000            2\r\n//  15:00       11   20000            3\r\n//\r\n// and \"data\" table has this ..\r\n//  time   cell_id    rnti   ...   tx\r\n//  12:55       11   20000          1\r\n//  13:00       11   20000          2\r\n//  13:55       11   20000          3\r\n//  14:05       11   20000          4\r\n//  14:55       11   20000          5\r\n//  15:00       11   20000          6\r\n//\r\n// the resulting table should be ..\r\n//  time   cell_id    rnti   ...   tx    imsi\r\n//  12:55       11   20000          1\r\n//  13:00       11   20000          2       1\r\n//  13:55       11   20000          3       1\r\n//  14:05       11   20000          4       2\r\n//  14:55       11   20000          5       2\r\n//  15:00       11   20000          6       3\r\n \r\nlet data_imsi_union = data\r\n| join kind=leftouter (\r\n    stmsi_crnti_nrcgi_pci_imsi\r\n    | project imsi_time = stream_payload_time_t, stmsi, rnti, cell_id, imsi\r\n) on rnti, cell_id\r\n| order by stream_payload_time_t asc;\r\n\r\nlet data_with_imsi = data_imsi_union\r\n| where stream_payload_time_t >= imsi_time\r\n| order by stream_payload_time_t asc\r\n| summarize arg_max(imsi_time, imsi) by stream_payload_time_t, rnti, cell_id, tx\r\n| project stream_payload_time_t, rnti, cell_id, tx, imsi\r\n| extend ueid=strcat(\"imsi=\",imsi)\r\n| order by stream_payload_time_t asc;\r\n\r\nlet data_without_imsi = data_imsi_union\r\n| where (stream_payload_time_t < imsi_time) or isnull(imsi_time)\r\n| project-away imsi, imsi_time\r\n| extend ueid=strcat(\"rnti=\",rnti)\r\n| summarize arg_min(stream_payload_time_t, *) by stream_payload_time_t\r\n| order by stream_payload_time_t asc;\r\n\r\nlet data_final = data_without_imsi\r\n| union kind=outer data_with_imsi\r\n| order by stream_payload_time_t asc\r\n| summarize arg_max(imsi, *) by stream_payload_time_t, cell_id, rnti\r\n| order by stream_payload_time_t asc;\r\n\r\ndata_final\r\n| summarize tx_Bps=sum(tx*8/1000000) by bin(stream_payload_time_t, 1s), ueid\r\n| render timechart with (ycolumns=tx_Bps, series=ueid, ytitle=\"Uplink throughput [Mbps]\")\r\n",
+              "size": 1,
+              "title": "Uplink L1 throughputs per IMSI/RNTI [Mbps]",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "chartSettings": {
+                "showMetrics": false,
+                "showLegend": true
+              }
+            },
+            "customWidth": "50",
+            "name": "query - 2"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "// how far to look back for GUTI/SUCI mappings\r\nlet guti_lookback_duration_days = 7;\r\n// A rnti will have been created shortly before the GUTI mapping is seen. Therefore times are adjusted accordinly.\r\nlet rnti_guti_tolerance_secs = 3;\r\n\r\n// Average SNR (CRC)\r\nlet data = Janus_CL\r\n| where stream_type_s == \"janus\"\r\n    and stream_context_info_codelet_set_id_s == \"fapi_gnb_crc_stats\"\r\n| project stream_payload_time_t, p=todynamic(stream_payload_msg_s)\r\n| project stream_payload_time_t, cell_id=todouble(p.cellId), stats=p.stats\r\n| mv-expand stats\r\n| project stream_payload_time_t, cell_id=todouble(stats.cellId), rnti=tostring(stats.rnti), snr_min=todouble(stats.l1SnrMin), snr_max=todouble(stats.l1SnrMax)\r\n| where toint(rnti) >= 20000 and toint(rnti) <= 22000;\r\n\r\n// calculate the latest time in data\r\nlet t_end = toscalar(data | summarize max_time = max(stream_payload_time_t));\r\n\r\n// create table of imsi_stmsi mappings from <guti_lookback_duration_days> days before start of query time range\r\nlet guti_suci_start_time = datetime_add('day', -guti_lookback_duration_days, {TimeRange:start});\r\nlet imsi_stmsi = PcapF1AP_CL\r\n| where stream_payload_structure_s == \"5GNAS:GUTI/SUCI-Event\" and stream_payload_time_t >= guti_suci_start_time and stream_payload_time_t <= t_end\r\n| order by stream_payload_time_t\r\n| project stream_payload_time_t, msg=todynamic(stream_payload_msg_s)\r\n| project stream_payload_time_t=datetime_add('second', -rnti_guti_tolerance_secs, stream_payload_time_t), stmsi=tostring(todynamic(msg.guti)[\"5g_stmsi_hex\"]), imsi=tostring(todynamic(msg.suci).imsi)\r\n| extend stmsi_imsi = strcat(stmsi, \"/\", imsi);\r\n\r\n// create table of stmsi/crnti/nrcgi/pci mappings by looking at the STMSI_ASSIGN events\r\nlet stmsi_crnti_nrcgi_pci = PcapF1AP_CL\r\n| where stream_payload_structure_s == \"pcapDecoderF1AP:Report\"  and stream_payload_time_t >= guti_suci_start_time and stream_payload_time_t <= t_end\r\n| project stream_payload_time_t, msg=todynamic(stream_payload_msg_s)\r\n| project stream_payload_time_t, events=todynamic(msg.ue_events), ue=todynamic(msg.ue)\r\n| where isnotnull(events) and isnotnull(ue)\r\n| mv-expand events\r\n| where events.event == \"5G_STMSI_ASSIGN\"\r\n| mv-expand ue.ids.contexts\r\n| project stream_payload_time_t=datetime_add('second', -rnti_guti_tolerance_secs, stream_payload_time_t), stmsi=tostring(ue.ids.5g_stmsi_hex), rnti=tostring(ue_ids_contexts.crnti), nrcgi=tostring(ue_ids_contexts.nrcgi), cell_id=todouble(ue_ids_contexts.pci)\r\n| distinct *;\r\n\r\n// add the imsi to the stmsi/crnti/nrcgi/pci mappings table\r\nlet stmsi_crnti_nrcgi_pci_imsi = stmsi_crnti_nrcgi_pci\r\n| join kind=inner (imsi_stmsi | project stmsi, imsi) on stmsi\r\n| distinct *;\r\n\r\n// Add nearest latest timestamp from stmsi_crnti_nrcgi_pci_imsi i.e. \r\n//\r\n// if \"stmsi_crnti_nrcgi_pci_imsi\" table has this ..\r\n//  time   cell_id    rnti   ...   imsi\r\n//  13:00       11   20000            1\r\n//  14:00       11   20000            2\r\n//  15:00       11   20000            3\r\n//\r\n// and \"data\" table has this ..\r\n//  time   cell_id    rnti   ...   tx\r\n//  12:55       11   20000          1\r\n//  13:00       11   20000          2\r\n//  13:55       11   20000          3\r\n//  14:05       11   20000          4\r\n//  14:55       11   20000          5\r\n//  15:00       11   20000          6\r\n//\r\n// the resulting table should be ..\r\n//  time   cell_id    rnti   ...   tx    imsi\r\n//  12:55       11   20000          1\r\n//  13:00       11   20000          2       1\r\n//  13:55       11   20000          3       1\r\n//  14:05       11   20000          4       2\r\n//  14:55       11   20000          5       2\r\n//  15:00       11   20000          6       3\r\n \r\nlet data_imsi_union = data\r\n| join kind=leftouter (\r\n    stmsi_crnti_nrcgi_pci_imsi\r\n    | project imsi_time = stream_payload_time_t, stmsi, rnti, cell_id, imsi\r\n) on rnti, cell_id\r\n| order by stream_payload_time_t asc;\r\n\r\nlet data_with_imsi = data_imsi_union\r\n| where stream_payload_time_t >= imsi_time\r\n| order by stream_payload_time_t asc\r\n| summarize arg_max(imsi_time, imsi) by stream_payload_time_t, rnti, cell_id, snr_min, snr_max\r\n| project stream_payload_time_t, rnti, cell_id, snr_min, snr_max, imsi\r\n| extend ueid=strcat(\"imsi=\",imsi)\r\n| order by stream_payload_time_t asc;\r\n\r\nlet data_without_imsi = data_imsi_union\r\n| where (stream_payload_time_t < imsi_time) or isnull(imsi_time)\r\n| project-away imsi, imsi_time\r\n| extend ueid=strcat(\"rnti=\",rnti)\r\n| summarize arg_min(stream_payload_time_t, *) by stream_payload_time_t\r\n| order by stream_payload_time_t asc;\r\n\r\nlet data_final = data_without_imsi\r\n| union kind=outer data_with_imsi\r\n| order by stream_payload_time_t asc\r\n| summarize arg_max(imsi, *) by stream_payload_time_t, cell_id, rnti\r\n| order by stream_payload_time_t asc;\r\n\r\ndata_final\r\n| summarize min_snr = min(snr_min) by bin(stream_payload_time_t, 10s), ueid\r\n| render timechart with (ymin=0, ymax = 40, ycolumns=min_snr, series=ueid, ytitle=\"Minimum UL SNR [dB]\")\r\n",
+              "size": 1,
+              "title": "SNR per IMSI/RNTI reported by UE [dB]",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "chartSettings": {
+                "showMetrics": false,
+                "showLegend": true,
+                "ySettings": {
+                  "min": 0,
+                  "max": 40
+                }
+              }
+            },
+            "customWidth": "50",
+            "name": "query - 3"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "// Average L2 CQI report\r\nJanus_CL\r\n| where stream_type_s == \"janus\"\r\n    and stream_context_info_codelet_set_id_s == \"csi_stats\"\r\n| project stream_payload_time_t, p=todynamic(stream_payload_msg_s)\r\n| project stream_payload_time_t, cell_id=todouble(p.cellId), csi_max=p.l2CsiMax\r\n| mv-expand csi_max\r\n| project stream_payload_time_t, cell_id, rnti=tostring(csi_max.rnti), cqi_max=todouble(csi_max.val)\r\n| where toint(rnti) >= 20000 and toint(rnti) <= 22000\r\n| summarize max=max(cqi_max) by bin(stream_payload_time_t, 10s), rnti\r\n| render timechart ",
+              "size": 1,
+              "title": "Average L2 CQI report",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "chartSettings": {
+                "showMetrics": false,
+                "showLegend": true
+              }
+            },
+            "customWidth": "50",
+            "name": "query - 12"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "// Max consecutive HARQ loss\r\nJanus_CL\r\n| where stream_type_s == \"janus\"\r\n    and stream_context_info_codelet_set_id_s == \"harq_dl_stats\"\r\n| project stream_payload_time_t, p=todynamic(stream_payload_msg_s)\r\n| order by stream_payload_time_t desc\r\n| project stream_payload_time_t, cell_id=todouble(p.cellId), harq_cnt=p.l2HarqConsMax\r\n| mv-expand harq_cnt\r\n| project stream_payload_time_t, rnti=tostring(harq_cnt.rnti), \r\n    cons_max=toint(harq_cnt.val)\r\n| summarize max=max(cons_max) by bin(stream_payload_time_t, 10s), rnti\r\n| render timechart with (ycolumns=max, series=rnti, xcolumn=stream_payload_time_t)",
+              "size": 1,
+              "title": "Max DL L2 HARQ consecutive loss",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "chartSettings": {
+                "showMetrics": false,
+                "showLegend": true
+              }
+            },
+            "customWidth": "50",
+            "name": "query - 9 - Copy"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "// Average L2 HARQ loss\r\nJanus_CL\r\n| where stream_type_s == \"janus\"\r\n    and stream_context_info_codelet_set_id_s == \"harq_dl_stats\"\r\n| project stream_payload_time_t, p=todynamic(stream_payload_msg_s)\r\n| project stream_payload_time_t, cell_id=todouble(p.cellId), harq_cnt=p.l2HarqCnt\r\n| mv-expand harq_cnt\r\n| project stream_payload_time_t, rnti=tostring(harq_cnt.rnti), \r\n    avg_loss=(todouble(harq_cnt.nack) + todouble(harq_cnt.dtx))/todouble(harq_cnt.cnt) * 100\r\n| summarize avg=avg(avg_loss) by bin(stream_payload_time_t, 10s), rnti\r\n| render timechart with (ycolumns=avg, series=rnti, xcolumn=stream_payload_time_t)",
+              "size": 1,
+              "title": "Average DL L2 HARQ loss [%]",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "chartSettings": {
+                "showMetrics": false,
+                "showLegend": true
+              }
+            },
+            "customWidth": "50",
+            "name": "query - 9"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "// Average L2 UL loss\r\nJanus_CL\r\n| where stream_type_s == \"janus\"\r\n    and stream_context_info_codelet_set_id_s == \"crc_stats\"\r\n| project stream_payload_time_t, p=todynamic(stream_payload_msg_s)\r\n| order by stream_payload_time_t desc\r\n| project stream_payload_time_t, cell_id=todouble(p.cellId), \r\n  crc_max=p.l2Max, crc_min=p.l2Min, crc_avg=p.l2Avg\r\n| mv-expand crc_avg\r\n| project stream_payload_time_t, rnti=tostring(crc_avg.rnti), \r\n    avg_loss=todouble(crc_avg.loss)/todouble(crc_avg.total) * 100\r\n| where toint(rnti) >= 20000 and toint(rnti) <= 22000\r\n| summarize avg=avg(avg_loss) by bin(stream_payload_time_t, 10s), rnti    \r\n| render timechart with (ycolumns=avg, series=rnti, xcolumn=stream_payload_time_t)",
+              "size": 1,
+              "title": "Average UL L2 HARQ loss [%]",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "chartSettings": {
+                "showMetrics": false,
+                "showLegend": true
+              }
+            },
+            "customWidth": "50",
+            "name": "query - 9 - Copy"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "Janus_CL\r\n| where stream_type_s == \"janus\"\r\n    and stream_context_info_codelet_set_id_s == \"bo_stats\"\r\n| project stream_payload_time_t, p=todynamic(stream_payload_msg_s)\r\n| project stream_payload_time_t, cell_id=todouble(p.cellId), bo_info=p.l2BoMax\r\n| mv-expand bo_info\r\n| project stream_payload_time_t, cell_id, rnti=tostring(bo_info.rnti), bo_max=todouble(bo_info.val)\r\n| where toint(rnti) >= 20000 and toint(rnti) <= 22000\r\n| summarize max_cnt=max(bo_max) by bin(stream_payload_time_t, 10s), rnti\r\n| render timechart ",
+              "size": 1,
+              "title": "Max downlink RLC queue size [B]",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "chartSettings": {
+                "showMetrics": false,
+                "showLegend": true
+              }
+            },
+            "customWidth": "50",
+            "name": "query - 6"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "// Average L2 UL queue size\r\nJanus_CL\r\n| where stream_type_s == \"janus\"\r\n    and stream_context_info_codelet_set_id_s == \"bsr_stats\"\r\n| project stream_payload_time_t, p=todynamic(stream_payload_msg_s)\r\n| project stream_payload_time_t, cell_id=todouble(p.cellId), bsr_max=p.l2BsrMax\r\n| mv-expand bsr_max\r\n| project stream_payload_time_t, cell_id, rnti=tostring(bsr_max.rnti), bo_max=todouble(bsr_max.val)\r\n| where toint(rnti) >= 20000 and toint(rnti) <= 22000\r\n| summarize max=max(bo_max) by bin(stream_payload_time_t, 10s), rnti\r\n| render timechart ",
+              "size": 1,
+              "title": "Uplink RLC queue size [B]",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "chartSettings": {
+                "showMetrics": false,
+                "showLegend": true
+              }
+            },
+            "customWidth": "50",
+            "name": "query - 7"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "// how far to look back for GUTI/SUCI mappings\r\nlet guti_lookback_duration_days = 7;\r\n// A rnti will have been created shortly before the GUTI mapping is seen. Therefore times are adjusted accordinly.\r\nlet rnti_guti_tolerance_secs = 3;\r\n\r\n// Average TA\r\nlet data = Janus_CL\r\n| where stream_type_s == \"janus\"\r\n    and stream_context_info_codelet_set_id_s == \"fapi_gnb_crc_stats\"\r\n| project stream_payload_time_t, p=todynamic(stream_payload_msg_s)\r\n| project stream_payload_time_t, cell_id=todouble(p.cellId), stats=p.stats\r\n| mv-expand stats\r\n| project stream_payload_time_t, cell_id=todouble(stats.cellId), rnti=tostring(stats.rnti), ta_max=todouble(stats.l1TaMax)\r\n| where toint(rnti) >= 20000 and toint(rnti) <= 22000;\r\n\r\n// calculate the latest time in data\r\nlet t_end = toscalar(data | summarize max_time = max(stream_payload_time_t));\r\n\r\n// create table of imsi_stmsi mappings from <guti_lookback_duration_days> days before start of query time range\r\nlet guti_suci_start_time = datetime_add('day', -guti_lookback_duration_days, {TimeRange:start});\r\nlet imsi_stmsi = PcapF1AP_CL\r\n| where stream_payload_structure_s == \"5GNAS:GUTI/SUCI-Event\" and stream_payload_time_t >= guti_suci_start_time and stream_payload_time_t <= t_end\r\n| order by stream_payload_time_t\r\n| project stream_payload_time_t, msg=todynamic(stream_payload_msg_s)\r\n| project stream_payload_time_t=datetime_add('second', -rnti_guti_tolerance_secs, stream_payload_time_t), stmsi=tostring(todynamic(msg.guti)[\"5g_stmsi_hex\"]), imsi=tostring(todynamic(msg.suci).imsi)\r\n| extend stmsi_imsi = strcat(stmsi, \"/\", imsi);\r\n\r\n// create table of stmsi/crnti/nrcgi/pci mappings by looking at the STMSI_ASSIGN events\r\nlet stmsi_crnti_nrcgi_pci = PcapF1AP_CL\r\n| where stream_payload_structure_s == \"pcapDecoderF1AP:Report\"  and stream_payload_time_t >= guti_suci_start_time and stream_payload_time_t <= t_end\r\n| project stream_payload_time_t, msg=todynamic(stream_payload_msg_s)\r\n| project stream_payload_time_t, events=todynamic(msg.ue_events), ue=todynamic(msg.ue)\r\n| where isnotnull(events) and isnotnull(ue)\r\n| mv-expand events\r\n| where events.event == \"5G_STMSI_ASSIGN\"\r\n| mv-expand ue.ids.contexts\r\n| project stream_payload_time_t=datetime_add('second', -rnti_guti_tolerance_secs, stream_payload_time_t), stmsi=tostring(ue.ids.5g_stmsi_hex), rnti=tostring(ue_ids_contexts.crnti), nrcgi=tostring(ue_ids_contexts.nrcgi), cell_id=todouble(ue_ids_contexts.pci)\r\n| distinct *;\r\n\r\n// add the imsi to the stmsi/crnti/nrcgi/pci mappings table\r\nlet stmsi_crnti_nrcgi_pci_imsi = stmsi_crnti_nrcgi_pci\r\n| join kind=inner (imsi_stmsi | project stmsi, imsi) on stmsi\r\n| distinct *;\r\n\r\n// Add nearest latest timestamp from stmsi_crnti_nrcgi_pci_imsi i.e. \r\n//\r\n// if \"stmsi_crnti_nrcgi_pci_imsi\" table has this ..\r\n//  time   cell_id    rnti   ...   imsi\r\n//  13:00       11   20000            1\r\n//  14:00       11   20000            2\r\n//  15:00       11   20000            3\r\n//\r\n// and \"data\" table has this ..\r\n//  time   cell_id    rnti   ...   tx\r\n//  12:55       11   20000          1\r\n//  13:00       11   20000          2\r\n//  13:55       11   20000          3\r\n//  14:05       11   20000          4\r\n//  14:55       11   20000          5\r\n//  15:00       11   20000          6\r\n//\r\n// the resulting table should be ..\r\n//  time   cell_id    rnti   ...   tx    imsi\r\n//  12:55       11   20000          1\r\n//  13:00       11   20000          2       1\r\n//  13:55       11   20000          3       1\r\n//  14:05       11   20000          4       2\r\n//  14:55       11   20000          5       2\r\n//  15:00       11   20000          6       3\r\n \r\nlet data_imsi_union = data\r\n| join kind=leftouter (\r\n    stmsi_crnti_nrcgi_pci_imsi\r\n    | project imsi_time = stream_payload_time_t, stmsi, rnti, cell_id, imsi\r\n) on rnti, cell_id\r\n| order by stream_payload_time_t asc;\r\n\r\nlet data_with_imsi = data_imsi_union\r\n| where stream_payload_time_t >= imsi_time\r\n| order by stream_payload_time_t asc\r\n| summarize arg_max(imsi_time, imsi) by stream_payload_time_t, rnti, cell_id, ta_max\r\n| project stream_payload_time_t, rnti, cell_id, ta_max, imsi\r\n| extend ueid=strcat(\"imsi=\",imsi)\r\n| order by stream_payload_time_t asc;\r\n\r\nlet data_without_imsi = data_imsi_union\r\n| where (stream_payload_time_t < imsi_time) or isnull(imsi_time)\r\n| project-away imsi, imsi_time\r\n| extend ueid=strcat(\"rnti=\",rnti)\r\n| summarize arg_min(stream_payload_time_t, *) by stream_payload_time_t\r\n| order by stream_payload_time_t asc;\r\n\r\nlet data_final = data_without_imsi\r\n| union kind=outer data_with_imsi\r\n| summarize arg_max(imsi, *) by stream_payload_time_t, cell_id, rnti\r\n| order by stream_payload_time_t asc;\r\n\r\ndata_final\r\n| summarize min_ta = min(ta_max) by bin(stream_payload_time_t, 10s), ueid\r\n| render timechart with (ycolumns=min_ta, series=ueid, ytitle=\"Maximum timing advance\")\r\n\r\n",
+              "size": 1,
+              "title": "Timing advance per IMSI/RNTI",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "chartSettings": {
+                "showMetrics": false,
+                "showLegend": true
+              }
+            },
+            "customWidth": "50",
+            "name": "query - 4"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "Janus_CL\r\n| where stream_type_s == \"janus\"\r\n    and stream_context_info_codelet_set_id_s == \"fapi_gnb_rach_stats\"\r\n| project stream_payload_time_t, p=todynamic(stream_payload_msg_s)\r\n| project stream_payload_time_t, p, cell_id=todouble(p.cellId), rach_info=p.l1RachPwrHist\r\n| mv-expand rach_info\r\n| project stream_payload_time_t, cell_id, pwr=todouble(rach_info.pwr), cnt=todouble(rach_info.cnt)\r\n| make-series count() default=0 on stream_payload_time_t step 1m\r\n| render timechart ",
+              "size": 1,
+              "title": "Number of PRACH requests in the cell",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "chartSettings": {
+                "showMetrics": false
+              }
+            },
+            "customWidth": "50",
+            "name": "query - 7"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "Janus_CL\r\n| where stream_type_s == \"janus\"\r\n    and stream_context_info_codelet_set_id_s == \"fapi_gnb_rach_stats\"\r\n| project stream_payload_time_t, p=todynamic(stream_payload_msg_s)\r\n| project stream_payload_time_t, cell_id=todouble(p.cellId), rach_info=p.l1RachTaHist\r\n| mv-expand rach_info\r\n| project stream_payload_time_t, cell_id, ta=tostring(rach_info.ta), cnt=todouble(rach_info.cnt)\r\n| summarize total_cnt=sum(cnt) by ta\r\n| render piechart",
+              "size": 1,
+              "title": "Overall PRACH TA distribution",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces"
+            },
+            "customWidth": "25",
+            "name": "query - 8"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "Janus_CL\r\n| where stream_type_s == \"janus\"\r\n    and stream_context_info_codelet_set_id_s == \"fapi_gnb_rach_stats\"\r\n| project stream_payload_time_t, p=todynamic(stream_payload_msg_s)\r\n| project stream_payload_time_t, cell_id=todouble(p.cellId), rach_info=p.l1RachPwrHist\r\n| mv-expand rach_info\r\n| project stream_payload_time_t, cell_id, pwr=strcat(tostring(rach_info.pwr), \" dBm\"), cnt=todouble(rach_info.cnt)\r\n| summarize total_cnt=sum(cnt) by pwr\r\n| render piechart",
+              "size": 1,
+              "title": "Overall PRACH RSSI distribution [dBm]",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "chartSettings": {
+                "showMetrics": false,
+                "showLegend": true
+              }
+            },
+            "customWidth": "25",
+            "name": "query - 9"
+          }
+        ]
+      },
+      "conditionalVisibility": {
+        "parameterName": "selectedTab",
+        "comparison": "isEqualTo",
+        "value": "CoreStatus"
+      },
+      "name": "Overview"
+    },
+    {
+      "type": 12,
+      "content": {
+        "version": "NotebookGroup/1.0",
+        "groupType": "editable",
+        "items": [
+          {
+            "type": 9,
+            "content": {
+              "version": "KqlParameterItem/1.0",
+              "parameters": [
+                {
+                  "id": "41b8eaff-900e-4c16-857f-e0d6c57bfc2f",
+                  "version": "KqlParameterItem/1.0",
+                  "name": "host_name_s",
+                  "label": "Host",
+                  "type": 2,
+                  "description": "Filter to specific hostname",
+                  "isRequired": true,
+                  "multiSelect": true,
+                  "quote": "'",
+                  "delimiter": ",",
+                  "query": "Minerva_CL\r\n| where stream_type_s startswith \"arista\"\r\n| distinct host_name_s\r\n",
+                  "typeSettings": {
+                    "additionalResourceOptions": [
+                      "value::all"
+                    ],
+                    "showDefault": false
+                  },
+                  "timeContext": {
+                    "durationMs": 0
+                  },
+                  "timeContextFromParameter": "TimeRange",
+                  "queryType": 0,
+                  "resourceType": "microsoft.operationalinsights/workspaces",
+                  "value": null
+                }
+              ],
+              "style": "pills",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces"
+            },
+            "name": "parameters - 3"
+          },
+          {
+            "type": 12,
+            "content": {
+              "version": "NotebookGroup/1.0",
+              "groupType": "editable",
+              "title": "Overview",
+              "items": [
+                {
+                  "type": 3,
+                  "content": {
+                    "version": "KqlItem/1.0",
+                    "query": "Minerva_CL\r\n| where stream_type_s == \"arista_interface_description\" and host_name_s in ({host_name_s:value})\r\n| project payload=todynamic(stream_payload_msg_s), host_name_s, TimeGenerated\r\n| project host_name_s, name=tostring(payload.name), description=tostring(payload.description), TimeGenerated\r\n| summarize arg_max(TimeGenerated, *) by host_name_s, name, description\r\n| project-rename Host=host_name_s, Name=name, Description=description, ReportTime=TimeGenerated\r\n",
+                    "size": 0,
+                    "title": "Interface Description",
+                    "timeContext": {
+                      "durationMs": 604800000
+                    },
+                    "queryType": 0,
+                    "resourceType": "microsoft.operationalinsights/workspaces",
+                    "gridSettings": {
+                      "sortBy": [
+                        {
+                          "itemKey": "Description",
+                          "sortOrder": 1
+                        }
+                      ]
+                    },
+                    "sortBy": [
+                      {
+                        "itemKey": "Description",
+                        "sortOrder": 1
+                      }
+                    ]
+                  },
+                  "customWidth": "50",
+                  "name": "interface-description"
+                },
+                {
+                  "type": 3,
+                  "content": {
+                    "version": "KqlItem/1.0",
+                    "query": "Minerva_CL\r\n| where stream_type_s == \"arista_mac_table\" and host_name_s in ({host_name_s:value})\r\n| project payload=todynamic(stream_payload_msg_s), host_name_s, TimeGenerated, stream_payload_time_t\r\n| mv-expand bagexpansion=array payload\r\n| where payload[0] !in (\"source\", \"path\")\r\n| project phy_address=tostring(split(payload[0], \"/\")[0]), payload, TimeGenerated, host_name_s, stream_payload_time_t\r\n| project phy_address, key=substring(payload[0], strlen(phy_address) + 1), value=payload[1], TimeGenerated, host_name_s, stream_payload_time_t\r\n| extend p=bag_pack(key, value)\r\n| summarize bag=make_bag(p) by phy_address, host_name_s, stream_payload_time_t\r\n| summarize arg_max(stream_payload_time_t, *) by phy_address, host_name_s\r\n| evaluate bag_unpack(bag)\r\n| project-rename Host=host_name_s, PhysicalAddress=phy_address, ReportTime=stream_payload_time_t\r\n",
+                    "size": 0,
+                    "title": "MAC table",
+                    "timeContext": {
+                      "durationMs": 604800000
+                    },
+                    "queryType": 0,
+                    "resourceType": "microsoft.operationalinsights/workspaces",
+                    "gridSettings": {
+                      "sortBy": [
+                        {
+                          "itemKey": "key/addr",
+                          "sortOrder": 2
+                        }
+                      ]
+                    },
+                    "sortBy": [
+                      {
+                        "itemKey": "key/addr",
+                        "sortOrder": 2
+                      }
+                    ]
+                  },
+                  "customWidth": "50",
+                  "name": "mac-table"
+                },
+                {
+                  "type": 3,
+                  "content": {
+                    "version": "KqlItem/1.0",
+                    "query": "Minerva_CL\r\n| where stream_type_s == \"arista_arp_table\" and host_name_s in ({host_name_s:value})\r\n| project payload=todynamic(stream_payload_msg_s), host_name_s, TimeGenerated, stream_payload_time_t\r\n| mv-expand bagexpansion=array payload\r\n| where payload[0] !in (\"source\", \"path\")\r\n| project phy_address=tostring(split(payload[0], \"/\")[0]), payload, TimeGenerated, host_name_s, stream_payload_time_t\r\n| project phy_address, key=substring(payload[0], strlen(phy_address) + 1), value=payload[1], TimeGenerated, host_name_s, stream_payload_time_t\r\n| extend p=bag_pack(key, value)\r\n| summarize bag=make_bag(p) by phy_address, host_name_s, stream_payload_time_t\r\n| summarize arg_max(stream_payload_time_t, *) by phy_address, host_name_s\r\n| evaluate bag_unpack(bag)\r\n| project-rename Host=host_name_s, PhysicalAddress=phy_address, ReportTime=stream_payload_time_t\r\n",
+                    "size": 0,
+                    "title": "ARP table",
+                    "timeContext": {
+                      "durationMs": 604800000
+                    },
+                    "queryType": 0,
+                    "resourceType": "microsoft.operationalinsights/workspaces",
+                    "gridSettings": {
+                      "sortBy": [
+                        {
+                          "itemKey": "ReportTime",
+                          "sortOrder": 1
+                        }
+                      ]
+                    },
+                    "sortBy": [
+                      {
+                        "itemKey": "ReportTime",
+                        "sortOrder": 1
+                      }
+                    ]
+                  },
+                  "customWidth": "100",
+                  "name": "arp-table"
+                }
+              ]
+            },
+            "name": "overview"
+          },
+          {
+            "type": 12,
+            "content": {
+              "version": "NotebookGroup/1.0",
+              "groupType": "editable",
+              "items": [
+                {
+                  "type": 3,
+                  "content": {
+                    "version": "KqlItem/1.0",
+                    "query": "let Available=Minerva_CL\r\n| where stream_type_s == \"arista_state_memory\" and host_name_s in ({host_name_s:value})\r\n| project available=tolong(todynamic(stream_payload_msg_s).available), host_name_s, TimeGenerated\r\n| where isnotempty(available)\r\n| summarize arg_max(TimeGenerated, *) by host_name_s\r\n| project available, host_name_s;\r\n\r\nMinerva_CL\r\n| where stream_type_s == \"arista_state_memory\" and host_name_s in ({host_name_s:value})\r\n| project utilized=tolong(todynamic(stream_payload_msg_s).utilized), host_name_s, stream_payload_time_t\r\n| where isnotempty(utilized)\r\n| join kind=inner Available on host_name_s\r\n| project util_per = 100 * toreal(utilized)/available, host_name_s, stream_payload_time_t\r\n| extend p = bag_pack(host_name_s, util_per)\r\n| summarize bag=make_bag(p) by stream_payload_time_t\r\n| evaluate bag_unpack(bag)\r\n| render timechart",
+                    "size": 0,
+                    "aggregation": 3,
+                    "title": "Memory Utilization",
+                    "timeContextFromParameter": "TimeRange",
+                    "queryType": 0,
+                    "resourceType": "microsoft.operationalinsights/workspaces",
+                    "gridSettings": {
+                      "sortBy": [
+                        {
+                          "itemKey": "stream_payload_time_t",
+                          "sortOrder": 2
+                        }
+                      ]
+                    },
+                    "sortBy": [
+                      {
+                        "itemKey": "stream_payload_time_t",
+                        "sortOrder": 2
+                      }
+                    ]
+                  },
+                  "customWidth": "33",
+                  "name": "query - 0"
+                },
+                {
+                  "type": 3,
+                  "content": {
+                    "version": "KqlItem/1.0",
+                    "query": "Minerva_CL\r\n| where stream_type_s == \"arista_cpu_utilization\" and host_name_s in ({host_name_s:value})\r\n| project utilized=toint(todynamic(stream_payload_msg_s).instant), host_name_s, stream_payload_time_t\r\n| where isnotempty(utilized)\r\n| extend p = bag_pack(host_name_s, utilized)\r\n| summarize bag=make_bag(p) by stream_payload_time_t\r\n| evaluate bag_unpack(bag)\r\n| render timechart\r\n",
+                    "size": 0,
+                    "aggregation": 3,
+                    "title": "CPU Utilization",
+                    "timeContextFromParameter": "TimeRange",
+                    "queryType": 0,
+                    "resourceType": "microsoft.operationalinsights/workspaces"
+                  },
+                  "customWidth": "33",
+                  "name": "query - 1"
+                },
+                {
+                  "type": 3,
+                  "content": {
+                    "version": "KqlItem/1.0",
+                    "query": "Minerva_CL\r\n| where stream_type_s == \"arista_temperature\" and host_name_s in ({host_name_s:value})\r\n| project temperature=toreal(todynamic(stream_payload_msg_s).instant), name=strcat(host_name_s, \" \", tostring(todynamic(stream_payload_msg_s).name)), TimeGenerated\r\n| extend p = bag_pack(name, temperature)\r\n| summarize bag=make_bag(p) by bin(TimeGenerated, 1m)\r\n| evaluate bag_unpack(bag)\r\n| render timechart\r\n",
+                    "size": 0,
+                    "aggregation": 3,
+                    "title": "Temperature",
+                    "timeContextFromParameter": "TimeRange",
+                    "queryType": 0,
+                    "resourceType": "microsoft.operationalinsights/workspaces",
+                    "gridSettings": {
+                      "sortBy": [
+                        {
+                          "itemKey": "stream_payload_time_t",
+                          "sortOrder": 2
+                        }
+                      ]
+                    },
+                    "sortBy": [
+                      {
+                        "itemKey": "stream_payload_time_t",
+                        "sortOrder": 2
+                      }
+                    ]
+                  },
+                  "customWidth": "33",
+                  "name": "query - 2"
+                }
+              ]
+            },
+            "name": "group - 2"
+          },
+          {
+            "type": 12,
+            "content": {
+              "version": "NotebookGroup/1.0",
+              "groupType": "editable",
+              "title": "Interfaces",
+              "items": [
+                {
+                  "type": 9,
+                  "content": {
+                    "version": "KqlParameterItem/1.0",
+                    "parameters": [
+                      {
+                        "id": "3deddcbc-4abd-4637-9f01-96184cb2d626",
+                        "version": "KqlParameterItem/1.0",
+                        "name": "interface_s",
+                        "label": "Interface",
+                        "type": 2,
+                        "description": "Filter to a specific interface",
+                        "isRequired": true,
+                        "multiSelect": true,
+                        "quote": "'",
+                        "delimiter": ",",
+                        "query": "Minerva_CL\r\n| where stream_type_s == \"arista_ifcounters\"\r\n| project value=tostring(todynamic(stream_payload_msg_s).name)\r\n| where isnotempty(value)\r\n| distinct value",
+                        "typeSettings": {
+                          "additionalResourceOptions": [
+                            "value::all"
+                          ],
+                          "showDefault": false
+                        },
+                        "timeContext": {
+                          "durationMs": 0
+                        },
+                        "timeContextFromParameter": "TimeRange",
+                        "queryType": 0,
+                        "resourceType": "microsoft.operationalinsights/workspaces",
+                        "value": null
+                      },
+                      {
+                        "id": "ec9e4d27-13a0-4e24-bfcb-807e7f351619",
+                        "version": "KqlParameterItem/1.0",
+                        "name": "view_type",
+                        "label": "View Type",
+                        "type": 2,
+                        "isRequired": true,
+                        "typeSettings": {
+                          "additionalResourceOptions": []
+                        },
+                        "jsonData": "[\"Counter\", \"Difference\"]",
+                        "timeContext": {
+                          "durationMs": 0
+                        },
+                        "timeContextFromParameter": "TimeRange",
+                        "value": "Difference"
+                      }
+                    ],
+                    "style": "pills",
+                    "queryType": 0,
+                    "resourceType": "microsoft.operationalinsights/workspaces"
+                  },
+                  "name": "parameters - 2"
+                },
+                {
+                  "type": 12,
+                  "content": {
+                    "version": "NotebookGroup/1.0",
+                    "groupType": "editable",
+                    "title": "Broadcast Packets",
+                    "items": [
+                      {
+                        "type": 12,
+                        "content": {
+                          "version": "NotebookGroup/1.0",
+                          "groupType": "editable",
+                          "title": "Inbound",
+                          "items": [
+                            {
+                              "type": 3,
+                              "content": {
+                                "version": "KqlItem/1.0",
+                                "query": "Minerva_CL\r\n| where stream_type_s == \"arista_ifcounters\" and host_name_s in ({host_name_s:value})\r\n| project value=tolong(todynamic(stream_payload_msg_s).in_broadcast_pkts), name=tostring(todynamic(stream_payload_msg_s).name), TimeGenerated, host_name_s\r\n| where isnotempty(value)\r\n| project value, TimeGenerated, interface=strcat(host_name_s, \" \", name)\r\n| order by interface, TimeGenerated asc\r\n| extend value=iff(\"{view_type:value}\" == \"Difference\", iff(prev(interface)==interface, value-prev(value),0), value)\r\n| extend p=bag_pack(interface, value)\r\n| summarize bag=make_bag(p) by TimeGenerated\r\n| evaluate bag_unpack(bag)\r\n| render timechart\r\n",
+                                "size": 0,
+                                "aggregation": 3,
+                                "title": "Broadcast",
+                                "timeContextFromParameter": "TimeRange",
+                                "queryType": 0,
+                                "resourceType": "microsoft.operationalinsights/workspaces",
+                                "sortBy": []
+                              },
+                              "customWidth": "25",
+                              "name": "query - 0"
+                            },
+                            {
+                              "type": 3,
+                              "content": {
+                                "version": "KqlItem/1.0",
+                                "query": "Minerva_CL\r\n| where stream_type_s == \"arista_ifcounters\" and host_name_s in ({host_name_s:value})\r\n| project value=toint(todynamic(stream_payload_msg_s).in_discards), name=tostring(todynamic(stream_payload_msg_s).name), TimeGenerated, host_name_s\r\n| where isnotempty(value)\r\n| project value, TimeGenerated, interface=strcat(host_name_s, \" \", name)\r\n| order by interface, TimeGenerated asc\r\n| extend value=iff(\"{view_type:value}\" == \"Difference\", iff(prev(interface)==interface, value-prev(value),0), value)\r\n| extend p=bag_pack(interface, value)\r\n| summarize bag=make_bag(p) by TimeGenerated\r\n| evaluate bag_unpack(bag)\r\n| render timechart",
+                                "size": 0,
+                                "aggregation": 3,
+                                "title": "Discards",
+                                "timeContextFromParameter": "TimeRange",
+                                "queryType": 0,
+                                "resourceType": "microsoft.operationalinsights/workspaces"
+                              },
+                              "customWidth": "25",
+                              "name": "query - 2"
+                            },
+                            {
+                              "type": 3,
+                              "content": {
+                                "version": "KqlItem/1.0",
+                                "query": "Minerva_CL\r\n| where stream_type_s == \"arista_ifcounters\" and host_name_s in ({host_name_s:value})\r\n| project value=toint(todynamic(stream_payload_msg_s).in_errors), name=tostring(todynamic(stream_payload_msg_s).name), TimeGenerated, host_name_s\r\n| where isnotempty(value)\r\n| project value, TimeGenerated, interface=strcat(host_name_s, \" \", name)\r\n| order by interface, TimeGenerated asc\r\n| extend value=iff(\"{view_type:value}\" == \"Difference\", iff(prev(interface)==interface, value-prev(value),0), value)\r\n| extend p=bag_pack(interface, value)\r\n| summarize bag=make_bag(p) by TimeGenerated\r\n| evaluate bag_unpack(bag)\r\n| render timechart",
+                                "size": 0,
+                                "aggregation": 3,
+                                "title": "Errors",
+                                "timeContextFromParameter": "TimeRange",
+                                "queryType": 0,
+                                "resourceType": "microsoft.operationalinsights/workspaces"
+                              },
+                              "customWidth": "25",
+                              "name": "query - 2"
+                            },
+                            {
+                              "type": 3,
+                              "content": {
+                                "version": "KqlItem/1.0",
+                                "query": "Minerva_CL\r\n| where stream_type_s == \"arista_ifcounters\" and host_name_s in ({host_name_s:value})\r\n| project value=toint(todynamic(stream_payload_msg_s).in_fcs_errors), name=tostring(todynamic(stream_payload_msg_s).name), TimeGenerated, host_name_s\r\n| where isnotempty(value)\r\n| project value, TimeGenerated, interface=strcat(host_name_s, \" \", name)\r\n| order by interface, TimeGenerated asc\r\n| extend value=iff(\"{view_type:value}\" == \"Difference\", iff(prev(interface)==interface, value-prev(value),0), value)\r\n| extend p=bag_pack(interface, value)\r\n| summarize bag=make_bag(p) by TimeGenerated\r\n| evaluate bag_unpack(bag)\r\n| render timechart\r\n",
+                                "size": 0,
+                                "aggregation": 3,
+                                "title": "FCS Errors",
+                                "timeContextFromParameter": "TimeRange",
+                                "queryType": 0,
+                                "resourceType": "microsoft.operationalinsights/workspaces"
+                              },
+                              "customWidth": "25",
+                              "name": "query - 3"
+                            },
+                            {
+                              "type": 3,
+                              "content": {
+                                "version": "KqlItem/1.0",
+                                "query": "Minerva_CL\r\n| where stream_type_s == \"arista_ifcounters\" and host_name_s in ({host_name_s:value})\r\n| project value=tolong(todynamic(stream_payload_msg_s).in_multicast_pkts), name=tostring(todynamic(stream_payload_msg_s).name), TimeGenerated, host_name_s\r\n| where isnotempty(value)\r\n| project value, TimeGenerated, interface=strcat(host_name_s, \" \", name)\r\n| order by interface, TimeGenerated asc\r\n| extend value=iff(\"{view_type:value}\" == \"Difference\", iff(prev(interface)==interface, value-prev(value),0), value)\r\n| extend p=bag_pack(interface, value)\r\n| summarize bag=make_bag(p) by TimeGenerated\r\n| evaluate bag_unpack(bag)\r\n| render timechart\r\n",
+                                "size": 0,
+                                "aggregation": 3,
+                                "title": "Multicast Packets",
+                                "timeContextFromParameter": "TimeRange",
+                                "queryType": 0,
+                                "resourceType": "microsoft.operationalinsights/workspaces"
+                              },
+                              "customWidth": "25",
+                              "name": "query - 3 - Copy"
+                            },
+                            {
+                              "type": 3,
+                              "content": {
+                                "version": "KqlItem/1.0",
+                                "query": "Minerva_CL\r\n| where stream_type_s == \"arista_ifcounters\" and host_name_s in ({host_name_s:value})\r\n| project value=tolong(todynamic(stream_payload_msg_s).in_octets), name=tostring(todynamic(stream_payload_msg_s).name), TimeGenerated, host_name_s\r\n| where isnotempty(value)\r\n| project value, TimeGenerated, interface=strcat(host_name_s, \" \", name)\r\n| order by interface, TimeGenerated asc\r\n| extend value=iff(\"{view_type:value}\" == \"Difference\", iff(prev(interface)==interface, value-prev(value),0), value)\r\n| extend p=bag_pack(interface, value)\r\n| summarize bag=make_bag(p) by TimeGenerated\r\n| evaluate bag_unpack(bag)\r\n| render timechart\r\n",
+                                "size": 0,
+                                "aggregation": 3,
+                                "title": "Octets",
+                                "timeContextFromParameter": "TimeRange",
+                                "queryType": 0,
+                                "resourceType": "microsoft.operationalinsights/workspaces"
+                              },
+                              "customWidth": "25",
+                              "name": "query - 3 - Copy - Copy"
+                            },
+                            {
+                              "type": 3,
+                              "content": {
+                                "version": "KqlItem/1.0",
+                                "query": "Minerva_CL\r\n| where stream_type_s == \"arista_ifcounters\" and host_name_s in ({host_name_s:value})\r\n| project value=tolong(todynamic(stream_payload_msg_s).in_unicast_pkts), name=tostring(todynamic(stream_payload_msg_s).name), TimeGenerated, host_name_s\r\n| where isnotempty(value)\r\n| project value, TimeGenerated, interface=strcat(host_name_s, \" \", name)\r\n| order by interface, TimeGenerated asc\r\n| extend value=iff(\"{view_type:value}\" == \"Difference\", iff(prev(interface)==interface, value-prev(value),0), value)\r\n| extend p=bag_pack(interface, value)\r\n| summarize bag=make_bag(p) by TimeGenerated\r\n| evaluate bag_unpack(bag)\r\n| render timechart\r\n",
+                                "size": 0,
+                                "aggregation": 3,
+                                "title": "Unicast",
+                                "timeContextFromParameter": "TimeRange",
+                                "queryType": 0,
+                                "resourceType": "microsoft.operationalinsights/workspaces"
+                              },
+                              "customWidth": "25",
+                              "name": "query - 3 - Copy - Copy - Copy"
+                            }
+                          ]
+                        },
+                        "name": "in"
+                      },
+                      {
+                        "type": 12,
+                        "content": {
+                          "version": "NotebookGroup/1.0",
+                          "groupType": "editable",
+                          "title": "Outbound",
+                          "items": [
+                            {
+                              "type": 3,
+                              "content": {
+                                "version": "KqlItem/1.0",
+                                "query": "Minerva_CL\r\n| where stream_type_s == \"arista_ifcounters\" and host_name_s in ({host_name_s:value})\r\n| project value=tolong(todynamic(stream_payload_msg_s).out_broadcast_pkts), name=tostring(todynamic(stream_payload_msg_s).name), TimeGenerated, host_name_s\r\n| where isnotempty(value)\r\n| project value, TimeGenerated, interface=strcat(host_name_s, \" \", name)\r\n| order by interface, TimeGenerated asc\r\n| extend value=iff(\"{view_type:value}\" == \"Difference\", iff(prev(interface)==interface, value-prev(value),0), value)\r\n| extend p=bag_pack(interface, value)\r\n| summarize bag=make_bag(p) by TimeGenerated\r\n| evaluate bag_unpack(bag)\r\n| render timechart\r\n\r\n",
+                                "size": 0,
+                                "aggregation": 3,
+                                "title": "Broadcast",
+                                "timeContextFromParameter": "TimeRange",
+                                "queryType": 0,
+                                "resourceType": "microsoft.operationalinsights/workspaces"
+                              },
+                              "customWidth": "25",
+                              "name": "query - 0"
+                            },
+                            {
+                              "type": 3,
+                              "content": {
+                                "version": "KqlItem/1.0",
+                                "query": "Minerva_CL\r\n| where stream_type_s == \"arista_ifcounters\" and host_name_s in ({host_name_s:value})\r\n| project value=tolong(todynamic(stream_payload_msg_s).out_discards), name=tostring(todynamic(stream_payload_msg_s).name), TimeGenerated, host_name_s\r\n| where isnotempty(value)\r\n| project value, TimeGenerated, interface=strcat(host_name_s, \" \", name)\r\n| order by interface, TimeGenerated asc\r\n| extend value=iff(\"{view_type:value}\" == \"Difference\", iff(prev(interface)==interface, value-prev(value),0), value)\r\n| extend p=bag_pack(interface, value)\r\n| summarize bag=make_bag(p) by TimeGenerated\r\n| evaluate bag_unpack(bag)\r\n| render timechart\r\n\r\n",
+                                "size": 0,
+                                "aggregation": 3,
+                                "title": "Discards",
+                                "timeContextFromParameter": "TimeRange",
+                                "queryType": 0,
+                                "resourceType": "microsoft.operationalinsights/workspaces"
+                              },
+                              "customWidth": "25",
+                              "name": "query - 2"
+                            },
+                            {
+                              "type": 3,
+                              "content": {
+                                "version": "KqlItem/1.0",
+                                "query": "Minerva_CL\r\n| where stream_type_s == \"arista_ifcounters\" and host_name_s in ({host_name_s:value})\r\n| project value=tolong(todynamic(stream_payload_msg_s).out_errors), name=tostring(todynamic(stream_payload_msg_s).name), TimeGenerated, host_name_s\r\n| where isnotempty(value)\r\n| project value, TimeGenerated, interface=strcat(host_name_s, \" \", name)\r\n| order by interface, TimeGenerated asc\r\n| extend value=iff(\"{view_type:value}\" == \"Difference\", iff(prev(interface)==interface, value-prev(value),0), value)\r\n| extend p=bag_pack(interface, value)\r\n| summarize bag=make_bag(p) by TimeGenerated\r\n| evaluate bag_unpack(bag)\r\n| render timechart\r\n\r\n",
+                                "size": 0,
+                                "aggregation": 3,
+                                "title": "Errors",
+                                "timeContextFromParameter": "TimeRange",
+                                "queryType": 0,
+                                "resourceType": "microsoft.operationalinsights/workspaces"
+                              },
+                              "customWidth": "25",
+                              "name": "query - 2"
+                            },
+                            {
+                              "type": 3,
+                              "content": {
+                                "version": "KqlItem/1.0",
+                                "query": "Minerva_CL\r\n| where stream_type_s == \"arista_ifcounters\" and host_name_s in ({host_name_s:value})\r\n| project value=tolong(todynamic(stream_payload_msg_s).out_multicast_pkts), name=tostring(todynamic(stream_payload_msg_s).name), TimeGenerated, host_name_s\r\n| where isnotempty(value)\r\n| project value, TimeGenerated, interface=strcat(host_name_s, \" \", name)\r\n| order by interface, TimeGenerated asc\r\n| extend value=iff(\"{view_type:value}\" == \"Difference\", iff(prev(interface)==interface, value-prev(value),0), value)\r\n| extend p=bag_pack(interface, value)\r\n| summarize bag=make_bag(p) by TimeGenerated\r\n| evaluate bag_unpack(bag)\r\n| render timechart\r\n\r\n",
+                                "size": 0,
+                                "aggregation": 3,
+                                "title": "Multicast Packets",
+                                "timeContextFromParameter": "TimeRange",
+                                "queryType": 0,
+                                "resourceType": "microsoft.operationalinsights/workspaces"
+                              },
+                              "customWidth": "25",
+                              "name": "query - 3 - Copy"
+                            },
+                            {
+                              "type": 3,
+                              "content": {
+                                "version": "KqlItem/1.0",
+                                "query": "Minerva_CL\r\n| where stream_type_s == \"arista_ifcounters\" and host_name_s in ({host_name_s:value})\r\n| project value=tolong(todynamic(stream_payload_msg_s).out_octets), name=tostring(todynamic(stream_payload_msg_s).name), TimeGenerated, host_name_s\r\n| where isnotempty(value)\r\n| project value, TimeGenerated, interface=strcat(host_name_s, \" \", name)\r\n| order by interface, TimeGenerated asc\r\n| extend value=iff(\"{view_type:value}\" == \"Difference\", iff(prev(interface)==interface, value-prev(value),0), value)\r\n| extend p=bag_pack(interface, value)\r\n| summarize bag=make_bag(p) by TimeGenerated\r\n| evaluate bag_unpack(bag)\r\n| render timechart\r\n\r\n",
+                                "size": 0,
+                                "aggregation": 3,
+                                "title": "Octets",
+                                "timeContextFromParameter": "TimeRange",
+                                "queryType": 0,
+                                "resourceType": "microsoft.operationalinsights/workspaces"
+                              },
+                              "customWidth": "25",
+                              "name": "query - 3 - Copy - Copy"
+                            },
+                            {
+                              "type": 3,
+                              "content": {
+                                "version": "KqlItem/1.0",
+                                "query": "Minerva_CL\r\n| where stream_type_s == \"arista_ifcounters\" and host_name_s in ({host_name_s:value})\r\n| project value=tolong(todynamic(stream_payload_msg_s).out_unicast_pkts), name=tostring(todynamic(stream_payload_msg_s).name), TimeGenerated, host_name_s\r\n| where isnotempty(value)\r\n| project value, TimeGenerated, interface=strcat(host_name_s, \" \", name)\r\n| order by interface, TimeGenerated asc\r\n| extend value=iff(\"{view_type:value}\" == \"Difference\", iff(prev(interface)==interface, value-prev(value),0), value)\r\n| extend p=bag_pack(interface, value)\r\n| summarize bag=make_bag(p) by TimeGenerated\r\n| evaluate bag_unpack(bag)\r\n| render timechart\r\n\r\n",
+                                "size": 0,
+                                "aggregation": 3,
+                                "title": "Unicast",
+                                "timeContextFromParameter": "TimeRange",
+                                "queryType": 0,
+                                "resourceType": "microsoft.operationalinsights/workspaces"
+                              },
+                              "customWidth": "25",
+                              "name": "query - 3 - Copy - Copy - Copy"
+                            }
+                          ]
+                        },
+                        "name": "out"
+                      }
+                    ]
+                  },
+                  "name": "group - 2"
+                }
+              ]
+            },
+            "name": "group - 3"
+          }
+        ]
+      },
+      "conditionalVisibility": {
+        "parameterName": "selectedTab",
+        "comparison": "isEqualTo",
+        "value": "RANStatus"
+      },
+      "name": "group - 12"
+    },
+    {
+      "type": 12,
+      "content": {
+        "version": "NotebookGroup/1.0",
+        "groupType": "editable",
+        "items": [
+          {
+            "type": 9,
+            "content": {
+              "version": "KqlParameterItem/1.0",
+              "parameters": [
+                {
+                  "id": "e7960049-67ea-4462-9a0b-bdf7388862ea",
+                  "version": "KqlParameterItem/1.0",
+                  "name": "PhyUlSinrGoodThreshold",
+                  "label": "PHY-UL-SINR-Good (dB)",
+                  "type": 1,
+                  "description": "UL-SINR-Good (dB)",
+                  "isRequired": true,
+                  "timeContext": {
+                    "durationMs": 86400000
+                  },
+                  "value": "80"
+                },
+                {
+                  "id": "c065c94c-1bd5-42fc-92c7-fd8d8935b976",
+                  "version": "KqlParameterItem/1.0",
+                  "name": "PhyUlSinrMediumThreshold",
+                  "label": "PHY-UL-SINR-Medium (dB)",
+                  "type": 1,
+                  "description": "UL-SINR-Medium (dB)",
+                  "isRequired": true,
+                  "timeContext": {
+                    "durationMs": 86400000
+                  },
+                  "value": "-90"
+                },
+                {
+                  "id": "360e4e42-5470-44bf-b906-2e5c45228dfa",
+                  "version": "KqlParameterItem/1.0",
+                  "name": "PhyUlRsrpGoodThreshold",
+                  "label": "PHY-UL-RSRP-Good (dBm)",
+                  "type": 1,
+                  "description": "UL-RSRP-Good (dBm)",
+                  "isRequired": true,
+                  "timeContext": {
+                    "durationMs": 86400000
+                  },
+                  "value": "-80"
+                },
+                {
+                  "id": "7eabb464-2a8b-43fb-b34a-448b01473c74",
+                  "version": "KqlParameterItem/1.0",
+                  "name": "PhyUlRsrpMediumThreshold",
+                  "label": "PHY-UL-RSRP-Medium (dBm)",
+                  "type": 1,
+                  "description": "UL-RSRP-Medium (dBm)",
+                  "isRequired": true,
+                  "timeContext": {
+                    "durationMs": 86400000
+                  },
+                  "value": "-90"
+                }
+              ],
+              "style": "pills",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces"
+            },
+            "customWidth": "100",
+            "name": "PHY thresholds"
+          },
+          {
+            "type": 9,
+            "content": {
+              "version": "KqlParameterItem/1.0",
+              "parameters": [
+                {
+                  "id": "e7960049-67ea-4462-9a0b-bdf7388862ea",
+                  "version": "KqlParameterItem/1.0",
+                  "name": "MacHarqMediumThreshold",
+                  "label": "MAC-HARQ-Failure-Good (%)",
+                  "type": 1,
+                  "isRequired": true,
+                  "timeContext": {
+                    "durationMs": 86400000
+                  },
+                  "value": "15"
+                },
+                {
+                  "id": "c065c94c-1bd5-42fc-92c7-fd8d8935b976",
+                  "version": "KqlParameterItem/1.0",
+                  "name": "MacHarqBadThreshold",
+                  "label": "MAC-HARQ-Failure-Bad (%)",
+                  "type": 1,
+                  "isRequired": true,
+                  "timeContext": {
+                    "durationMs": 86400000
+                  },
+                  "value": "45"
+                }
+              ],
+              "style": "pills",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces"
+            },
+            "customWidth": "100",
+            "name": "PHY thresholds"
+          },
+          {
+            "type": 9,
+            "content": {
+              "version": "KqlParameterItem/1.0",
+              "parameters": [
+                {
+                  "id": "e7960049-67ea-4462-9a0b-bdf7388862ea",
+                  "version": "KqlParameterItem/1.0",
+                  "name": "RlcDlSduTransmissionBadThreshold",
+                  "label": "RLC-DL-SDU-Tx-Latency-Bad (ms)",
+                  "type": 1,
+                  "description": "DL-SDU-Tx-Latency-Bad (ms)",
+                  "isRequired": true,
+                  "timeContext": {
+                    "durationMs": 86400000
+                  },
+                  "value": "1.0"
+                },
+                {
+                  "id": "c065c94c-1bd5-42fc-92c7-fd8d8935b976",
+                  "version": "KqlParameterItem/1.0",
+                  "name": "RlcDlSduDeliveryBadThreshold",
+                  "label": "RLC-DL-SDU-Delivery-Latency-Bad (ms)",
+                  "type": 1,
+                  "description": "DL-SDU-Delivery-Latency-Bad (ms)",
+                  "isRequired": true,
+                  "timeContext": {
+                    "durationMs": 86400000
+                  },
+                  "value": "70.0"
+                },
+                {
+                  "id": "360e4e42-5470-44bf-b906-2e5c45228dfa",
+                  "version": "KqlParameterItem/1.0",
+                  "name": "RlcUlSduDeliveryBadThreshold",
+                  "label": "RLC-UL-SDU-Delivery-Latency-Bad (ms)",
+                  "type": 1,
+                  "description": "UL-SDU-Delivery-Latency-Bad (ms)",
+                  "isRequired": true,
+                  "timeContext": {
+                    "durationMs": 86400000
+                  },
+                  "value": "0.5"
+                },
+                {
+                  "id": "d380a58c-a4ea-4b90-981f-02045997cd1a",
+                  "version": "KqlParameterItem/1.0",
+                  "name": "RlcDlSduQueueBytesBadThreshold",
+                  "label": "RLC-DL-SDU-Queue-Bad (bytes)",
+                  "type": 1,
+                  "description": "DL-SDU-Queue-Bad (bytes)",
+                  "value": "6000000"
+                }
+              ],
+              "style": "pills",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces"
+            },
+            "customWidth": "100",
+            "name": "PHY thresholds"
+          },
+          {
+            "type": 9,
+            "content": {
+              "version": "KqlParameterItem/1.0",
+              "parameters": [
+                {
+                  "id": "e7960049-67ea-4462-9a0b-bdf7388862ea",
+                  "version": "KqlParameterItem/1.0",
+                  "name": "PdcpDlSduTransmissionBadThreshold",
+                  "label": "PDCP-DL-SDU-Tx-Latency-Bad (ms)",
+                  "type": 1,
+                  "description": "DL-SDU-Tx-Latency-Bad (ms)",
+                  "isRequired": true,
+                  "timeContext": {
+                    "durationMs": 86400000
+                  },
+                  "value": "200"
+                },
+                {
+                  "id": "c065c94c-1bd5-42fc-92c7-fd8d8935b976",
+                  "version": "KqlParameterItem/1.0",
+                  "name": "PdcpDlSduDiscardedBadThreshold",
+                  "label": "PDCP-DL-SDUs-Discarded-Bad ",
+                  "type": 1,
+                  "description": "DL-SDUs-Discarded-Bad ",
+                  "isRequired": true,
+                  "timeContext": {
+                    "durationMs": 86400000
+                  },
+                  "value": "1"
+                },
+                {
+                  "id": "360e4e42-5470-44bf-b906-2e5c45228dfa",
+                  "version": "KqlParameterItem/1.0",
+                  "name": "PdcpDlPduWindowPktsBadThreshold",
+                  "label": "PDCP-DL-PDU-WindowPkts-Bad",
+                  "type": 1,
+                  "description": "DL-PDU-WindowPkts-Bad",
+                  "isRequired": true,
+                  "timeContext": {
+                    "durationMs": 86400000
+                  },
+                  "value": "200"
+                },
+                {
+                  "id": "7eabb464-2a8b-43fb-b34a-448b01473c74",
+                  "version": "KqlParameterItem/1.0",
+                  "name": "PdcpUlPduWindowPktsBadThreshold",
+                  "label": "PDCP-UL-PDU-WindowPkts-Bad",
+                  "type": 1,
+                  "description": "UL-PDU-WindowPkts-Bad",
+                  "timeContext": {
+                    "durationMs": 86400000
+                  },
+                  "value": "200"
+                }
+              ],
+              "style": "pills",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces"
+            },
+            "customWidth": "100",
+            "name": "PHY thresholds"
+          },
+          {
+            "type": 9,
+            "content": {
+              "version": "KqlParameterItem/1.0",
+              "parameters": [
+                {
+                  "id": "e7960049-67ea-4462-9a0b-bdf7388862ea",
+                  "version": "KqlParameterItem/1.0",
+                  "name": "TrafficDlGood",
+                  "label": "Traffic-DL (Bytes)",
+                  "type": 1,
+                  "isRequired": true,
+                  "timeContext": {
+                    "durationMs": 86400000
+                  },
+                  "value": "1"
+                },
+                {
+                  "id": "c065c94c-1bd5-42fc-92c7-fd8d8935b976",
+                  "version": "KqlParameterItem/1.0",
+                  "name": "TrafficUlGood",
+                  "label": "Traffic-UL (Bytes)",
+                  "type": 1,
+                  "isRequired": true,
+                  "timeContext": {
+                    "durationMs": 86400000
+                  },
+                  "value": "1"
+                }
+              ],
+              "style": "pills",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces"
+            },
+            "customWidth": "100",
+            "name": "PHY thresholds"
+          },
+          {
+            "type": 11,
+            "content": {
+              "version": "LinkItem/1.0",
+              "style": "tabs",
+              "links": [
+                {
+                  "id": "bc95e3bf-cb05-42df-b068-b7f3520febb2",
+                  "cellValue": "selectedUEStatusTab",
+                  "linkTarget": "parameter",
+                  "linkLabel": "UE Summary",
+                  "subTarget": "UESummary",
+                  "preText": "Overview",
+                  "style": "link"
+                },
+                {
+                  "id": "0de3723d-56a2-4f7c-873e-6a575fe7a5dd",
+                  "cellValue": "selectedUEStatusTab",
+                  "linkTarget": "parameter",
+                  "linkLabel": "perUE",
+                  "subTarget": "perUE",
+                  "style": "link"
+                }
+              ]
+            },
+            "name": "links - 5 - Copy"
+          },
+          {
+            "type": 12,
+            "content": {
+              "version": "NotebookGroup/1.0",
+              "groupType": "editable",
+              "items": [
+                {
+                  "type": 3,
+                  "content": {
+                    "version": "KqlItem/1.0",
+                    "query": "let timeStart = todatetime({timeparameter:start});\r\nlet timeEnd = todatetime({timeparameter:end});\r\n\r\nlet phy_ul_sinr = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"MAC_SCHED_CRC_STATS\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| extend \r\n    maxSinr = todouble(stats_d.max_sinr), \r\n    minSinr = todouble(stats_d.min_sinr), \r\n    avgSinr = todouble(stats_d.avg_sinr)\r\n| extend imsi = supi\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| summarize ulSinr_min=min(minSinr), ulSinr_max=max(maxSinr), ulSinr_avg=avg(avgSinr) by imsi\r\n;\r\n\r\nlet phy_ul_rsrp = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"MAC_SCHED_CRC_STATS\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| extend \r\n    maxRsrp = todouble(stats_d.max_rsrp), \r\n    minRsrp = todouble(stats_d.min_rsrp), \r\n    avgRsrp = todouble(stats_d.avg_rsrp)\r\n| extend imsi = supi\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| summarize \r\n    ulRsrp_min=min(minRsrp), \r\n    ulRsrp_max=max(maxRsrp), \r\n    ulRsrp_avg=avg(avgRsrp) by imsi\r\n;\r\n\r\nlet mac_dl_harq_failures = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"MAC_SCHED_DL_HARQ\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| extend \r\n    txCount = toint(stats_d.perHarqTypeStats.MAC_HARQ_EVENT_TX.tbs.pkts),\r\n    reTxCount = toint(stats_d.perHarqTypeStats.MAC_HARQ_EVENT_RETX.tbs.pkts)\r\n| extend failureRate = iif(txCount + reTxCount == 0, 0.0, reTxCount  * 100.0 / (txCount + reTxCount))\r\n| extend imsi = supi\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| summarize \r\n    dlHarq_minF=min(failureRate), \r\n    dlHarq_maxF=max(failureRate), \r\n    dlHarq_avgF=avg(failureRate) by imsi\r\n;\r\n\r\nlet mac_ul_harq_failures = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"MAC_SCHED_UL_HARQ\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| extend \r\n    txCount = toint(stats_d.perHarqTypeStats.MAC_HARQ_EVENT_TX.tbs.pkts),\r\n    reTxCount = toint(stats_d.perHarqTypeStats.MAC_HARQ_EVENT_RETX.tbs.pkts)\r\n| extend failureRate = iif(txCount + reTxCount == 0, 0.0, reTxCount  * 100.0 / (txCount + reTxCount))\r\n| extend imsi = supi\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| summarize \r\n    ulHarq_minF=min(failureRate), \r\n    ulHarq_maxF=max(failureRate), \r\n    ulHarq_avgF=avg(failureRate) by imsi\r\n;\r\n\r\nlet rlc_dl_stats = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"RLC_DL_STATS\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), \r\n  isSRB = toint(stats_d.is_srb), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp)),\r\n  avgSduTxDelay = todouble(stats_d.sdu_tx_completed.avg) / 1000000,\r\n  numSduTx = toint(stats_d.sdu_tx_completed.count),\r\n  avgSduDeliveryDelay = todouble(stats_d.sdu_tx_delivered.avg) / 1000000,\r\n  avgSduQueueBytes = todouble(stats_d.sdu_queue_bytes.avg),\r\n  pduTxBytes = todouble(stats_d.pdu_tx_bytes.total)\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| where isSRB == 0 // Ignore signalling bearers for data throughput\r\n| extend imsi = supi\r\n| summarize \r\n    rlc_dl_SduTxCount=sum(numSduTx), \r\n    rlc_dl_SduTxLatency_avg=avg(avgSduTxDelay), \r\n    rlc_dl_SduDeliveryLatency_avg=avg(avgSduDeliveryDelay), \r\n    rlc_dl_SduQueueBytes_avg=avg(avgSduQueueBytes), \r\n    rlc_dl_pduTxBytes=sum(pduTxBytes) by imsi\r\n;\r\n\r\nlet rlc_ul_stats = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"RLC_UL_STATS\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), \r\n  isSRB = toint(stats_d.is_srb), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp)),\r\n  avgSduDeliveryDelay = todouble(stats_d.sdu_delivered_latency.avg) / 1000000,\r\n  avgSduQueueBytes = todouble(stats_d.sdu_queue_bytes.avg)\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| where isSRB == 0 // Ignore signalling bearers for data throughput\r\n| extend imsi = supi\r\n| summarize rlc_ul_SduDeliveryLatency_avg=avg(avgSduDeliveryDelay) by imsi\r\n;\r\n\r\nlet pdcp_dl_stats = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"PDCP_DL_STATS\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), \r\n  isSRB = toint(stats_d.is_srb), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp)),\r\n  sduDiscarded = todouble(stats_d.sdu_discarded),\r\n  pduWindowPkts_avg = todouble(stats_d.pdu_window_pkts.avg),\r\n  sduTxLatency_avg = todouble(stats_d.sdu_tx_latency.avg),\r\n  newSdus = toint(stats_d.sdu_new_bytes.count)\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| where isSRB == 0 // Ignore signalling bearers for data throughput\r\n| extend imsi = supi\r\n| summarize \r\n    pdcp_dl_sduDiscarded_avg=avg(sduDiscarded),\r\n    pdcp_dl_pduWindowPkts_avg=avg(pduWindowPkts_avg),\r\n    pdcp_dl_sduTxLatency_avg=avg(sduTxLatency_avg),\r\n    pdcp_dl_newSdus=sum(newSdus) by imsi\r\n;\r\n\r\nlet pdcp_ul_stats = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"PDCP_UL_STATS\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), \r\n  isSRB = toint(stats_d.is_srb), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp)),\r\n  pduWindowPkts_avg = todouble(stats_d.pdu_window_pkts.avg),\r\n  sduDeliveredBytes = todouble(stats_d.sdu_delivered_bytes.total)  \r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| where isSRB == 0 // Ignore signalling bearers for data throughput\r\n| extend imsi = supi\r\n| summarize \r\n    pdcp_ul_pduWindowPkts_avg=avg(pduWindowPkts_avg), \r\n    pdcp_ul_sduDeliveredBytes=sum(sduDeliveredBytes) by imsi\r\n;\r\n\r\n// Collate all results\r\nlet summary = phy_ul_rsrp\r\n| join kind=fullouter  phy_ul_sinr on imsi\r\n| join kind=fullouter  mac_dl_harq_failures on imsi\r\n| join kind=fullouter  mac_ul_harq_failures on imsi\r\n| join kind=fullouter  rlc_dl_stats on imsi\r\n| join kind=fullouter  rlc_ul_stats on imsi\r\n| join kind=fullouter  pdcp_dl_stats on imsi\r\n| join kind=fullouter  pdcp_ul_stats on imsi\r\n;\r\n\r\nlet good=3;\r\nlet medium=2;\r\nlet empty=1;\r\nlet bad=0;\r\n\r\nlet good_emoji = \"✅\";\r\nlet medium_emoji = \"🟠\";\r\nlet empty_emoji = \"⚪\";\r\nlet bad_emoji = \"❌\";\r\n\r\nlet result = summary\r\n| extend ulSinrResult = case(\r\n    isnull(ulSinr_avg) or isnan(ulSinr_avg), empty,\r\n    ulSinr_avg > {PhyUlSinrGoodThreshold}, good,\r\n    ulSinr_avg > {PhyUlSinrMediumThreshold}, medium,\r\n    bad\r\n)\r\n| extend ulRsrpResult = case(\r\n    isnull(ulRsrp_avg) or isnan(ulRsrp_avg), empty,\r\n    ulRsrp_avg > {PhyUlRsrpGoodThreshold}, good,\r\n    ulRsrp_avg > {PhyUlRsrpMediumThreshold}, medium,\r\n    bad\r\n)\r\n| extend PhyResult = case(\r\n    (ulSinrResult == bad or ulRsrpResult == bad), bad,\r\n    (ulSinrResult == medium or ulRsrpResult == medium), medium,\r\n    (ulSinrResult == empty or ulRsrpResult == empty), empty,\r\n    good\r\n    )\r\n| extend dlHarqResult = case(\r\n    isnull(dlHarq_avgF) or isnan(dlHarq_avgF), empty,\r\n    dlHarq_avgF < {MacHarqMediumThreshold}, good,\r\n    dlHarq_avgF < {MacHarqBadThreshold}, medium,\r\n    bad\r\n)\r\n| extend ulHarqResult = case(\r\n    isnull(ulHarq_avgF) or isnan(ulHarq_avgF), empty,\r\n    ulHarq_avgF < {MacHarqMediumThreshold}, good,\r\n    ulHarq_avgF < {MacHarqBadThreshold}, medium,\r\n    bad\r\n)\r\n| extend MacDlResult = case(\r\n    (dlHarqResult == bad), bad,\r\n    (dlHarqResult == medium), medium,\r\n    (dlHarqResult == empty), empty,\r\n    good\r\n    )\r\n| extend MacUlResult = case(\r\n    (ulHarqResult == bad), bad,\r\n    (ulHarqResult == medium), medium,\r\n    (ulHarqResult == empty), empty,\r\n    good\r\n    )\r\n| extend MacResult = min_of(MacDlResult, MacUlResult)\r\n| extend RlcDlSduTxLatencyResult = case(\r\n    isnull(rlc_dl_SduTxLatency_avg) or isnan(rlc_dl_SduTxLatency_avg), empty,\r\n    rlc_dl_SduTxLatency_avg < {RlcDlSduTransmissionBadThreshold}, good,\r\n    bad\r\n)\r\n| extend RlcDlSduDeliveryLatencyResult = case(\r\n    isnull(rlc_dl_SduDeliveryLatency_avg) or isnan(rlc_dl_SduDeliveryLatency_avg), empty,\r\n    rlc_dl_SduDeliveryLatency_avg < {RlcDlSduDeliveryBadThreshold}, good,\r\n    bad\r\n)\r\n| extend RlcDlSduQueueBytesResult = case(\r\n    isnull(rlc_dl_SduQueueBytes_avg) or isnan(rlc_dl_SduQueueBytes_avg), empty,\r\n    rlc_dl_SduQueueBytes_avg < {RlcDlSduQueueBytesBadThreshold}, good,\r\n    bad\r\n)\r\n| extend RlcUlSduDeliveryLatencyResult = case(\r\n    isnull(rlc_ul_SduDeliveryLatency_avg) or isnan(rlc_ul_SduDeliveryLatency_avg), empty,\r\n    rlc_ul_SduDeliveryLatency_avg < {RlcUlSduDeliveryBadThreshold}, good,\r\n    bad\r\n)\r\n| extend RlcDlResult = case(\r\n    (RlcDlSduTxLatencyResult == bad or RlcDlSduDeliveryLatencyResult == bad or RlcDlSduQueueBytesResult == bad), bad,\r\n    (RlcDlSduTxLatencyResult == empty or RlcDlSduDeliveryLatencyResult == empty or RlcDlSduQueueBytesResult == empty), empty,\r\n    good\r\n    )\r\n| extend RlcUlResult = case(\r\n    (RlcUlSduDeliveryLatencyResult == bad), bad,\r\n    (RlcUlSduDeliveryLatencyResult == empty), empty,\r\n    good\r\n    )\r\n| extend RlcResult = min_of(RlcDlResult, RlcUlResult)\r\n| extend PdcpDlSduTxLatencyResult = case(\r\n    isnull(pdcp_dl_sduTxLatency_avg) or isnan(pdcp_dl_sduTxLatency_avg), empty,\r\n    pdcp_dl_sduTxLatency_avg < {PdcpDlSduTransmissionBadThreshold}, good,\r\n    bad\r\n)\r\n| extend PdcpDlSduDiscardedResult = case(\r\n    isnull(pdcp_dl_sduDiscarded_avg) or isnan(pdcp_dl_sduDiscarded_avg), good,\r\n    pdcp_dl_sduDiscarded_avg < {PdcpDlSduDiscardedBadThreshold}, good,\r\n    bad\r\n)\r\n| extend PdcpDlPduWindowPktsResult = case(\r\n    isnull(pdcp_dl_pduWindowPkts_avg) or isnan(pdcp_dl_pduWindowPkts_avg), empty,\r\n    pdcp_dl_pduWindowPkts_avg < {PdcpDlPduWindowPktsBadThreshold}, good,\r\n    bad\r\n)\r\n| extend PdcpUlPduWindowPktsResult = case(\r\n    isnull(pdcp_ul_pduWindowPkts_avg) or isnan(pdcp_ul_pduWindowPkts_avg), empty,\r\n    pdcp_ul_pduWindowPkts_avg < {PdcpUlPduWindowPktsBadThreshold}, good,\r\n    bad\r\n)\r\n| extend PdcpDlResult = case(\r\n    (PdcpDlSduTxLatencyResult == bad or PdcpDlSduDiscardedResult == bad or PdcpDlPduWindowPktsResult == bad), bad,\r\n    (PdcpDlSduTxLatencyResult == empty or PdcpDlSduDiscardedResult == empty or PdcpDlPduWindowPktsResult == empty), empty,\r\n    good\r\n)\r\n| extend PdcpUlResult = case(\r\n    (PdcpUlPduWindowPktsResult == bad), bad,\r\n    (PdcpUlPduWindowPktsResult == empty), empty,\r\n    good\r\n)\r\n| extend PdcpResult = min_of(PdcpDlResult, PdcpUlResult)\r\n| extend TrafficDlResult = case(\r\n    pdcp_dl_newSdus < {TrafficDlGood}, bad,\r\n    // check that the pdcp_dl_newSdus and rlc_dl_SduTxCount aew within 10% of each other\r\n    abs(pdcp_dl_newSdus - rlc_dl_SduTxCount) <= 0.1 * iif(pdcp_dl_newSdus > rlc_dl_SduTxCount, pdcp_dl_newSdus, rlc_dl_SduTxCount), good,\r\n    bad\r\n)\r\n| extend TrafficUlResult = case(\r\n    pdcp_ul_sduDeliveredBytes < {TrafficUlGood}, bad,\r\n    bad\r\n)\r\n| extend PHY = case(\r\n    PhyResult == empty, empty_emoji,\r\n    PhyResult == good, good_emoji,\r\n    PhyResult == medium, medium_emoji,\r\n    PhyResult == bad, bad_emoji,\r\n    \"❓\" \r\n    )\r\n| extend MAC = case(\r\n    MacResult == empty, empty_emoji,\r\n    MacResult == good, good_emoji,\r\n    MacResult == medium, medium_emoji,\r\n    MacResult == bad, bad_emoji,\r\n    \"❓\" \r\n    )\r\n| extend RLC = case(\r\n    RlcResult == empty, empty_emoji,\r\n    RlcResult == good, good_emoji,\r\n    RlcResult == medium, medium_emoji,\r\n    RlcResult == bad, bad_emoji,\r\n    \"❓\" \r\n    )\r\n| extend PDCP = case(\r\n    PdcpResult == empty, empty_emoji,\r\n    PdcpResult == good, good_emoji,\r\n    PdcpResult == medium, medium_emoji,\r\n    PdcpResult == bad, bad_emoji,\r\n    \"❓\" \r\n    )\r\n| extend TrafficDL = case(\r\n    TrafficDlResult == empty, empty_emoji,\r\n    TrafficDlResult == good, good_emoji,\r\n    TrafficDlResult == medium, medium_emoji,\r\n    TrafficDlResult == bad, bad_emoji,\r\n    \"❓\" \r\n    )\r\n| extend TrafficUL = case(\r\n    TrafficUlResult == empty, empty_emoji,\r\n    TrafficUlResult == good, good_emoji,\r\n    TrafficUlResult == medium, medium_emoji,\r\n    TrafficUlResult == bad, bad_emoji,\r\n    \"❓\" \r\n    )\r\n\r\n// collate all results to form overall Status for the UE\r\n| extend StatusResult=(PhyResult + MacResult + RlcResult + PdcpResult + TrafficDlResult + TrafficUlResult)\r\n| extend Status = case(\r\n    StatusResult >= (6 * good), good_emoji,\r\n    StatusResult >= (6 * medium), medium_emoji,\r\n    StatusResult <= (6 * bad), bad_emoji,\r\n    medium_emoji\r\n    )\r\n\r\n| project imsi, Status, PHY, MAC, RLC, PDCP, TrafficDL, TrafficUL\r\n| order by imsi asc\r\n;\r\n\r\nresult\r\n",
+                    "size": 0,
+                    "aggregation": 3,
+                    "timeContextFromParameter": "timeparameter",
+                    "queryType": 0,
+                    "resourceType": "microsoft.operationalinsights/workspaces",
+                    "visualization": "table",
+                    "gridSettings": {
+                      "formatters": [
+                        {
+                          "columnMatch": "imsi",
+                          "formatter": 0,
+                          "formatOptions": {
+                            "customColumnWidthSetting": "26%"
+                          }
+                        },
+                        {
+                          "columnMatch": "Status",
+                          "formatter": 0,
+                          "formatOptions": {
+                            "customColumnWidthSetting": "26%"
+                          }
+                        },
+                        {
+                          "columnMatch": "PHY",
+                          "formatter": 1
+                        },
+                        {
+                          "columnMatch": "MAC",
+                          "formatter": 1
+                        },
+                        {
+                          "columnMatch": "RLC",
+                          "formatter": 1
+                        },
+                        {
+                          "columnMatch": "PDCP",
+                          "formatter": 1
+                        },
+                        {
+                          "columnMatch": "TrafficDL",
+                          "formatter": 1
+                        },
+                        {
+                          "columnMatch": "TrafficUL",
+                          "formatter": 1
+                        }
+                      ]
+                    },
+                    "sortBy": []
+                  },
+                  "customWidth": "100",
+                  "conditionalVisibilities": [
+                    {
+                      "parameterName": "selectedTab",
+                      "comparison": "isEqualTo",
+                      "value": "UEStatus"
+                    },
+                    {
+                      "parameterName": "selectedUEStatusTab",
+                      "comparison": "isEqualTo",
+                      "value": "UESummary"
+                    }
+                  ],
+                  "name": "query - 0"
+                },
+                {
+                  "type": 9,
+                  "content": {
+                    "version": "KqlParameterItem/1.0",
+                    "parameters": [
+                      {
+                        "id": "3baf1b04-7472-4820-a82e-4c7d29d20405",
+                        "version": "KqlParameterItem/1.0",
+                        "name": "IMSI",
+                        "type": 2,
+                        "query": "let timeStart = todatetime({timeparameter:start});\r\nlet timeEnd = todatetime({timeparameter:end});\r\n\r\nlet phy_ul_sinr = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"MAC_SCHED_CRC_STATS\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| extend imsi = supi\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| project imsi\r\n| distinct imsi\r\n;\r\n\r\nlet phy_ul_rsrp = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"MAC_SCHED_CRC_STATS\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| extend imsi = supi\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| project imsi\r\n| distinct imsi\r\n;\r\n\r\nlet mac_dl_harq_failures = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"MAC_SCHED_DL_HARQ\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| extend imsi = supi\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| project imsi\r\n| distinct imsi\r\n;\r\n\r\nlet mac_ul_harq_failures = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"MAC_SCHED_UL_HARQ\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| extend imsi = supi\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| project imsi\r\n| distinct imsi\r\n;\r\n\r\nlet rlc_dl_stats = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"RLC_DL_STATS\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| extend imsi = supi\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| project imsi\r\n| distinct imsi\r\n;\r\n\r\nlet rlc_ul_stats = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"RLC_UL_STATS\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| extend imsi = supi\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| project imsi\r\n| distinct imsi\r\n;\r\n\r\nlet pdcp_dl_stats = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"PDCP_DL_STATS\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| extend imsi = supi\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| project imsi\r\n| distinct imsi\r\n;\r\n\r\nlet pdcp_ul_stats = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"PDCP_UL_STATS\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| extend imsi = supi\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| project imsi\r\n| distinct imsi\r\n;\r\n\r\n// Collate all results\r\n\r\nunion phy_ul_rsrp, phy_ul_sinr,\r\n      mac_dl_harq_failures, mac_ul_harq_failures,\r\n      rlc_dl_stats, rlc_ul_stats,\r\n      pdcp_dl_stats, pdcp_ul_stats\r\n| project imsi\r\n| distinct imsi\r\n| order by imsi asc",
+                        "typeSettings": {
+                          "additionalResourceOptions": []
+                        },
+                        "timeContext": {
+                          "durationMs": 86400000
+                        },
+                        "queryType": 0,
+                        "resourceType": "microsoft.operationalinsights/workspaces",
+                        "value": "imsi-001011230010140"
+                      }
+                    ],
+                    "style": "pills",
+                    "queryType": 0,
+                    "resourceType": "microsoft.operationalinsights/workspaces"
+                  },
+                  "conditionalVisibilities": [
+                    {
+                      "parameterName": "selectedTab",
+                      "comparison": "isEqualTo",
+                      "value": "UEStatus"
+                    },
+                    {
+                      "parameterName": "selectedUEStatusTab",
+                      "comparison": "isEqualTo",
+                      "value": "perUE"
+                    }
+                  ],
+                  "name": "parameters - 2"
+                },
+                {
+                  "type": 3,
+                  "content": {
+                    "version": "KqlItem/1.0",
+                    "query": "let timeStart = todatetime({timeparameter:start});\r\nlet timeEnd = todatetime({timeparameter:end});\r\n\r\nlet phy_ul_sinr = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"MAC_SCHED_CRC_STATS\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| extend \r\n    maxSinr = todouble(stats_d.max_sinr), \r\n    minSinr = todouble(stats_d.min_sinr), \r\n    avgSinr = todouble(stats_d.avg_sinr)\r\n| extend imsi = supi\r\n| where imsi == \"{IMSI}\"\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| summarize ulSinr_min=min(minSinr), ulSinr_max=max(maxSinr), ulSinr_avg=avg(avgSinr) by imsi\r\n;\r\n\r\nlet phy_ul_rsrp = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"MAC_SCHED_CRC_STATS\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| extend \r\n    maxRsrp = todouble(stats_d.max_rsrp), \r\n    minRsrp = todouble(stats_d.min_rsrp), \r\n    avgRsrp = todouble(stats_d.avg_rsrp)\r\n| extend imsi = supi\r\n| where imsi == \"{IMSI}\"\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| summarize \r\n    ulRsrp_min=min(minRsrp), \r\n    ulRsrp_max=max(maxRsrp), \r\n    ulRsrp_avg=avg(avgRsrp) by imsi\r\n;\r\n\r\nlet mac_dl_harq_failures = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"MAC_SCHED_DL_HARQ\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| extend \r\n    txCount = toint(stats_d.perHarqTypeStats.MAC_HARQ_EVENT_TX.tbs.pkts),\r\n    reTxCount = toint(stats_d.perHarqTypeStats.MAC_HARQ_EVENT_RETX.tbs.pkts)\r\n| extend failureRate = iif(txCount + reTxCount == 0, 0.0, reTxCount  * 100.0 / (txCount + reTxCount))\r\n| extend imsi = supi\r\n| where imsi == \"{IMSI}\"\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| summarize \r\n    dlHarq_minF=min(failureRate), \r\n    dlHarq_maxF=max(failureRate), \r\n    dlHarq_avgF=avg(failureRate) by imsi\r\n;\r\n\r\nlet mac_ul_harq_failures = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"MAC_SCHED_UL_HARQ\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| extend \r\n    txCount = toint(stats_d.perHarqTypeStats.MAC_HARQ_EVENT_TX.tbs.pkts),\r\n    reTxCount = toint(stats_d.perHarqTypeStats.MAC_HARQ_EVENT_RETX.tbs.pkts)\r\n| extend failureRate = iif(txCount + reTxCount == 0, 0.0, reTxCount  * 100.0 / (txCount + reTxCount))\r\n| extend imsi = supi\r\n| where imsi == \"{IMSI}\"\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| summarize \r\n    ulHarq_minF=min(failureRate), \r\n    ulHarq_maxF=max(failureRate), \r\n    ulHarq_avgF=avg(failureRate) by imsi\r\n;\r\n\r\nlet rlc_dl_stats = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"RLC_DL_STATS\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), \r\n  isSRB = toint(stats_d.is_srb), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp)),\r\n  avgSduTxDelay = todouble(stats_d.sdu_tx_completed.avg) / 1000000,\r\n  numSduTx = toint(stats_d.sdu_tx_completed.count),\r\n  avgSduDeliveryDelay = todouble(stats_d.sdu_tx_delivered.avg) / 1000000,\r\n  avgSduQueueBytes = todouble(stats_d.sdu_queue_bytes.avg),\r\n  pduTxBytes = todouble(stats_d.pdu_tx_bytes.total)\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| where isSRB == 0 // Ignore signalling bearers for data throughput\r\n| extend imsi = supi\r\n| where imsi == \"{IMSI}\"\r\n| summarize \r\n    rlc_dl_SduTxCount=sum(numSduTx), \r\n    rlc_dl_SduTxLatency_avg=avg(avgSduTxDelay), \r\n    rlc_dl_SduDeliveryLatency_avg=avg(avgSduDeliveryDelay), \r\n    rlc_dl_SduQueueBytes_avg=avg(avgSduQueueBytes), \r\n    rlc_dl_pduTxBytes=sum(pduTxBytes) by imsi\r\n;\r\n\r\nlet rlc_ul_stats = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"RLC_UL_STATS\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), \r\n  isSRB = toint(stats_d.is_srb), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp)),\r\n  avgSduDeliveryDelay = todouble(stats_d.sdu_delivered_latency.avg) / 1000000,\r\n  avgSduQueueBytes = todouble(stats_d.sdu_queue_bytes.avg)\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| where isSRB == 0 // Ignore signalling bearers for data throughput\r\n| extend imsi = supi\r\n| where imsi == \"{IMSI}\"\r\n| summarize rlc_ul_SduDeliveryLatency_avg=avg(avgSduDeliveryDelay) by imsi\r\n;\r\n\r\nlet pdcp_dl_stats = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"PDCP_DL_STATS\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), \r\n  isSRB = toint(stats_d.is_srb), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp)),\r\n  sduDiscarded = todouble(stats_d.sdu_discarded),\r\n  pduWindowPkts_avg = todouble(stats_d.pdu_window_pkts.avg),\r\n  sduTxLatency_avg = todouble(stats_d.sdu_tx_latency.avg),\r\n  newSdus = toint(stats_d.sdu_new_bytes.count)\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| where isSRB == 0 // Ignore signalling bearers for data throughput\r\n| extend imsi = supi\r\n| where imsi == \"{IMSI}\"\r\n| summarize \r\n    pdcp_dl_sduDiscarded_avg=avg(sduDiscarded),\r\n    pdcp_dl_pduWindowPkts_avg=avg(pduWindowPkts_avg),\r\n    pdcp_dl_sduTxLatency_avg=avg(sduTxLatency_avg),\r\n    pdcp_dl_newSdus=sum(newSdus) by imsi\r\n;\r\n\r\nlet pdcp_ul_stats = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"PDCP_UL_STATS\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), \r\n  isSRB = toint(stats_d.is_srb), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp)),\r\n  pduWindowPkts_avg = todouble(stats_d.pdu_window_pkts.avg),\r\n  sduDeliveredBytes = todouble(stats_d.sdu_delivered_bytes.total)  \r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| where isSRB == 0 // Ignore signalling bearers for data throughput\r\n| extend imsi = supi\r\n| where imsi == \"{IMSI}\"\r\n| summarize \r\n    pdcp_ul_pduWindowPkts_avg=avg(pduWindowPkts_avg), \r\n    pdcp_ul_sduDeliveredBytes=sum(sduDeliveredBytes) by imsi\r\n;\r\n\r\n// Collate all results\r\nlet summary = phy_ul_rsrp\r\n| join kind=fullouter  phy_ul_sinr on imsi\r\n| join kind=fullouter  mac_dl_harq_failures on imsi\r\n| join kind=fullouter  mac_ul_harq_failures on imsi\r\n| join kind=fullouter  rlc_dl_stats on imsi\r\n| join kind=fullouter  rlc_ul_stats on imsi\r\n| join kind=fullouter  pdcp_dl_stats on imsi\r\n| join kind=fullouter  pdcp_ul_stats on imsi\r\n;\r\n\r\nlet good=3;\r\nlet medium=2;\r\nlet empty=1;\r\nlet bad=0;\r\n\r\nlet good_emoji = \"✅\";\r\nlet medium_emoji = \"🟠\";\r\nlet empty_emoji = \"⚪\";\r\nlet bad_emoji = \"❌\";\r\n\r\nlet result = summary\r\n| extend ulSinrResult = case(\r\n    isnull(ulSinr_avg) or isnan(ulSinr_avg), empty,\r\n    ulSinr_avg > {PhyUlSinrGoodThreshold}, good,\r\n    ulSinr_avg > {PhyUlSinrMediumThreshold}, medium,\r\n    bad\r\n)\r\n| extend ulRsrpResult = case(\r\n    isnull(ulRsrp_avg) or isnan(ulRsrp_avg), empty,\r\n    ulRsrp_avg > {PhyUlRsrpGoodThreshold}, good,\r\n    ulRsrp_avg > {PhyUlRsrpMediumThreshold}, medium,\r\n    bad\r\n)\r\n| extend PhyResult = case(\r\n    (ulSinrResult == bad or ulRsrpResult == bad), bad,\r\n    (ulSinrResult == medium or ulRsrpResult == medium), medium,\r\n    (ulSinrResult == empty or ulRsrpResult == empty), empty,\r\n    good\r\n    )\r\n| extend dlHarqResult = case(\r\n    isnull(dlHarq_avgF) or isnan(dlHarq_avgF), empty,\r\n    dlHarq_avgF < {MacHarqMediumThreshold}, good,\r\n    dlHarq_avgF < {MacHarqBadThreshold}, medium,\r\n    bad\r\n)\r\n| extend ulHarqResult = case(\r\n    isnull(ulHarq_avgF) or isnan(ulHarq_avgF), empty,\r\n    ulHarq_avgF < {MacHarqMediumThreshold}, good,\r\n    ulHarq_avgF < {MacHarqBadThreshold}, medium,\r\n    bad\r\n)\r\n| extend MacDlResult = case(\r\n    (dlHarqResult == bad), bad,\r\n    (dlHarqResult == medium), medium,\r\n    (dlHarqResult == empty), empty,\r\n    good\r\n    )\r\n| extend MacUlResult = case(\r\n    (ulHarqResult == bad), bad,\r\n    (ulHarqResult == medium), medium,\r\n    (ulHarqResult == empty), empty,\r\n    good\r\n    )\r\n| extend MacResult = min_of(MacDlResult, MacUlResult)\r\n| extend RlcDlSduTxLatencyResult = case(\r\n    isnull(rlc_dl_SduTxLatency_avg) or isnan(rlc_dl_SduTxLatency_avg), empty,\r\n    rlc_dl_SduTxLatency_avg < {RlcDlSduTransmissionBadThreshold}, good,\r\n    bad\r\n)\r\n| extend RlcDlSduDeliveryLatencyResult = case(\r\n    isnull(rlc_dl_SduDeliveryLatency_avg) or isnan(rlc_dl_SduDeliveryLatency_avg), empty,\r\n    rlc_dl_SduDeliveryLatency_avg < {RlcDlSduDeliveryBadThreshold}, good,\r\n    bad\r\n)\r\n| extend RlcDlSduQueueBytesResult = case(\r\n    isnull(rlc_dl_SduQueueBytes_avg) or isnan(rlc_dl_SduQueueBytes_avg), empty,\r\n    rlc_dl_SduQueueBytes_avg < {RlcDlSduQueueBytesBadThreshold}, good,\r\n    bad\r\n)\r\n| extend RlcUlSduDeliveryLatencyResult = case(\r\n    isnull(rlc_ul_SduDeliveryLatency_avg) or isnan(rlc_ul_SduDeliveryLatency_avg), empty,\r\n    rlc_ul_SduDeliveryLatency_avg < {RlcUlSduDeliveryBadThreshold}, good,\r\n    bad\r\n)\r\n| extend RlcDlResult = case(\r\n    (RlcDlSduTxLatencyResult == bad or RlcDlSduDeliveryLatencyResult == bad or RlcDlSduQueueBytesResult == bad), bad,\r\n    (RlcDlSduTxLatencyResult == empty or RlcDlSduDeliveryLatencyResult == empty or RlcDlSduQueueBytesResult == empty), empty,\r\n    good\r\n    )\r\n| extend RlcUlResult = case(\r\n    (RlcUlSduDeliveryLatencyResult == bad), bad,\r\n    (RlcUlSduDeliveryLatencyResult == empty), empty,\r\n    good\r\n    )\r\n| extend RlcResult = min_of(RlcDlResult, RlcUlResult)\r\n| extend PdcpDlSduTxLatencyResult = case(\r\n    isnull(pdcp_dl_sduTxLatency_avg) or isnan(pdcp_dl_sduTxLatency_avg), empty,\r\n    pdcp_dl_sduTxLatency_avg < {PdcpDlSduTransmissionBadThreshold}, good,\r\n    bad\r\n)\r\n| extend PdcpDlSduDiscardedResult = case(\r\n    isnull(pdcp_dl_sduDiscarded_avg) or isnan(pdcp_dl_sduDiscarded_avg), good,\r\n    pdcp_dl_sduDiscarded_avg < {PdcpDlSduDiscardedBadThreshold}, good,\r\n    bad\r\n)\r\n| extend PdcpDlPduWindowPktsResult = case(\r\n    isnull(pdcp_dl_pduWindowPkts_avg) or isnan(pdcp_dl_pduWindowPkts_avg), empty,\r\n    pdcp_dl_pduWindowPkts_avg < {PdcpDlPduWindowPktsBadThreshold}, good,\r\n    bad\r\n)\r\n| extend PdcpUlPduWindowPktsResult = case(\r\n    isnull(pdcp_ul_pduWindowPkts_avg) or isnan(pdcp_ul_pduWindowPkts_avg), empty,\r\n    pdcp_ul_pduWindowPkts_avg < {PdcpUlPduWindowPktsBadThreshold}, good,\r\n    bad\r\n)\r\n| extend PdcpDlResult = case(\r\n    (PdcpDlSduTxLatencyResult == bad or PdcpDlSduDiscardedResult == bad or PdcpDlPduWindowPktsResult == bad), bad,\r\n    (PdcpDlSduTxLatencyResult == empty or PdcpDlSduDiscardedResult == empty or PdcpDlPduWindowPktsResult == empty), empty,\r\n    good\r\n)\r\n| extend PdcpUlResult = case(\r\n    (PdcpUlPduWindowPktsResult == bad), bad,\r\n    (PdcpUlPduWindowPktsResult == empty), empty,\r\n    good\r\n)\r\n| extend PdcpResult = min_of(PdcpDlResult, PdcpUlResult)\r\n| extend TrafficDlResult = case(\r\n    pdcp_dl_newSdus < {TrafficDlGood}, bad,\r\n    // check that the pdcp_dl_newSdus and rlc_dl_SduTxCount aew within 10% of each other\r\n    abs(pdcp_dl_newSdus - rlc_dl_SduTxCount) <= 0.1 * iif(pdcp_dl_newSdus > rlc_dl_SduTxCount, pdcp_dl_newSdus, rlc_dl_SduTxCount), good,\r\n    bad\r\n)\r\n| extend TrafficUlResult = case(\r\n    pdcp_ul_sduDeliveredBytes < {TrafficUlGood}, bad,\r\n    bad\r\n)\r\n| extend PHY = case(\r\n    PhyResult == empty, empty_emoji,\r\n    PhyResult == good, good_emoji,\r\n    PhyResult == medium, medium_emoji,\r\n    PhyResult == bad, bad_emoji,\r\n    \"❓\" \r\n    )\r\n| extend MACUL = case(\r\n    MacUlResult == empty, empty_emoji,\r\n    MacUlResult == good, good_emoji,\r\n    MacUlResult == medium, medium_emoji,\r\n    MacUlResult == bad, bad_emoji,\r\n    \"❓\" \r\n    )\r\n| extend MACDL = case(\r\n    MacDlResult == empty, empty_emoji,\r\n    MacDlResult == good, good_emoji,\r\n    MacDlResult == medium, medium_emoji,\r\n    MacDlResult == bad, bad_emoji,\r\n    \"❓\" \r\n    )\r\n| extend RLCUL = case(\r\n    RlcUlResult == empty, empty_emoji,\r\n    RlcUlResult == good, good_emoji,\r\n    RlcUlResult == medium, medium_emoji,\r\n    RlcUlResult == bad, bad_emoji,\r\n    \"❓\" \r\n    )\r\n| extend RLCDL = case(\r\n    RlcDlResult == empty, empty_emoji,\r\n    RlcDlResult == good, good_emoji,\r\n    RlcDlResult == medium, medium_emoji,\r\n    RlcDlResult == bad, bad_emoji,\r\n    \"❓\" \r\n    )\r\n| extend PDCPUL = case(\r\n    PdcpUlResult == empty, empty_emoji,\r\n    PdcpUlResult == good, good_emoji,\r\n    PdcpUlResult == medium, medium_emoji,\r\n    PdcpUlResult == bad, bad_emoji,\r\n    \"❓\" \r\n    )\r\n| extend PDCPDL = case(\r\n    PdcpDlResult == empty, empty_emoji,\r\n    PdcpDlResult == good, good_emoji,\r\n    PdcpDlResult == medium, medium_emoji,\r\n    PdcpDlResult == bad, bad_emoji,\r\n    \"❓\" \r\n    )\r\n| extend TrafficDL = case(\r\n    TrafficDlResult == empty, empty_emoji,\r\n    TrafficDlResult == good, good_emoji,\r\n    TrafficDlResult == medium, medium_emoji,\r\n    TrafficDlResult == bad, bad_emoji,\r\n    \"❓\" \r\n    )\r\n| extend TrafficUL = case(\r\n    TrafficUlResult == empty, empty_emoji,\r\n    TrafficUlResult == good, good_emoji,\r\n    TrafficUlResult == medium, medium_emoji,\r\n    TrafficUlResult == bad, bad_emoji,\r\n    \"❓\" \r\n    )\r\n\r\n// collate all results to form overall Status for the UE\r\n| extend StatusResult=(PhyResult + MacResult + RlcResult + PdcpResult + TrafficDlResult + TrafficUlResult)\r\n| extend Status = case(\r\n    StatusResult >= (6 * good), \"🟢\",\r\n    StatusResult >= (6 * medium), \"🟠\",\r\n    StatusResult <= (6 * bad), \"🔴\",\r\n    \"🟠\"\r\n    )\r\n\r\n| project Status, PHY, MACUL, MACDL, RLCUL, RLCDL, PDCPUL, PDCPDL, TrafficUL, TrafficDL\r\n;\r\n\r\nresult",
+                    "size": 0,
+                    "aggregation": 3,
+                    "timeContextFromParameter": "timeparameter",
+                    "queryType": 0,
+                    "resourceType": "microsoft.operationalinsights/workspaces",
+                    "visualization": "table",
+                    "gridSettings": {
+                      "formatters": [
+                        {
+                          "columnMatch": "imsi",
+                          "formatter": 0,
+                          "formatOptions": {
+                            "customColumnWidthSetting": "26%"
+                          }
+                        },
+                        {
+                          "columnMatch": "Status",
+                          "formatter": 0,
+                          "formatOptions": {
+                            "customColumnWidthSetting": "26%"
+                          }
+                        },
+                        {
+                          "columnMatch": "PHY",
+                          "formatter": 1
+                        },
+                        {
+                          "columnMatch": "MAC",
+                          "formatter": 1
+                        },
+                        {
+                          "columnMatch": "RLC",
+                          "formatter": 1
+                        },
+                        {
+                          "columnMatch": "PDCP",
+                          "formatter": 1
+                        },
+                        {
+                          "columnMatch": "TrafficDL",
+                          "formatter": 1
+                        },
+                        {
+                          "columnMatch": "TrafficUL",
+                          "formatter": 1
+                        }
+                      ]
+                    },
+                    "sortBy": []
+                  },
+                  "customWidth": "100",
+                  "conditionalVisibilities": [
+                    {
+                      "parameterName": "selectedTab",
+                      "comparison": "isEqualTo",
+                      "value": "UEStatus"
+                    },
+                    {
+                      "parameterName": "selectedUEStatusTab",
+                      "comparison": "isEqualTo",
+                      "value": "perUE"
+                    }
+                  ],
+                  "name": "query - 0 - Copy"
+                }
+              ]
+            },
+            "customWidth": "100",
+            "name": "group - bytes - Copy"
+          }
+        ]
+      },
+      "conditionalVisibility": {
+        "parameterName": "selectedTab",
+        "comparison": "isEqualTo",
+        "value": "UEStatus"
+      },
+      "customWidth": "100",
+      "name": "UEStatusGroup"
+    }
+  ],
+  "fallbackResourceIds": [
+    "/subscriptions/8bb381b1-de12-4fb7-a019-aeeeb2071090/resourceGroups/redmond-testbed-rg/providers/Microsoft.OperationalInsights/workspaces/janus-redmond"
+  ],
+  "$schema": "https://github.com/Microsoft/Application-Insights-Workbooks/blob/master/schema/workbook.json"
+}
