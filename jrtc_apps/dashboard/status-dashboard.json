@@ -1214,184 +1214,502 @@
               "groupType": "editable",
               "items": [
                 {
-                  "type": 3,
+                  "type": 12,
                   "content": {
-                    "version": "KqlItem/1.0",
-                    "query": "let timeStart = todatetime({timeparameter:start});\r\nlet timeEnd = todatetime({timeparameter:end});\r\n\r\nlet phy_ul_sinr = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"MAC_SCHED_CRC_STATS\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| extend \r\n    maxSinr = todouble(stats_d.max_sinr), \r\n    minSinr = todouble(stats_d.min_sinr), \r\n    avgSinr = todouble(stats_d.avg_sinr)\r\n| extend imsi = supi\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| summarize ulSinr_min=min(minSinr), ulSinr_max=max(maxSinr), ulSinr_avg=avg(avgSinr) by imsi\r\n;\r\n\r\nlet phy_ul_rsrp = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"MAC_SCHED_CRC_STATS\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| extend \r\n    maxRsrp = todouble(stats_d.max_rsrp), \r\n    minRsrp = todouble(stats_d.min_rsrp), \r\n    avgRsrp = todouble(stats_d.avg_rsrp)\r\n| extend imsi = supi\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| summarize \r\n    ulRsrp_min=min(minRsrp), \r\n    ulRsrp_max=max(maxRsrp), \r\n    ulRsrp_avg=avg(avgRsrp) by imsi\r\n;\r\n\r\nlet mac_dl_harq_failures = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"MAC_SCHED_DL_HARQ\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| extend \r\n    txCount = toint(stats_d.perHarqTypeStats.MAC_HARQ_EVENT_TX.tbs.pkts),\r\n    reTxCount = toint(stats_d.perHarqTypeStats.MAC_HARQ_EVENT_RETX.tbs.pkts)\r\n| extend failureRate = iif(txCount + reTxCount == 0, 0.0, reTxCount  * 100.0 / (txCount + reTxCount))\r\n| extend imsi = supi\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| summarize \r\n    dlHarq_minF=min(failureRate), \r\n    dlHarq_maxF=max(failureRate), \r\n    dlHarq_avgF=avg(failureRate) by imsi\r\n;\r\n\r\nlet mac_ul_harq_failures = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"MAC_SCHED_UL_HARQ\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| extend \r\n    txCount = toint(stats_d.perHarqTypeStats.MAC_HARQ_EVENT_TX.tbs.pkts),\r\n    reTxCount = toint(stats_d.perHarqTypeStats.MAC_HARQ_EVENT_RETX.tbs.pkts)\r\n| extend failureRate = iif(txCount + reTxCount == 0, 0.0, reTxCount  * 100.0 / (txCount + reTxCount))\r\n| extend imsi = supi\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| summarize \r\n    ulHarq_minF=min(failureRate), \r\n    ulHarq_maxF=max(failureRate), \r\n    ulHarq_avgF=avg(failureRate) by imsi\r\n;\r\n\r\nlet rlc_dl_stats = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"RLC_DL_STATS\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), \r\n  isSRB = toint(stats_d.is_srb), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp)),\r\n  avgSduTxDelay = todouble(stats_d.sdu_tx_completed.avg) / 1000000,\r\n  numSduTx = toint(stats_d.sdu_tx_completed.count),\r\n  avgSduDeliveryDelay = todouble(stats_d.sdu_tx_delivered.avg) / 1000000,\r\n  avgSduQueueBytes = todouble(stats_d.sdu_queue_bytes.avg),\r\n  pduTxBytes = todouble(stats_d.pdu_tx_bytes.total)\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| where isSRB == 0 // Ignore signalling bearers for data throughput\r\n| extend imsi = supi\r\n| summarize \r\n    rlc_dl_SduTxCount=sum(numSduTx), \r\n    rlc_dl_SduTxLatency_avg=avg(avgSduTxDelay), \r\n    rlc_dl_SduDeliveryLatency_avg=avg(avgSduDeliveryDelay), \r\n    rlc_dl_SduQueueBytes_avg=avg(avgSduQueueBytes), \r\n    rlc_dl_pduTxBytes=sum(pduTxBytes) by imsi\r\n;\r\n\r\nlet rlc_ul_stats = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"RLC_UL_STATS\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), \r\n  isSRB = toint(stats_d.is_srb), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp)),\r\n  avgSduDeliveryDelay = todouble(stats_d.sdu_delivered_latency.avg) / 1000000,\r\n  avgSduQueueBytes = todouble(stats_d.sdu_queue_bytes.avg)\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| where isSRB == 0 // Ignore signalling bearers for data throughput\r\n| extend imsi = supi\r\n| summarize rlc_ul_SduDeliveryLatency_avg=avg(avgSduDeliveryDelay) by imsi\r\n;\r\n\r\nlet pdcp_dl_stats = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"PDCP_DL_STATS\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), \r\n  isSRB = toint(stats_d.is_srb), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp)),\r\n  sduDiscarded = todouble(stats_d.sdu_discarded),\r\n  pduWindowPkts_avg = todouble(stats_d.pdu_window_pkts.avg),\r\n  sduTxLatency_avg = todouble(stats_d.sdu_tx_latency.avg),\r\n  newSdus = toint(stats_d.sdu_new_bytes.count)\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| where isSRB == 0 // Ignore signalling bearers for data throughput\r\n| extend imsi = supi\r\n| summarize \r\n    pdcp_dl_sduDiscarded_avg=avg(sduDiscarded),\r\n    pdcp_dl_pduWindowPkts_avg=avg(pduWindowPkts_avg),\r\n    pdcp_dl_sduTxLatency_avg=avg(sduTxLatency_avg),\r\n    pdcp_dl_newSdus=sum(newSdus) by imsi\r\n;\r\n\r\nlet pdcp_ul_stats = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"PDCP_UL_STATS\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), \r\n  isSRB = toint(stats_d.is_srb), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp)),\r\n  pduWindowPkts_avg = todouble(stats_d.pdu_window_pkts.avg),\r\n  sduDeliveredBytes = todouble(stats_d.sdu_delivered_bytes.total)  \r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| where isSRB == 0 // Ignore signalling bearers for data throughput\r\n| extend imsi = supi\r\n| summarize \r\n    pdcp_ul_pduWindowPkts_avg=avg(pduWindowPkts_avg), \r\n    pdcp_ul_sduDeliveredBytes=sum(sduDeliveredBytes) by imsi\r\n;\r\n\r\n// Collate all results\r\nlet summary = phy_ul_rsrp\r\n| join kind=fullouter  phy_ul_sinr on imsi\r\n| join kind=fullouter  mac_dl_harq_failures on imsi\r\n| join kind=fullouter  mac_ul_harq_failures on imsi\r\n| join kind=fullouter  rlc_dl_stats on imsi\r\n| join kind=fullouter  rlc_ul_stats on imsi\r\n| join kind=fullouter  pdcp_dl_stats on imsi\r\n| join kind=fullouter  pdcp_ul_stats on imsi\r\n;\r\n\r\nlet good=3;\r\nlet medium=2;\r\nlet empty=1;\r\nlet bad=0;\r\n\r\nlet good_emoji = \"✅\";\r\nlet medium_emoji = \"🟠\";\r\nlet empty_emoji = \"⚪\";\r\nlet bad_emoji = \"❌\";\r\n\r\nlet result = summary\r\n| extend ulSinrResult = case(\r\n    isnull(ulSinr_avg) or isnan(ulSinr_avg), empty,\r\n    ulSinr_avg > {PhyUlSinrGoodThreshold}, good,\r\n    ulSinr_avg > {PhyUlSinrMediumThreshold}, medium,\r\n    bad\r\n)\r\n| extend ulRsrpResult = case(\r\n    isnull(ulRsrp_avg) or isnan(ulRsrp_avg), empty,\r\n    ulRsrp_avg > {PhyUlRsrpGoodThreshold}, good,\r\n    ulRsrp_avg > {PhyUlRsrpMediumThreshold}, medium,\r\n    bad\r\n)\r\n| extend PhyResult = case(\r\n    (ulSinrResult == bad or ulRsrpResult == bad), bad,\r\n    (ulSinrResult == medium or ulRsrpResult == medium), medium,\r\n    (ulSinrResult == empty or ulRsrpResult == empty), empty,\r\n    good\r\n    )\r\n| extend dlHarqResult = case(\r\n    isnull(dlHarq_avgF) or isnan(dlHarq_avgF), empty,\r\n    dlHarq_avgF < {MacHarqMediumThreshold}, good,\r\n    dlHarq_avgF < {MacHarqBadThreshold}, medium,\r\n    bad\r\n)\r\n| extend ulHarqResult = case(\r\n    isnull(ulHarq_avgF) or isnan(ulHarq_avgF), empty,\r\n    ulHarq_avgF < {MacHarqMediumThreshold}, good,\r\n    ulHarq_avgF < {MacHarqBadThreshold}, medium,\r\n    bad\r\n)\r\n| extend MacDlResult = case(\r\n    (dlHarqResult == bad), bad,\r\n    (dlHarqResult == medium), medium,\r\n    (dlHarqResult == empty), empty,\r\n    good\r\n    )\r\n| extend MacUlResult = case(\r\n    (ulHarqResult == bad), bad,\r\n    (ulHarqResult == medium), medium,\r\n    (ulHarqResult == empty), empty,\r\n    good\r\n    )\r\n| extend MacResult = min_of(MacDlResult, MacUlResult)\r\n| extend RlcDlSduTxLatencyResult = case(\r\n    isnull(rlc_dl_SduTxLatency_avg) or isnan(rlc_dl_SduTxLatency_avg), empty,\r\n    rlc_dl_SduTxLatency_avg < {RlcDlSduTransmissionBadThreshold}, good,\r\n    bad\r\n)\r\n| extend RlcDlSduDeliveryLatencyResult = case(\r\n    isnull(rlc_dl_SduDeliveryLatency_avg) or isnan(rlc_dl_SduDeliveryLatency_avg), empty,\r\n    rlc_dl_SduDeliveryLatency_avg < {RlcDlSduDeliveryBadThreshold}, good,\r\n    bad\r\n)\r\n| extend RlcDlSduQueueBytesResult = case(\r\n    isnull(rlc_dl_SduQueueBytes_avg) or isnan(rlc_dl_SduQueueBytes_avg), empty,\r\n    rlc_dl_SduQueueBytes_avg < {RlcDlSduQueueBytesBadThreshold}, good,\r\n    bad\r\n)\r\n| extend RlcUlSduDeliveryLatencyResult = case(\r\n    isnull(rlc_ul_SduDeliveryLatency_avg) or isnan(rlc_ul_SduDeliveryLatency_avg), empty,\r\n    rlc_ul_SduDeliveryLatency_avg < {RlcUlSduDeliveryBadThreshold}, good,\r\n    bad\r\n)\r\n| extend RlcDlResult = case(\r\n    (RlcDlSduTxLatencyResult == bad or RlcDlSduDeliveryLatencyResult == bad or RlcDlSduQueueBytesResult == bad), bad,\r\n    (RlcDlSduTxLatencyResult == empty or RlcDlSduDeliveryLatencyResult == empty or RlcDlSduQueueBytesResult == empty), empty,\r\n    good\r\n    )\r\n| extend RlcUlResult = case(\r\n    (RlcUlSduDeliveryLatencyResult == bad), bad,\r\n    (RlcUlSduDeliveryLatencyResult == empty), empty,\r\n    good\r\n    )\r\n| extend RlcResult = min_of(RlcDlResult, RlcUlResult)\r\n| extend PdcpDlSduTxLatencyResult = case(\r\n    isnull(pdcp_dl_sduTxLatency_avg) or isnan(pdcp_dl_sduTxLatency_avg), empty,\r\n    pdcp_dl_sduTxLatency_avg < {PdcpDlSduTransmissionBadThreshold}, good,\r\n    bad\r\n)\r\n| extend PdcpDlSduDiscardedResult = case(\r\n    isnull(pdcp_dl_sduDiscarded_avg) or isnan(pdcp_dl_sduDiscarded_avg), good,\r\n    pdcp_dl_sduDiscarded_avg < {PdcpDlSduDiscardedBadThreshold}, good,\r\n    bad\r\n)\r\n| extend PdcpDlPduWindowPktsResult = case(\r\n    isnull(pdcp_dl_pduWindowPkts_avg) or isnan(pdcp_dl_pduWindowPkts_avg), empty,\r\n    pdcp_dl_pduWindowPkts_avg < {PdcpDlPduWindowPktsBadThreshold}, good,\r\n    bad\r\n)\r\n| extend PdcpUlPduWindowPktsResult = case(\r\n    isnull(pdcp_ul_pduWindowPkts_avg) or isnan(pdcp_ul_pduWindowPkts_avg), empty,\r\n    pdcp_ul_pduWindowPkts_avg < {PdcpUlPduWindowPktsBadThreshold}, good,\r\n    bad\r\n)\r\n| extend PdcpDlResult = case(\r\n    (PdcpDlSduTxLatencyResult == bad or PdcpDlSduDiscardedResult == bad or PdcpDlPduWindowPktsResult == bad), bad,\r\n    (PdcpDlSduTxLatencyResult == empty or PdcpDlSduDiscardedResult == empty or PdcpDlPduWindowPktsResult == empty), empty,\r\n    good\r\n)\r\n| extend PdcpUlResult = case(\r\n    (PdcpUlPduWindowPktsResult == bad), bad,\r\n    (PdcpUlPduWindowPktsResult == empty), empty,\r\n    good\r\n)\r\n| extend PdcpResult = min_of(PdcpDlResult, PdcpUlResult)\r\n| extend TrafficDlResult = case(\r\n    pdcp_dl_newSdus < {TrafficDlGood}, bad,\r\n    // check that the pdcp_dl_newSdus and rlc_dl_SduTxCount aew within 10% of each other\r\n    abs(pdcp_dl_newSdus - rlc_dl_SduTxCount) <= 0.1 * iif(pdcp_dl_newSdus > rlc_dl_SduTxCount, pdcp_dl_newSdus, rlc_dl_SduTxCount), good,\r\n    bad\r\n)\r\n| extend TrafficUlResult = case(\r\n    pdcp_ul_sduDeliveredBytes < {TrafficUlGood}, bad,\r\n    bad\r\n)\r\n| extend PHY = case(\r\n    PhyResult == empty, empty_emoji,\r\n    PhyResult == good, good_emoji,\r\n    PhyResult == medium, medium_emoji,\r\n    PhyResult == bad, bad_emoji,\r\n    \"❓\" \r\n    )\r\n| extend MAC = case(\r\n    MacResult == empty, empty_emoji,\r\n    MacResult == good, good_emoji,\r\n    MacResult == medium, medium_emoji,\r\n    MacResult == bad, bad_emoji,\r\n    \"❓\" \r\n    )\r\n| extend RLC = case(\r\n    RlcResult == empty, empty_emoji,\r\n    RlcResult == good, good_emoji,\r\n    RlcResult == medium, medium_emoji,\r\n    RlcResult == bad, bad_emoji,\r\n    \"❓\" \r\n    )\r\n| extend PDCP = case(\r\n    PdcpResult == empty, empty_emoji,\r\n    PdcpResult == good, good_emoji,\r\n    PdcpResult == medium, medium_emoji,\r\n    PdcpResult == bad, bad_emoji,\r\n    \"❓\" \r\n    )\r\n| extend TrafficDL = case(\r\n    TrafficDlResult == empty, empty_emoji,\r\n    TrafficDlResult == good, good_emoji,\r\n    TrafficDlResult == medium, medium_emoji,\r\n    TrafficDlResult == bad, bad_emoji,\r\n    \"❓\" \r\n    )\r\n| extend TrafficUL = case(\r\n    TrafficUlResult == empty, empty_emoji,\r\n    TrafficUlResult == good, good_emoji,\r\n    TrafficUlResult == medium, medium_emoji,\r\n    TrafficUlResult == bad, bad_emoji,\r\n    \"❓\" \r\n    )\r\n\r\n// collate all results to form overall Status for the UE\r\n| extend StatusResult=(PhyResult + MacResult + RlcResult + PdcpResult + TrafficDlResult + TrafficUlResult)\r\n| extend Status = case(\r\n    StatusResult >= (6 * good), good_emoji,\r\n    StatusResult >= (6 * medium), medium_emoji,\r\n    StatusResult <= (6 * bad), bad_emoji,\r\n    medium_emoji\r\n    )\r\n\r\n| project imsi, Status, PHY, MAC, RLC, PDCP, TrafficDL, TrafficUL\r\n| order by imsi asc\r\n;\r\n\r\nresult\r\n",
-                    "size": 0,
-                    "aggregation": 3,
-                    "timeContextFromParameter": "timeparameter",
-                    "queryType": 0,
-                    "resourceType": "microsoft.operationalinsights/workspaces",
-                    "visualization": "table",
-                    "gridSettings": {
-                      "formatters": [
-                        {
-                          "columnMatch": "imsi",
-                          "formatter": 0,
-                          "formatOptions": {
-                            "customColumnWidthSetting": "26%"
-                          }
-                        },
-                        {
-                          "columnMatch": "Status",
-                          "formatter": 0,
-                          "formatOptions": {
-                            "customColumnWidthSetting": "26%"
-                          }
-                        },
-                        {
-                          "columnMatch": "PHY",
-                          "formatter": 1
-                        },
-                        {
-                          "columnMatch": "MAC",
-                          "formatter": 1
-                        },
-                        {
-                          "columnMatch": "RLC",
-                          "formatter": 1
-                        },
-                        {
-                          "columnMatch": "PDCP",
-                          "formatter": 1
-                        },
-                        {
-                          "columnMatch": "TrafficDL",
-                          "formatter": 1
-                        },
-                        {
-                          "columnMatch": "TrafficUL",
-                          "formatter": 1
-                        }
-                      ]
-                    },
-                    "sortBy": []
-                  },
-                  "customWidth": "100",
-                  "conditionalVisibilities": [
-                    {
-                      "parameterName": "selectedTab",
-                      "comparison": "isEqualTo",
-                      "value": "UEStatus"
-                    },
-                    {
-                      "parameterName": "selectedUEStatusTab",
-                      "comparison": "isEqualTo",
-                      "value": "UESummary"
-                    }
-                  ],
-                  "name": "query - 0"
-                },
-                {
-                  "type": 9,
-                  "content": {
-                    "version": "KqlParameterItem/1.0",
-                    "parameters": [
+                    "version": "NotebookGroup/1.0",
+                    "groupType": "editable",
+                    "title": "UeSummaryGroup",
+                    "items": [
                       {
-                        "id": "3baf1b04-7472-4820-a82e-4c7d29d20405",
-                        "version": "KqlParameterItem/1.0",
-                        "name": "IMSI",
-                        "type": 2,
-                        "query": "let timeStart = todatetime({timeparameter:start});\r\nlet timeEnd = todatetime({timeparameter:end});\r\n\r\nlet phy_ul_sinr = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"MAC_SCHED_CRC_STATS\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| extend imsi = supi\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| project imsi\r\n| distinct imsi\r\n;\r\n\r\nlet phy_ul_rsrp = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"MAC_SCHED_CRC_STATS\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| extend imsi = supi\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| project imsi\r\n| distinct imsi\r\n;\r\n\r\nlet mac_dl_harq_failures = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"MAC_SCHED_DL_HARQ\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| extend imsi = supi\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| project imsi\r\n| distinct imsi\r\n;\r\n\r\nlet mac_ul_harq_failures = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"MAC_SCHED_UL_HARQ\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| extend imsi = supi\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| project imsi\r\n| distinct imsi\r\n;\r\n\r\nlet rlc_dl_stats = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"RLC_DL_STATS\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| extend imsi = supi\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| project imsi\r\n| distinct imsi\r\n;\r\n\r\nlet rlc_ul_stats = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"RLC_UL_STATS\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| extend imsi = supi\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| project imsi\r\n| distinct imsi\r\n;\r\n\r\nlet pdcp_dl_stats = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"PDCP_DL_STATS\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| extend imsi = supi\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| project imsi\r\n| distinct imsi\r\n;\r\n\r\nlet pdcp_ul_stats = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"PDCP_UL_STATS\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| extend imsi = supi\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| project imsi\r\n| distinct imsi\r\n;\r\n\r\n// Collate all results\r\n\r\nunion phy_ul_rsrp, phy_ul_sinr,\r\n      mac_dl_harq_failures, mac_ul_harq_failures,\r\n      rlc_dl_stats, rlc_ul_stats,\r\n      pdcp_dl_stats, pdcp_ul_stats\r\n| project imsi\r\n| distinct imsi\r\n| order by imsi asc",
-                        "typeSettings": {
-                          "additionalResourceOptions": []
+                        "type": 3,
+                        "content": {
+                          "version": "KqlItem/1.0",
+                          "query": "let timeStart = todatetime({timeparameter:start});\r\nlet timeEnd = todatetime({timeparameter:end});\r\n\r\nlet phy_ul_sinr = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"MAC_SCHED_CRC_STATS\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| extend \r\n    maxSinr = todouble(stats_d.max_sinr), \r\n    minSinr = todouble(stats_d.min_sinr), \r\n    avgSinr = todouble(stats_d.avg_sinr)\r\n| extend imsi = supi\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| summarize ulSinr_min=min(minSinr), ulSinr_max=max(maxSinr), ulSinr_avg=avg(avgSinr) by imsi\r\n;\r\n\r\nlet phy_ul_rsrp = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"MAC_SCHED_CRC_STATS\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| extend \r\n    maxRsrp = todouble(stats_d.max_rsrp), \r\n    minRsrp = todouble(stats_d.min_rsrp), \r\n    avgRsrp = todouble(stats_d.avg_rsrp)\r\n| extend imsi = supi\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| summarize \r\n    ulRsrp_min=min(minRsrp), \r\n    ulRsrp_max=max(maxRsrp), \r\n    ulRsrp_avg=avg(avgRsrp) by imsi\r\n;\r\n\r\nlet mac_dl_harq_failures = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"MAC_SCHED_DL_HARQ\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| extend \r\n    txCount = toint(stats_d.perHarqTypeStats.MAC_HARQ_EVENT_TX.tbs.pkts),\r\n    reTxCount = toint(stats_d.perHarqTypeStats.MAC_HARQ_EVENT_RETX.tbs.pkts)\r\n| extend failureRate = iif(txCount + reTxCount == 0, 0.0, reTxCount  * 100.0 / (txCount + reTxCount))\r\n| extend imsi = supi\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| summarize \r\n    dlHarq_minF=min(failureRate), \r\n    dlHarq_maxF=max(failureRate), \r\n    dlHarq_avgF=avg(failureRate) by imsi\r\n;\r\n\r\nlet mac_ul_harq_failures = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"MAC_SCHED_UL_HARQ\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| extend \r\n    txCount = toint(stats_d.perHarqTypeStats.MAC_HARQ_EVENT_TX.tbs.pkts),\r\n    reTxCount = toint(stats_d.perHarqTypeStats.MAC_HARQ_EVENT_RETX.tbs.pkts)\r\n| extend failureRate = iif(txCount + reTxCount == 0, 0.0, reTxCount  * 100.0 / (txCount + reTxCount))\r\n| extend imsi = supi\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| summarize \r\n    ulHarq_minF=min(failureRate), \r\n    ulHarq_maxF=max(failureRate), \r\n    ulHarq_avgF=avg(failureRate) by imsi\r\n;\r\n\r\nlet rlc_dl_stats = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"RLC_DL_STATS\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), \r\n  isSRB = toint(stats_d.is_srb), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp)),\r\n  avgSduTxDelay = todouble(stats_d.sdu_tx_completed.avg) / 1000000,\r\n  numSduTx = toint(stats_d.sdu_tx_completed.count),\r\n  avgSduDeliveryDelay = todouble(stats_d.sdu_tx_delivered.avg) / 1000000,\r\n  avgSduQueueBytes = todouble(stats_d.sdu_queue_bytes.avg),\r\n  pduTxBytes = todouble(stats_d.pdu_tx_bytes.total)\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| where isSRB == 0 // Ignore signalling bearers for data throughput\r\n| extend imsi = supi\r\n| summarize \r\n    rlc_dl_SduTxCount=sum(numSduTx), \r\n    rlc_dl_SduTxLatency_avg=avg(avgSduTxDelay), \r\n    rlc_dl_SduDeliveryLatency_avg=avg(avgSduDeliveryDelay), \r\n    rlc_dl_SduQueueBytes_avg=avg(avgSduQueueBytes), \r\n    rlc_dl_pduTxBytes=sum(pduTxBytes) by imsi\r\n;\r\n\r\nlet rlc_ul_stats = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"RLC_UL_STATS\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), \r\n  isSRB = toint(stats_d.is_srb), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp)),\r\n  avgSduDeliveryDelay = todouble(stats_d.sdu_delivered_latency.avg) / 1000000,\r\n  avgSduQueueBytes = todouble(stats_d.sdu_queue_bytes.avg)\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| where isSRB == 0 // Ignore signalling bearers for data throughput\r\n| extend imsi = supi\r\n| summarize rlc_ul_SduDeliveryLatency_avg=avg(avgSduDeliveryDelay) by imsi\r\n;\r\n\r\nlet pdcp_dl_stats = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"PDCP_DL_STATS\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), \r\n  isSRB = toint(stats_d.is_srb), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp)),\r\n  sduDiscarded = todouble(stats_d.sdu_discarded),\r\n  pduWindowPkts_avg = todouble(stats_d.pdu_window_pkts.avg),\r\n  sduTxLatency_avg = todouble(stats_d.sdu_tx_latency.avg),\r\n  newSdus = toint(stats_d.sdu_new_bytes.count)\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| where isSRB == 0 // Ignore signalling bearers for data throughput\r\n| extend imsi = supi\r\n| summarize \r\n    pdcp_dl_sduDiscarded_avg=avg(sduDiscarded),\r\n    pdcp_dl_pduWindowPkts_avg=avg(pduWindowPkts_avg),\r\n    pdcp_dl_sduTxLatency_avg=avg(sduTxLatency_avg),\r\n    pdcp_dl_newSdus=sum(newSdus) by imsi\r\n;\r\n\r\nlet pdcp_ul_stats = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"PDCP_UL_STATS\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), \r\n  isSRB = toint(stats_d.is_srb), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp)),\r\n  pduWindowPkts_avg = todouble(stats_d.pdu_window_pkts.avg),\r\n  sduDeliveredBytes = todouble(stats_d.sdu_delivered_bytes.total)  \r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| where isSRB == 0 // Ignore signalling bearers for data throughput\r\n| extend imsi = supi\r\n| summarize \r\n    pdcp_ul_pduWindowPkts_avg=avg(pduWindowPkts_avg), \r\n    pdcp_ul_sduDeliveredBytes=sum(sduDeliveredBytes) by imsi\r\n;\r\n\r\n// Collate all results\r\nlet summary = phy_ul_rsrp\r\n| join kind=fullouter  phy_ul_sinr on imsi\r\n| join kind=fullouter  mac_dl_harq_failures on imsi\r\n| join kind=fullouter  mac_ul_harq_failures on imsi\r\n| join kind=fullouter  rlc_dl_stats on imsi\r\n| join kind=fullouter  rlc_ul_stats on imsi\r\n| join kind=fullouter  pdcp_dl_stats on imsi\r\n| join kind=fullouter  pdcp_ul_stats on imsi\r\n;\r\n\r\nlet good=3;\r\nlet medium=2;\r\nlet empty=1;\r\nlet bad=0;\r\n\r\nlet good_emoji = \"✅\";\r\nlet medium_emoji = \"🟠\";\r\nlet empty_emoji = \"⚪\";\r\nlet bad_emoji = \"❌\";\r\n\r\nlet result = summary\r\n| extend ulSinrResult = case(\r\n    isnull(ulSinr_avg) or isnan(ulSinr_avg), empty,\r\n    ulSinr_avg > {PhyUlSinrGoodThreshold}, good,\r\n    ulSinr_avg > {PhyUlSinrMediumThreshold}, medium,\r\n    bad\r\n)\r\n| extend ulRsrpResult = case(\r\n    isnull(ulRsrp_avg) or isnan(ulRsrp_avg), empty,\r\n    ulRsrp_avg > {PhyUlRsrpGoodThreshold}, good,\r\n    ulRsrp_avg > {PhyUlRsrpMediumThreshold}, medium,\r\n    bad\r\n)\r\n| extend PhyResult = case(\r\n    (ulSinrResult == bad or ulRsrpResult == bad), bad,\r\n    (ulSinrResult == medium or ulRsrpResult == medium), medium,\r\n    (ulSinrResult == empty or ulRsrpResult == empty), empty,\r\n    good\r\n    )\r\n| extend dlHarqResult = case(\r\n    isnull(dlHarq_avgF) or isnan(dlHarq_avgF), empty,\r\n    dlHarq_avgF < {MacHarqMediumThreshold}, good,\r\n    dlHarq_avgF < {MacHarqBadThreshold}, medium,\r\n    bad\r\n)\r\n| extend ulHarqResult = case(\r\n    isnull(ulHarq_avgF) or isnan(ulHarq_avgF), empty,\r\n    ulHarq_avgF < {MacHarqMediumThreshold}, good,\r\n    ulHarq_avgF < {MacHarqBadThreshold}, medium,\r\n    bad\r\n)\r\n| extend MacDlResult = case(\r\n    (dlHarqResult == bad), bad,\r\n    (dlHarqResult == medium), medium,\r\n    (dlHarqResult == empty), empty,\r\n    good\r\n    )\r\n| extend MacUlResult = case(\r\n    (ulHarqResult == bad), bad,\r\n    (ulHarqResult == medium), medium,\r\n    (ulHarqResult == empty), empty,\r\n    good\r\n    )\r\n| extend MacResult = min_of(MacDlResult, MacUlResult)\r\n| extend RlcDlSduTxLatencyResult = case(\r\n    isnull(rlc_dl_SduTxLatency_avg) or isnan(rlc_dl_SduTxLatency_avg), empty,\r\n    rlc_dl_SduTxLatency_avg < {RlcDlSduTransmissionBadThreshold}, good,\r\n    bad\r\n)\r\n| extend RlcDlSduDeliveryLatencyResult = case(\r\n    isnull(rlc_dl_SduDeliveryLatency_avg) or isnan(rlc_dl_SduDeliveryLatency_avg), empty,\r\n    rlc_dl_SduDeliveryLatency_avg < {RlcDlSduDeliveryBadThreshold}, good,\r\n    bad\r\n)\r\n| extend RlcDlSduQueueBytesResult = case(\r\n    isnull(rlc_dl_SduQueueBytes_avg) or isnan(rlc_dl_SduQueueBytes_avg), empty,\r\n    rlc_dl_SduQueueBytes_avg < {RlcDlSduQueueBytesBadThreshold}, good,\r\n    bad\r\n)\r\n| extend RlcUlSduDeliveryLatencyResult = case(\r\n    isnull(rlc_ul_SduDeliveryLatency_avg) or isnan(rlc_ul_SduDeliveryLatency_avg), empty,\r\n    rlc_ul_SduDeliveryLatency_avg < {RlcUlSduDeliveryBadThreshold}, good,\r\n    bad\r\n)\r\n| extend RlcDlResult = case(\r\n    (RlcDlSduTxLatencyResult == bad or RlcDlSduDeliveryLatencyResult == bad or RlcDlSduQueueBytesResult == bad), bad,\r\n    (RlcDlSduTxLatencyResult == empty or RlcDlSduDeliveryLatencyResult == empty or RlcDlSduQueueBytesResult == empty), empty,\r\n    good\r\n    )\r\n| extend RlcUlResult = case(\r\n    (RlcUlSduDeliveryLatencyResult == bad), bad,\r\n    (RlcUlSduDeliveryLatencyResult == empty), empty,\r\n    good\r\n    )\r\n| extend RlcResult = min_of(RlcDlResult, RlcUlResult)\r\n| extend PdcpDlSduTxLatencyResult = case(\r\n    isnull(pdcp_dl_sduTxLatency_avg) or isnan(pdcp_dl_sduTxLatency_avg), empty,\r\n    pdcp_dl_sduTxLatency_avg < {PdcpDlSduTransmissionBadThreshold}, good,\r\n    bad\r\n)\r\n| extend PdcpDlSduDiscardedResult = case(\r\n    isnull(pdcp_dl_sduDiscarded_avg) or isnan(pdcp_dl_sduDiscarded_avg), good,\r\n    pdcp_dl_sduDiscarded_avg < {PdcpDlSduDiscardedBadThreshold}, good,\r\n    bad\r\n)\r\n| extend PdcpDlPduWindowPktsResult = case(\r\n    isnull(pdcp_dl_pduWindowPkts_avg) or isnan(pdcp_dl_pduWindowPkts_avg), empty,\r\n    pdcp_dl_pduWindowPkts_avg < {PdcpDlPduWindowPktsBadThreshold}, good,\r\n    bad\r\n)\r\n| extend PdcpUlPduWindowPktsResult = case(\r\n    isnull(pdcp_ul_pduWindowPkts_avg) or isnan(pdcp_ul_pduWindowPkts_avg), empty,\r\n    pdcp_ul_pduWindowPkts_avg < {PdcpUlPduWindowPktsBadThreshold}, good,\r\n    bad\r\n)\r\n| extend PdcpDlResult = case(\r\n    (PdcpDlSduTxLatencyResult == bad or PdcpDlSduDiscardedResult == bad or PdcpDlPduWindowPktsResult == bad), bad,\r\n    (PdcpDlSduTxLatencyResult == empty or PdcpDlSduDiscardedResult == empty or PdcpDlPduWindowPktsResult == empty), empty,\r\n    good\r\n)\r\n| extend PdcpUlResult = case(\r\n    (PdcpUlPduWindowPktsResult == bad), bad,\r\n    (PdcpUlPduWindowPktsResult == empty), empty,\r\n    good\r\n)\r\n| extend PdcpResult = min_of(PdcpDlResult, PdcpUlResult)\r\n| extend TrafficDlResult = case(\r\n    pdcp_dl_newSdus < {TrafficDlGood}, bad,\r\n    // check that the pdcp_dl_newSdus and rlc_dl_SduTxCount aew within 10% of each other\r\n    abs(pdcp_dl_newSdus - rlc_dl_SduTxCount) <= 0.1 * iif(pdcp_dl_newSdus > rlc_dl_SduTxCount, pdcp_dl_newSdus, rlc_dl_SduTxCount), good,\r\n    bad\r\n)\r\n| extend TrafficUlResult = case(\r\n    pdcp_ul_sduDeliveredBytes < {TrafficUlGood}, bad,\r\n    bad\r\n)\r\n| extend PHY = case(\r\n    PhyResult == empty, empty_emoji,\r\n    PhyResult == good, good_emoji,\r\n    PhyResult == medium, medium_emoji,\r\n    PhyResult == bad, bad_emoji,\r\n    \"❓\" \r\n    )\r\n| extend MAC = case(\r\n    MacResult == empty, empty_emoji,\r\n    MacResult == good, good_emoji,\r\n    MacResult == medium, medium_emoji,\r\n    MacResult == bad, bad_emoji,\r\n    \"❓\" \r\n    )\r\n| extend RLC = case(\r\n    RlcResult == empty, empty_emoji,\r\n    RlcResult == good, good_emoji,\r\n    RlcResult == medium, medium_emoji,\r\n    RlcResult == bad, bad_emoji,\r\n    \"❓\" \r\n    )\r\n| extend PDCP = case(\r\n    PdcpResult == empty, empty_emoji,\r\n    PdcpResult == good, good_emoji,\r\n    PdcpResult == medium, medium_emoji,\r\n    PdcpResult == bad, bad_emoji,\r\n    \"❓\" \r\n    )\r\n| extend TrafficDL = case(\r\n    TrafficDlResult == empty, empty_emoji,\r\n    TrafficDlResult == good, good_emoji,\r\n    TrafficDlResult == medium, medium_emoji,\r\n    TrafficDlResult == bad, bad_emoji,\r\n    \"❓\" \r\n    )\r\n| extend TrafficUL = case(\r\n    TrafficUlResult == empty, empty_emoji,\r\n    TrafficUlResult == good, good_emoji,\r\n    TrafficUlResult == medium, medium_emoji,\r\n    TrafficUlResult == bad, bad_emoji,\r\n    \"❓\" \r\n    )\r\n\r\n// collate all results to form overall Status for the UE\r\n| extend StatusResult=(PhyResult + MacResult + RlcResult + PdcpResult + TrafficDlResult + TrafficUlResult)\r\n| extend Status = case(\r\n    StatusResult >= (6 * good), good_emoji,\r\n    StatusResult >= (6 * medium), medium_emoji,\r\n    StatusResult <= (6 * bad), bad_emoji,\r\n    medium_emoji\r\n    )\r\n\r\n| project imsi, Status, PHY, MAC, RLC, PDCP, TrafficDL, TrafficUL\r\n| order by imsi asc\r\n;\r\n\r\nresult\r\n",
+                          "size": 0,
+                          "aggregation": 3,
+                          "timeContextFromParameter": "timeparameter",
+                          "queryType": 0,
+                          "resourceType": "microsoft.operationalinsights/workspaces",
+                          "visualization": "table",
+                          "gridSettings": {
+                            "formatters": [
+                              {
+                                "columnMatch": "imsi",
+                                "formatter": 0,
+                                "formatOptions": {
+                                  "customColumnWidthSetting": "26%"
+                                }
+                              },
+                              {
+                                "columnMatch": "Status",
+                                "formatter": 0,
+                                "formatOptions": {
+                                  "customColumnWidthSetting": "26%"
+                                }
+                              },
+                              {
+                                "columnMatch": "PHY",
+                                "formatter": 1
+                              },
+                              {
+                                "columnMatch": "MAC",
+                                "formatter": 1
+                              },
+                              {
+                                "columnMatch": "RLC",
+                                "formatter": 1
+                              },
+                              {
+                                "columnMatch": "PDCP",
+                                "formatter": 1
+                              },
+                              {
+                                "columnMatch": "TrafficDL",
+                                "formatter": 1
+                              },
+                              {
+                                "columnMatch": "TrafficUL",
+                                "formatter": 1
+                              }
+                            ]
+                          },
+                          "sortBy": []
                         },
-                        "timeContext": {
-                          "durationMs": 86400000
-                        },
-                        "queryType": 0,
-                        "resourceType": "microsoft.operationalinsights/workspaces",
-                        "value": "imsi-001011230010140"
+                        "customWidth": "100",
+                        "name": "query - 0"
                       }
-                    ],
-                    "style": "pills",
-                    "queryType": 0,
-                    "resourceType": "microsoft.operationalinsights/workspaces"
+                    ]
                   },
-                  "conditionalVisibilities": [
-                    {
-                      "parameterName": "selectedTab",
-                      "comparison": "isEqualTo",
-                      "value": "UEStatus"
-                    },
-                    {
-                      "parameterName": "selectedUEStatusTab",
-                      "comparison": "isEqualTo",
-                      "value": "perUE"
-                    }
-                  ],
-                  "name": "parameters - 2"
+                  "conditionalVisibility": {
+                    "parameterName": "selectedUEStatusTab",
+                    "comparison": "isEqualTo",
+                    "value": "UESummary"
+                  },
+                  "name": "UeSummaryGroup"
                 },
                 {
-                  "type": 3,
+                  "type": 12,
                   "content": {
-                    "version": "KqlItem/1.0",
-                    "query": "let timeStart = todatetime({timeparameter:start});\r\nlet timeEnd = todatetime({timeparameter:end});\r\n\r\nlet phy_ul_sinr = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"MAC_SCHED_CRC_STATS\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| extend \r\n    maxSinr = todouble(stats_d.max_sinr), \r\n    minSinr = todouble(stats_d.min_sinr), \r\n    avgSinr = todouble(stats_d.avg_sinr)\r\n| extend imsi = supi\r\n| where imsi == \"{IMSI}\"\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| summarize ulSinr_min=min(minSinr), ulSinr_max=max(maxSinr), ulSinr_avg=avg(avgSinr) by imsi\r\n;\r\n\r\nlet phy_ul_rsrp = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"MAC_SCHED_CRC_STATS\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| extend \r\n    maxRsrp = todouble(stats_d.max_rsrp), \r\n    minRsrp = todouble(stats_d.min_rsrp), \r\n    avgRsrp = todouble(stats_d.avg_rsrp)\r\n| extend imsi = supi\r\n| where imsi == \"{IMSI}\"\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| summarize \r\n    ulRsrp_min=min(minRsrp), \r\n    ulRsrp_max=max(maxRsrp), \r\n    ulRsrp_avg=avg(avgRsrp) by imsi\r\n;\r\n\r\nlet mac_dl_harq_failures = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"MAC_SCHED_DL_HARQ\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| extend \r\n    txCount = toint(stats_d.perHarqTypeStats.MAC_HARQ_EVENT_TX.tbs.pkts),\r\n    reTxCount = toint(stats_d.perHarqTypeStats.MAC_HARQ_EVENT_RETX.tbs.pkts)\r\n| extend failureRate = iif(txCount + reTxCount == 0, 0.0, reTxCount  * 100.0 / (txCount + reTxCount))\r\n| extend imsi = supi\r\n| where imsi == \"{IMSI}\"\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| summarize \r\n    dlHarq_minF=min(failureRate), \r\n    dlHarq_maxF=max(failureRate), \r\n    dlHarq_avgF=avg(failureRate) by imsi\r\n;\r\n\r\nlet mac_ul_harq_failures = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"MAC_SCHED_UL_HARQ\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| extend \r\n    txCount = toint(stats_d.perHarqTypeStats.MAC_HARQ_EVENT_TX.tbs.pkts),\r\n    reTxCount = toint(stats_d.perHarqTypeStats.MAC_HARQ_EVENT_RETX.tbs.pkts)\r\n| extend failureRate = iif(txCount + reTxCount == 0, 0.0, reTxCount  * 100.0 / (txCount + reTxCount))\r\n| extend imsi = supi\r\n| where imsi == \"{IMSI}\"\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| summarize \r\n    ulHarq_minF=min(failureRate), \r\n    ulHarq_maxF=max(failureRate), \r\n    ulHarq_avgF=avg(failureRate) by imsi\r\n;\r\n\r\nlet rlc_dl_stats = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"RLC_DL_STATS\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), \r\n  isSRB = toint(stats_d.is_srb), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp)),\r\n  avgSduTxDelay = todouble(stats_d.sdu_tx_completed.avg) / 1000000,\r\n  numSduTx = toint(stats_d.sdu_tx_completed.count),\r\n  avgSduDeliveryDelay = todouble(stats_d.sdu_tx_delivered.avg) / 1000000,\r\n  avgSduQueueBytes = todouble(stats_d.sdu_queue_bytes.avg),\r\n  pduTxBytes = todouble(stats_d.pdu_tx_bytes.total)\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| where isSRB == 0 // Ignore signalling bearers for data throughput\r\n| extend imsi = supi\r\n| where imsi == \"{IMSI}\"\r\n| summarize \r\n    rlc_dl_SduTxCount=sum(numSduTx), \r\n    rlc_dl_SduTxLatency_avg=avg(avgSduTxDelay), \r\n    rlc_dl_SduDeliveryLatency_avg=avg(avgSduDeliveryDelay), \r\n    rlc_dl_SduQueueBytes_avg=avg(avgSduQueueBytes), \r\n    rlc_dl_pduTxBytes=sum(pduTxBytes) by imsi\r\n;\r\n\r\nlet rlc_ul_stats = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"RLC_UL_STATS\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), \r\n  isSRB = toint(stats_d.is_srb), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp)),\r\n  avgSduDeliveryDelay = todouble(stats_d.sdu_delivered_latency.avg) / 1000000,\r\n  avgSduQueueBytes = todouble(stats_d.sdu_queue_bytes.avg)\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| where isSRB == 0 // Ignore signalling bearers for data throughput\r\n| extend imsi = supi\r\n| where imsi == \"{IMSI}\"\r\n| summarize rlc_ul_SduDeliveryLatency_avg=avg(avgSduDeliveryDelay) by imsi\r\n;\r\n\r\nlet pdcp_dl_stats = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"PDCP_DL_STATS\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), \r\n  isSRB = toint(stats_d.is_srb), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp)),\r\n  sduDiscarded = todouble(stats_d.sdu_discarded),\r\n  pduWindowPkts_avg = todouble(stats_d.pdu_window_pkts.avg),\r\n  sduTxLatency_avg = todouble(stats_d.sdu_tx_latency.avg),\r\n  newSdus = toint(stats_d.sdu_new_bytes.count)\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| where isSRB == 0 // Ignore signalling bearers for data throughput\r\n| extend imsi = supi\r\n| where imsi == \"{IMSI}\"\r\n| summarize \r\n    pdcp_dl_sduDiscarded_avg=avg(sduDiscarded),\r\n    pdcp_dl_pduWindowPkts_avg=avg(pduWindowPkts_avg),\r\n    pdcp_dl_sduTxLatency_avg=avg(sduTxLatency_avg),\r\n    pdcp_dl_newSdus=sum(newSdus) by imsi\r\n;\r\n\r\nlet pdcp_ul_stats = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"PDCP_UL_STATS\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), \r\n  isSRB = toint(stats_d.is_srb), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp)),\r\n  pduWindowPkts_avg = todouble(stats_d.pdu_window_pkts.avg),\r\n  sduDeliveredBytes = todouble(stats_d.sdu_delivered_bytes.total)  \r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| where isSRB == 0 // Ignore signalling bearers for data throughput\r\n| extend imsi = supi\r\n| where imsi == \"{IMSI}\"\r\n| summarize \r\n    pdcp_ul_pduWindowPkts_avg=avg(pduWindowPkts_avg), \r\n    pdcp_ul_sduDeliveredBytes=sum(sduDeliveredBytes) by imsi\r\n;\r\n\r\n// Collate all results\r\nlet summary = phy_ul_rsrp\r\n| join kind=fullouter  phy_ul_sinr on imsi\r\n| join kind=fullouter  mac_dl_harq_failures on imsi\r\n| join kind=fullouter  mac_ul_harq_failures on imsi\r\n| join kind=fullouter  rlc_dl_stats on imsi\r\n| join kind=fullouter  rlc_ul_stats on imsi\r\n| join kind=fullouter  pdcp_dl_stats on imsi\r\n| join kind=fullouter  pdcp_ul_stats on imsi\r\n;\r\n\r\nlet good=3;\r\nlet medium=2;\r\nlet empty=1;\r\nlet bad=0;\r\n\r\nlet good_emoji = \"✅\";\r\nlet medium_emoji = \"🟠\";\r\nlet empty_emoji = \"⚪\";\r\nlet bad_emoji = \"❌\";\r\n\r\nlet result = summary\r\n| extend ulSinrResult = case(\r\n    isnull(ulSinr_avg) or isnan(ulSinr_avg), empty,\r\n    ulSinr_avg > {PhyUlSinrGoodThreshold}, good,\r\n    ulSinr_avg > {PhyUlSinrMediumThreshold}, medium,\r\n    bad\r\n)\r\n| extend ulRsrpResult = case(\r\n    isnull(ulRsrp_avg) or isnan(ulRsrp_avg), empty,\r\n    ulRsrp_avg > {PhyUlRsrpGoodThreshold}, good,\r\n    ulRsrp_avg > {PhyUlRsrpMediumThreshold}, medium,\r\n    bad\r\n)\r\n| extend PhyResult = case(\r\n    (ulSinrResult == bad or ulRsrpResult == bad), bad,\r\n    (ulSinrResult == medium or ulRsrpResult == medium), medium,\r\n    (ulSinrResult == empty or ulRsrpResult == empty), empty,\r\n    good\r\n    )\r\n| extend dlHarqResult = case(\r\n    isnull(dlHarq_avgF) or isnan(dlHarq_avgF), empty,\r\n    dlHarq_avgF < {MacHarqMediumThreshold}, good,\r\n    dlHarq_avgF < {MacHarqBadThreshold}, medium,\r\n    bad\r\n)\r\n| extend ulHarqResult = case(\r\n    isnull(ulHarq_avgF) or isnan(ulHarq_avgF), empty,\r\n    ulHarq_avgF < {MacHarqMediumThreshold}, good,\r\n    ulHarq_avgF < {MacHarqBadThreshold}, medium,\r\n    bad\r\n)\r\n| extend MacDlResult = case(\r\n    (dlHarqResult == bad), bad,\r\n    (dlHarqResult == medium), medium,\r\n    (dlHarqResult == empty), empty,\r\n    good\r\n    )\r\n| extend MacUlResult = case(\r\n    (ulHarqResult == bad), bad,\r\n    (ulHarqResult == medium), medium,\r\n    (ulHarqResult == empty), empty,\r\n    good\r\n    )\r\n| extend MacResult = min_of(MacDlResult, MacUlResult)\r\n| extend RlcDlSduTxLatencyResult = case(\r\n    isnull(rlc_dl_SduTxLatency_avg) or isnan(rlc_dl_SduTxLatency_avg), empty,\r\n    rlc_dl_SduTxLatency_avg < {RlcDlSduTransmissionBadThreshold}, good,\r\n    bad\r\n)\r\n| extend RlcDlSduDeliveryLatencyResult = case(\r\n    isnull(rlc_dl_SduDeliveryLatency_avg) or isnan(rlc_dl_SduDeliveryLatency_avg), empty,\r\n    rlc_dl_SduDeliveryLatency_avg < {RlcDlSduDeliveryBadThreshold}, good,\r\n    bad\r\n)\r\n| extend RlcDlSduQueueBytesResult = case(\r\n    isnull(rlc_dl_SduQueueBytes_avg) or isnan(rlc_dl_SduQueueBytes_avg), empty,\r\n    rlc_dl_SduQueueBytes_avg < {RlcDlSduQueueBytesBadThreshold}, good,\r\n    bad\r\n)\r\n| extend RlcUlSduDeliveryLatencyResult = case(\r\n    isnull(rlc_ul_SduDeliveryLatency_avg) or isnan(rlc_ul_SduDeliveryLatency_avg), empty,\r\n    rlc_ul_SduDeliveryLatency_avg < {RlcUlSduDeliveryBadThreshold}, good,\r\n    bad\r\n)\r\n| extend RlcDlResult = case(\r\n    (RlcDlSduTxLatencyResult == bad or RlcDlSduDeliveryLatencyResult == bad or RlcDlSduQueueBytesResult == bad), bad,\r\n    (RlcDlSduTxLatencyResult == empty or RlcDlSduDeliveryLatencyResult == empty or RlcDlSduQueueBytesResult == empty), empty,\r\n    good\r\n    )\r\n| extend RlcUlResult = case(\r\n    (RlcUlSduDeliveryLatencyResult == bad), bad,\r\n    (RlcUlSduDeliveryLatencyResult == empty), empty,\r\n    good\r\n    )\r\n| extend RlcResult = min_of(RlcDlResult, RlcUlResult)\r\n| extend PdcpDlSduTxLatencyResult = case(\r\n    isnull(pdcp_dl_sduTxLatency_avg) or isnan(pdcp_dl_sduTxLatency_avg), empty,\r\n    pdcp_dl_sduTxLatency_avg < {PdcpDlSduTransmissionBadThreshold}, good,\r\n    bad\r\n)\r\n| extend PdcpDlSduDiscardedResult = case(\r\n    isnull(pdcp_dl_sduDiscarded_avg) or isnan(pdcp_dl_sduDiscarded_avg), good,\r\n    pdcp_dl_sduDiscarded_avg < {PdcpDlSduDiscardedBadThreshold}, good,\r\n    bad\r\n)\r\n| extend PdcpDlPduWindowPktsResult = case(\r\n    isnull(pdcp_dl_pduWindowPkts_avg) or isnan(pdcp_dl_pduWindowPkts_avg), empty,\r\n    pdcp_dl_pduWindowPkts_avg < {PdcpDlPduWindowPktsBadThreshold}, good,\r\n    bad\r\n)\r\n| extend PdcpUlPduWindowPktsResult = case(\r\n    isnull(pdcp_ul_pduWindowPkts_avg) or isnan(pdcp_ul_pduWindowPkts_avg), empty,\r\n    pdcp_ul_pduWindowPkts_avg < {PdcpUlPduWindowPktsBadThreshold}, good,\r\n    bad\r\n)\r\n| extend PdcpDlResult = case(\r\n    (PdcpDlSduTxLatencyResult == bad or PdcpDlSduDiscardedResult == bad or PdcpDlPduWindowPktsResult == bad), bad,\r\n    (PdcpDlSduTxLatencyResult == empty or PdcpDlSduDiscardedResult == empty or PdcpDlPduWindowPktsResult == empty), empty,\r\n    good\r\n)\r\n| extend PdcpUlResult = case(\r\n    (PdcpUlPduWindowPktsResult == bad), bad,\r\n    (PdcpUlPduWindowPktsResult == empty), empty,\r\n    good\r\n)\r\n| extend PdcpResult = min_of(PdcpDlResult, PdcpUlResult)\r\n| extend TrafficDlResult = case(\r\n    pdcp_dl_newSdus < {TrafficDlGood}, bad,\r\n    // check that the pdcp_dl_newSdus and rlc_dl_SduTxCount aew within 10% of each other\r\n    abs(pdcp_dl_newSdus - rlc_dl_SduTxCount) <= 0.1 * iif(pdcp_dl_newSdus > rlc_dl_SduTxCount, pdcp_dl_newSdus, rlc_dl_SduTxCount), good,\r\n    bad\r\n)\r\n| extend TrafficUlResult = case(\r\n    pdcp_ul_sduDeliveredBytes < {TrafficUlGood}, bad,\r\n    bad\r\n)\r\n| extend PHY = case(\r\n    PhyResult == empty, empty_emoji,\r\n    PhyResult == good, good_emoji,\r\n    PhyResult == medium, medium_emoji,\r\n    PhyResult == bad, bad_emoji,\r\n    \"❓\" \r\n    )\r\n| extend MACUL = case(\r\n    MacUlResult == empty, empty_emoji,\r\n    MacUlResult == good, good_emoji,\r\n    MacUlResult == medium, medium_emoji,\r\n    MacUlResult == bad, bad_emoji,\r\n    \"❓\" \r\n    )\r\n| extend MACDL = case(\r\n    MacDlResult == empty, empty_emoji,\r\n    MacDlResult == good, good_emoji,\r\n    MacDlResult == medium, medium_emoji,\r\n    MacDlResult == bad, bad_emoji,\r\n    \"❓\" \r\n    )\r\n| extend RLCUL = case(\r\n    RlcUlResult == empty, empty_emoji,\r\n    RlcUlResult == good, good_emoji,\r\n    RlcUlResult == medium, medium_emoji,\r\n    RlcUlResult == bad, bad_emoji,\r\n    \"❓\" \r\n    )\r\n| extend RLCDL = case(\r\n    RlcDlResult == empty, empty_emoji,\r\n    RlcDlResult == good, good_emoji,\r\n    RlcDlResult == medium, medium_emoji,\r\n    RlcDlResult == bad, bad_emoji,\r\n    \"❓\" \r\n    )\r\n| extend PDCPUL = case(\r\n    PdcpUlResult == empty, empty_emoji,\r\n    PdcpUlResult == good, good_emoji,\r\n    PdcpUlResult == medium, medium_emoji,\r\n    PdcpUlResult == bad, bad_emoji,\r\n    \"❓\" \r\n    )\r\n| extend PDCPDL = case(\r\n    PdcpDlResult == empty, empty_emoji,\r\n    PdcpDlResult == good, good_emoji,\r\n    PdcpDlResult == medium, medium_emoji,\r\n    PdcpDlResult == bad, bad_emoji,\r\n    \"❓\" \r\n    )\r\n| extend TrafficDL = case(\r\n    TrafficDlResult == empty, empty_emoji,\r\n    TrafficDlResult == good, good_emoji,\r\n    TrafficDlResult == medium, medium_emoji,\r\n    TrafficDlResult == bad, bad_emoji,\r\n    \"❓\" \r\n    )\r\n| extend TrafficUL = case(\r\n    TrafficUlResult == empty, empty_emoji,\r\n    TrafficUlResult == good, good_emoji,\r\n    TrafficUlResult == medium, medium_emoji,\r\n    TrafficUlResult == bad, bad_emoji,\r\n    \"❓\" \r\n    )\r\n\r\n// collate all results to form overall Status for the UE\r\n| extend StatusResult=(PhyResult + MacResult + RlcResult + PdcpResult + TrafficDlResult + TrafficUlResult)\r\n| extend Status = case(\r\n    StatusResult >= (6 * good), \"🟢\",\r\n    StatusResult >= (6 * medium), \"🟠\",\r\n    StatusResult <= (6 * bad), \"🔴\",\r\n    \"🟠\"\r\n    )\r\n\r\n| project Status, PHY, MACUL, MACDL, RLCUL, RLCDL, PDCPUL, PDCPDL, TrafficUL, TrafficDL\r\n;\r\n\r\nresult",
-                    "size": 0,
-                    "aggregation": 3,
-                    "timeContextFromParameter": "timeparameter",
-                    "queryType": 0,
-                    "resourceType": "microsoft.operationalinsights/workspaces",
-                    "visualization": "table",
-                    "gridSettings": {
-                      "formatters": [
-                        {
-                          "columnMatch": "imsi",
-                          "formatter": 0,
-                          "formatOptions": {
-                            "customColumnWidthSetting": "26%"
-                          }
+                    "version": "NotebookGroup/1.0",
+                    "groupType": "editable",
+                    "title": "perUeGroup",
+                    "items": [
+                      {
+                        "type": 9,
+                        "content": {
+                          "version": "KqlParameterItem/1.0",
+                          "parameters": [
+                            {
+                              "id": "3baf1b04-7472-4820-a82e-4c7d29d20405",
+                              "version": "KqlParameterItem/1.0",
+                              "name": "IMSI",
+                              "type": 2,
+                              "query": "let timeStart = todatetime({timeparameter:start});\r\nlet timeEnd = todatetime({timeparameter:end});\r\n\r\nlet phy_ul_sinr = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"MAC_SCHED_CRC_STATS\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| extend imsi = supi\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| project imsi\r\n| distinct imsi\r\n;\r\n\r\nlet phy_ul_rsrp = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"MAC_SCHED_CRC_STATS\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| extend imsi = supi\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| project imsi\r\n| distinct imsi\r\n;\r\n\r\nlet mac_dl_harq_failures = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"MAC_SCHED_DL_HARQ\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| extend imsi = supi\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| project imsi\r\n| distinct imsi\r\n;\r\n\r\nlet mac_ul_harq_failures = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"MAC_SCHED_UL_HARQ\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| extend imsi = supi\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| project imsi\r\n| distinct imsi\r\n;\r\n\r\nlet rlc_dl_stats = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"RLC_DL_STATS\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| extend imsi = supi\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| project imsi\r\n| distinct imsi\r\n;\r\n\r\nlet rlc_ul_stats = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"RLC_UL_STATS\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| extend imsi = supi\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| project imsi\r\n| distinct imsi\r\n;\r\n\r\nlet pdcp_dl_stats = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"PDCP_DL_STATS\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| extend imsi = supi\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| project imsi\r\n| distinct imsi\r\n;\r\n\r\nlet pdcp_ul_stats = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"PDCP_UL_STATS\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| extend imsi = supi\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| project imsi\r\n| distinct imsi\r\n;\r\n\r\n// Collate all results\r\n\r\nunion phy_ul_rsrp, phy_ul_sinr,\r\n      mac_dl_harq_failures, mac_ul_harq_failures,\r\n      rlc_dl_stats, rlc_ul_stats,\r\n      pdcp_dl_stats, pdcp_ul_stats\r\n| project imsi\r\n| distinct imsi\r\n| order by imsi asc",
+                              "typeSettings": {
+                                "additionalResourceOptions": []
+                              },
+                              "timeContext": {
+                                "durationMs": 86400000
+                              },
+                              "queryType": 0,
+                              "resourceType": "microsoft.operationalinsights/workspaces",
+                              "value": "imsi-001011230010140"
+                            }
+                          ],
+                          "style": "pills",
+                          "queryType": 0,
+                          "resourceType": "microsoft.operationalinsights/workspaces"
                         },
-                        {
-                          "columnMatch": "Status",
-                          "formatter": 0,
-                          "formatOptions": {
-                            "customColumnWidthSetting": "26%"
-                          }
+                        "name": "parameters - 2"
+                      },
+                      {
+                        "type": 3,
+                        "content": {
+                          "version": "KqlItem/1.0",
+                          "query": "let timeStart = todatetime({timeparameter:start});\r\nlet timeEnd = todatetime({timeparameter:end});\r\n\r\nlet phy_ul_sinr = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"MAC_SCHED_CRC_STATS\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| extend \r\n    maxSinr = todouble(stats_d.max_sinr), \r\n    minSinr = todouble(stats_d.min_sinr), \r\n    avgSinr = todouble(stats_d.avg_sinr)\r\n| extend imsi = supi\r\n| where imsi == \"{IMSI}\"\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| summarize ulSinr_min=min(minSinr), ulSinr_max=max(maxSinr), ulSinr_avg=avg(avgSinr) by imsi\r\n;\r\n\r\nlet phy_ul_rsrp = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"MAC_SCHED_CRC_STATS\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| extend \r\n    maxRsrp = todouble(stats_d.max_rsrp), \r\n    minRsrp = todouble(stats_d.min_rsrp), \r\n    avgRsrp = todouble(stats_d.avg_rsrp)\r\n| extend imsi = supi\r\n| where imsi == \"{IMSI}\"\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| summarize \r\n    ulRsrp_min=min(minRsrp), \r\n    ulRsrp_max=max(maxRsrp), \r\n    ulRsrp_avg=avg(avgRsrp) by imsi\r\n;\r\n\r\nlet mac_dl_harq_failures = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"MAC_SCHED_DL_HARQ\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| extend \r\n    txCount = toint(stats_d.perHarqTypeStats.MAC_HARQ_EVENT_TX.tbs.pkts),\r\n    reTxCount = toint(stats_d.perHarqTypeStats.MAC_HARQ_EVENT_RETX.tbs.pkts)\r\n| extend failureRate = iif(txCount + reTxCount == 0, 0.0, reTxCount  * 100.0 / (txCount + reTxCount))\r\n| extend imsi = supi\r\n| where imsi == \"{IMSI}\"\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| summarize \r\n    dlHarq_minF=min(failureRate), \r\n    dlHarq_maxF=max(failureRate), \r\n    dlHarq_avgF=avg(failureRate) by imsi\r\n;\r\n\r\nlet mac_ul_harq_failures = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"MAC_SCHED_UL_HARQ\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| extend \r\n    txCount = toint(stats_d.perHarqTypeStats.MAC_HARQ_EVENT_TX.tbs.pkts),\r\n    reTxCount = toint(stats_d.perHarqTypeStats.MAC_HARQ_EVENT_RETX.tbs.pkts)\r\n| extend failureRate = iif(txCount + reTxCount == 0, 0.0, reTxCount  * 100.0 / (txCount + reTxCount))\r\n| extend imsi = supi\r\n| where imsi == \"{IMSI}\"\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| summarize \r\n    ulHarq_minF=min(failureRate), \r\n    ulHarq_maxF=max(failureRate), \r\n    ulHarq_avgF=avg(failureRate) by imsi\r\n;\r\n\r\nlet rlc_dl_stats = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"RLC_DL_STATS\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), \r\n  isSRB = toint(stats_d.is_srb), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp)),\r\n  avgSduTxDelay = todouble(stats_d.sdu_tx_completed.avg) / 1000000,\r\n  numSduTx = toint(stats_d.sdu_tx_completed.count),\r\n  avgSduDeliveryDelay = todouble(stats_d.sdu_tx_delivered.avg) / 1000000,\r\n  avgSduQueueBytes = todouble(stats_d.sdu_queue_bytes.avg),\r\n  pduTxBytes = todouble(stats_d.pdu_tx_bytes.total)\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| where isSRB == 0 // Ignore signalling bearers for data throughput\r\n| extend imsi = supi\r\n| where imsi == \"{IMSI}\"\r\n| summarize \r\n    rlc_dl_SduTxCount=sum(numSduTx), \r\n    rlc_dl_SduTxLatency_avg=avg(avgSduTxDelay), \r\n    rlc_dl_SduDeliveryLatency_avg=avg(avgSduDeliveryDelay), \r\n    rlc_dl_SduQueueBytes_avg=avg(avgSduQueueBytes), \r\n    rlc_dl_pduTxBytes=sum(pduTxBytes) by imsi\r\n;\r\n\r\nlet rlc_ul_stats = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"RLC_UL_STATS\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), \r\n  isSRB = toint(stats_d.is_srb), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp)),\r\n  avgSduDeliveryDelay = todouble(stats_d.sdu_delivered_latency.avg) / 1000000,\r\n  avgSduQueueBytes = todouble(stats_d.sdu_queue_bytes.avg)\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| where isSRB == 0 // Ignore signalling bearers for data throughput\r\n| extend imsi = supi\r\n| where imsi == \"{IMSI}\"\r\n| summarize rlc_ul_SduDeliveryLatency_avg=avg(avgSduDeliveryDelay) by imsi\r\n;\r\n\r\nlet pdcp_dl_stats = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"PDCP_DL_STATS\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), \r\n  isSRB = toint(stats_d.is_srb), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp)),\r\n  sduDiscarded = todouble(stats_d.sdu_discarded),\r\n  pduWindowPkts_avg = todouble(stats_d.pdu_window_pkts.avg),\r\n  sduTxLatency_avg = todouble(stats_d.sdu_tx_latency.avg),\r\n  newSdus = toint(stats_d.sdu_new_bytes.count)\r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| where isSRB == 0 // Ignore signalling bearers for data throughput\r\n| extend imsi = supi\r\n| where imsi == \"{IMSI}\"\r\n| summarize \r\n    pdcp_dl_sduDiscarded_avg=avg(sduDiscarded),\r\n    pdcp_dl_pduWindowPkts_avg=avg(pduWindowPkts_avg),\r\n    pdcp_dl_sduTxLatency_avg=avg(sduTxLatency_avg),\r\n    pdcp_dl_newSdus=sum(newSdus) by imsi\r\n;\r\n\r\nlet pdcp_ul_stats = jrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"PDCP_UL_STATS\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), \r\n  isSRB = toint(stats_d.is_srb), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp)),\r\n  pduWindowPkts_avg = todouble(stats_d.pdu_window_pkts.avg),\r\n  sduDeliveredBytes = todouble(stats_d.sdu_delivered_bytes.total)  \r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| where isSRB == 0 // Ignore signalling bearers for data throughput\r\n| extend imsi = supi\r\n| where imsi == \"{IMSI}\"\r\n| summarize \r\n    pdcp_ul_pduWindowPkts_avg=avg(pduWindowPkts_avg), \r\n    pdcp_ul_sduDeliveredBytes=sum(sduDeliveredBytes) by imsi\r\n;\r\n\r\n// Collate all results\r\nlet summary = phy_ul_rsrp\r\n| join kind=fullouter  phy_ul_sinr on imsi\r\n| join kind=fullouter  mac_dl_harq_failures on imsi\r\n| join kind=fullouter  mac_ul_harq_failures on imsi\r\n| join kind=fullouter  rlc_dl_stats on imsi\r\n| join kind=fullouter  rlc_ul_stats on imsi\r\n| join kind=fullouter  pdcp_dl_stats on imsi\r\n| join kind=fullouter  pdcp_ul_stats on imsi\r\n;\r\n\r\nlet good=3;\r\nlet medium=2;\r\nlet empty=1;\r\nlet bad=0;\r\n\r\nlet good_emoji = \"✅\";\r\nlet medium_emoji = \"🟠\";\r\nlet empty_emoji = \"⚪\";\r\nlet bad_emoji = \"❌\";\r\n\r\nlet result = summary\r\n| extend ulSinrResult = case(\r\n    isnull(ulSinr_avg) or isnan(ulSinr_avg), empty,\r\n    ulSinr_avg > {PhyUlSinrGoodThreshold}, good,\r\n    ulSinr_avg > {PhyUlSinrMediumThreshold}, medium,\r\n    bad\r\n)\r\n| extend ulRsrpResult = case(\r\n    isnull(ulRsrp_avg) or isnan(ulRsrp_avg), empty,\r\n    ulRsrp_avg > {PhyUlRsrpGoodThreshold}, good,\r\n    ulRsrp_avg > {PhyUlRsrpMediumThreshold}, medium,\r\n    bad\r\n)\r\n| extend PhyResult = case(\r\n    (ulSinrResult == bad or ulRsrpResult == bad), bad,\r\n    (ulSinrResult == medium or ulRsrpResult == medium), medium,\r\n    (ulSinrResult == empty or ulRsrpResult == empty), empty,\r\n    good\r\n    )\r\n| extend dlHarqResult = case(\r\n    isnull(dlHarq_avgF) or isnan(dlHarq_avgF), empty,\r\n    dlHarq_avgF < {MacHarqMediumThreshold}, good,\r\n    dlHarq_avgF < {MacHarqBadThreshold}, medium,\r\n    bad\r\n)\r\n| extend ulHarqResult = case(\r\n    isnull(ulHarq_avgF) or isnan(ulHarq_avgF), empty,\r\n    ulHarq_avgF < {MacHarqMediumThreshold}, good,\r\n    ulHarq_avgF < {MacHarqBadThreshold}, medium,\r\n    bad\r\n)\r\n| extend MacDlResult = case(\r\n    (dlHarqResult == bad), bad,\r\n    (dlHarqResult == medium), medium,\r\n    (dlHarqResult == empty), empty,\r\n    good\r\n    )\r\n| extend MacUlResult = case(\r\n    (ulHarqResult == bad), bad,\r\n    (ulHarqResult == medium), medium,\r\n    (ulHarqResult == empty), empty,\r\n    good\r\n    )\r\n| extend MacResult = min_of(MacDlResult, MacUlResult)\r\n| extend RlcDlSduTxLatencyResult = case(\r\n    isnull(rlc_dl_SduTxLatency_avg) or isnan(rlc_dl_SduTxLatency_avg), empty,\r\n    rlc_dl_SduTxLatency_avg < {RlcDlSduTransmissionBadThreshold}, good,\r\n    bad\r\n)\r\n| extend RlcDlSduDeliveryLatencyResult = case(\r\n    isnull(rlc_dl_SduDeliveryLatency_avg) or isnan(rlc_dl_SduDeliveryLatency_avg), empty,\r\n    rlc_dl_SduDeliveryLatency_avg < {RlcDlSduDeliveryBadThreshold}, good,\r\n    bad\r\n)\r\n| extend RlcDlSduQueueBytesResult = case(\r\n    isnull(rlc_dl_SduQueueBytes_avg) or isnan(rlc_dl_SduQueueBytes_avg), empty,\r\n    rlc_dl_SduQueueBytes_avg < {RlcDlSduQueueBytesBadThreshold}, good,\r\n    bad\r\n)\r\n| extend RlcUlSduDeliveryLatencyResult = case(\r\n    isnull(rlc_ul_SduDeliveryLatency_avg) or isnan(rlc_ul_SduDeliveryLatency_avg), empty,\r\n    rlc_ul_SduDeliveryLatency_avg < {RlcUlSduDeliveryBadThreshold}, good,\r\n    bad\r\n)\r\n| extend RlcDlResult = case(\r\n    (RlcDlSduTxLatencyResult == bad or RlcDlSduDeliveryLatencyResult == bad or RlcDlSduQueueBytesResult == bad), bad,\r\n    (RlcDlSduTxLatencyResult == empty or RlcDlSduDeliveryLatencyResult == empty or RlcDlSduQueueBytesResult == empty), empty,\r\n    good\r\n    )\r\n| extend RlcUlResult = case(\r\n    (RlcUlSduDeliveryLatencyResult == bad), bad,\r\n    (RlcUlSduDeliveryLatencyResult == empty), empty,\r\n    good\r\n    )\r\n| extend RlcResult = min_of(RlcDlResult, RlcUlResult)\r\n| extend PdcpDlSduTxLatencyResult = case(\r\n    isnull(pdcp_dl_sduTxLatency_avg) or isnan(pdcp_dl_sduTxLatency_avg), empty,\r\n    pdcp_dl_sduTxLatency_avg < {PdcpDlSduTransmissionBadThreshold}, good,\r\n    bad\r\n)\r\n| extend PdcpDlSduDiscardedResult = case(\r\n    isnull(pdcp_dl_sduDiscarded_avg) or isnan(pdcp_dl_sduDiscarded_avg), good,\r\n    pdcp_dl_sduDiscarded_avg < {PdcpDlSduDiscardedBadThreshold}, good,\r\n    bad\r\n)\r\n| extend PdcpDlPduWindowPktsResult = case(\r\n    isnull(pdcp_dl_pduWindowPkts_avg) or isnan(pdcp_dl_pduWindowPkts_avg), empty,\r\n    pdcp_dl_pduWindowPkts_avg < {PdcpDlPduWindowPktsBadThreshold}, good,\r\n    bad\r\n)\r\n| extend PdcpUlPduWindowPktsResult = case(\r\n    isnull(pdcp_ul_pduWindowPkts_avg) or isnan(pdcp_ul_pduWindowPkts_avg), empty,\r\n    pdcp_ul_pduWindowPkts_avg < {PdcpUlPduWindowPktsBadThreshold}, good,\r\n    bad\r\n)\r\n| extend PdcpDlResult = case(\r\n    (PdcpDlSduTxLatencyResult == bad or PdcpDlSduDiscardedResult == bad or PdcpDlPduWindowPktsResult == bad), bad,\r\n    (PdcpDlSduTxLatencyResult == empty or PdcpDlSduDiscardedResult == empty or PdcpDlPduWindowPktsResult == empty), empty,\r\n    good\r\n)\r\n| extend PdcpUlResult = case(\r\n    (PdcpUlPduWindowPktsResult == bad), bad,\r\n    (PdcpUlPduWindowPktsResult == empty), empty,\r\n    good\r\n)\r\n| extend PdcpResult = min_of(PdcpDlResult, PdcpUlResult)\r\n| extend TrafficDlResult = case(\r\n    pdcp_dl_newSdus < {TrafficDlGood}, bad,\r\n    // check that the pdcp_dl_newSdus and rlc_dl_SduTxCount aew within 10% of each other\r\n    abs(pdcp_dl_newSdus - rlc_dl_SduTxCount) <= 0.1 * iif(pdcp_dl_newSdus > rlc_dl_SduTxCount, pdcp_dl_newSdus, rlc_dl_SduTxCount), good,\r\n    bad\r\n)\r\n| extend TrafficUlResult = case(\r\n    pdcp_ul_sduDeliveredBytes < {TrafficUlGood}, bad,\r\n    bad\r\n)\r\n| extend PHY = case(\r\n    PhyResult == empty, empty_emoji,\r\n    PhyResult == good, good_emoji,\r\n    PhyResult == medium, medium_emoji,\r\n    PhyResult == bad, bad_emoji,\r\n    \"❓\" \r\n    )\r\n| extend MACUL = case(\r\n    MacUlResult == empty, empty_emoji,\r\n    MacUlResult == good, good_emoji,\r\n    MacUlResult == medium, medium_emoji,\r\n    MacUlResult == bad, bad_emoji,\r\n    \"❓\" \r\n    )\r\n| extend MACDL = case(\r\n    MacDlResult == empty, empty_emoji,\r\n    MacDlResult == good, good_emoji,\r\n    MacDlResult == medium, medium_emoji,\r\n    MacDlResult == bad, bad_emoji,\r\n    \"❓\" \r\n    )\r\n| extend RLCUL = case(\r\n    RlcUlResult == empty, empty_emoji,\r\n    RlcUlResult == good, good_emoji,\r\n    RlcUlResult == medium, medium_emoji,\r\n    RlcUlResult == bad, bad_emoji,\r\n    \"❓\" \r\n    )\r\n| extend RLCDL = case(\r\n    RlcDlResult == empty, empty_emoji,\r\n    RlcDlResult == good, good_emoji,\r\n    RlcDlResult == medium, medium_emoji,\r\n    RlcDlResult == bad, bad_emoji,\r\n    \"❓\" \r\n    )\r\n| extend PDCPUL = case(\r\n    PdcpUlResult == empty, empty_emoji,\r\n    PdcpUlResult == good, good_emoji,\r\n    PdcpUlResult == medium, medium_emoji,\r\n    PdcpUlResult == bad, bad_emoji,\r\n    \"❓\" \r\n    )\r\n| extend PDCPDL = case(\r\n    PdcpDlResult == empty, empty_emoji,\r\n    PdcpDlResult == good, good_emoji,\r\n    PdcpDlResult == medium, medium_emoji,\r\n    PdcpDlResult == bad, bad_emoji,\r\n    \"❓\" \r\n    )\r\n| extend TrafficDL = case(\r\n    TrafficDlResult == empty, empty_emoji,\r\n    TrafficDlResult == good, good_emoji,\r\n    TrafficDlResult == medium, medium_emoji,\r\n    TrafficDlResult == bad, bad_emoji,\r\n    \"❓\" \r\n    )\r\n| extend TrafficUL = case(\r\n    TrafficUlResult == empty, empty_emoji,\r\n    TrafficUlResult == good, good_emoji,\r\n    TrafficUlResult == medium, medium_emoji,\r\n    TrafficUlResult == bad, bad_emoji,\r\n    \"❓\" \r\n    )\r\n\r\n// collate all results to form overall Status for the UE\r\n| extend StatusResult=(PhyResult + MacResult + RlcResult + PdcpResult + TrafficDlResult + TrafficUlResult)\r\n| extend Status = case(\r\n    StatusResult >= (6 * good), \"🟢\",\r\n    StatusResult >= (6 * medium), \"🟠\",\r\n    StatusResult <= (6 * bad), \"🔴\",\r\n    \"🟠\"\r\n    )\r\n\r\n| project Status, PHY, MACUL, MACDL, RLCUL, RLCDL, PDCPUL, PDCPDL, TrafficUL, TrafficDL\r\n;\r\n\r\nresult",
+                          "size": 1,
+                          "aggregation": 3,
+                          "timeContextFromParameter": "timeparameter",
+                          "queryType": 0,
+                          "resourceType": "microsoft.operationalinsights/workspaces",
+                          "visualization": "table",
+                          "gridSettings": {
+                            "formatters": [
+                              {
+                                "columnMatch": "imsi",
+                                "formatter": 0,
+                                "formatOptions": {
+                                  "customColumnWidthSetting": "26%"
+                                }
+                              },
+                              {
+                                "columnMatch": "Status",
+                                "formatter": 0,
+                                "formatOptions": {
+                                  "customColumnWidthSetting": "26%"
+                                }
+                              },
+                              {
+                                "columnMatch": "PHY",
+                                "formatter": 1
+                              },
+                              {
+                                "columnMatch": "MAC",
+                                "formatter": 1
+                              },
+                              {
+                                "columnMatch": "RLC",
+                                "formatter": 1
+                              },
+                              {
+                                "columnMatch": "PDCP",
+                                "formatter": 1
+                              },
+                              {
+                                "columnMatch": "TrafficDL",
+                                "formatter": 1
+                              },
+                              {
+                                "columnMatch": "TrafficUL",
+                                "formatter": 1
+                              }
+                            ]
+                          },
+                          "sortBy": []
                         },
-                        {
-                          "columnMatch": "PHY",
-                          "formatter": 1
+                        "customWidth": "100",
+                        "name": "query - 0 - Copy"
+                      },
+                      {
+                        "type": 12,
+                        "content": {
+                          "version": "NotebookGroup/1.0",
+                          "groupType": "editable",
+                          "title": "PHY",
+                          "items": [
+                            {
+                              "type": 3,
+                              "content": {
+                                "version": "KqlItem/1.0",
+                                "query": "let timeStart = todatetime({timeparameter:start});\r\nlet timeEnd = todatetime({timeparameter:end});\r\nlet duration = timeEnd - timeStart;\r\nlet maxPoints = 10000;  // Hard limit for visualization\r\nlet baseStep = case(\r\n    duration >= 7d, 15m,\r\n    duration >= 3d, 6m,     \r\n    duration >= 48h, 4m, \r\n    duration >= 24h, 2m,\r\n    duration >= 12h, 1m, \r\n    duration >= 4h, 30s,\r\n    duration >= 1h, 30s,\r\n    duration >= 15m, 20s,\r\n    20s  // Default step size\r\n);\r\nlet totalPoints = tolong(duration / baseStep);\r\nlet scaleFactor = ceiling(totalPoints * 1.0 / maxPoints);  // Ensure step scaling\r\nlet adjustedStep = baseStep * scaleFactor;\r\njrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"MAC_SCHED_CRC_STATS\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| extend imsi = supi\r\n| extend \r\n    avgSinr = todouble(stats_d.avg_sinr)\r\n| where imsi == \"{IMSI}\"\r\n| where not(isempty(imsi)) // Only include UEs connected for a longer time| \r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| summarize SINR=avg(avgSinr) by bin(timestamp, adjustedStep)\r\n| render timechart\r\n",
+                                "size": 1,
+                                "aggregation": 3,
+                                "title": "UL SINR (dB)",
+                                "timeContextFromParameter": "timeparameter",
+                                "queryType": 0,
+                                "resourceType": "microsoft.operationalinsights/workspaces",
+                                "visualization": "timechart",
+                                "gridSettings": {
+                                  "formatters": [
+                                    {
+                                      "columnMatch": "imsi",
+                                      "formatter": 0,
+                                      "formatOptions": {
+                                        "customColumnWidthSetting": "26%"
+                                      }
+                                    },
+                                    {
+                                      "columnMatch": "Status",
+                                      "formatter": 0,
+                                      "formatOptions": {
+                                        "customColumnWidthSetting": "26%"
+                                      }
+                                    },
+                                    {
+                                      "columnMatch": "PHY",
+                                      "formatter": 1
+                                    },
+                                    {
+                                      "columnMatch": "MAC",
+                                      "formatter": 1
+                                    },
+                                    {
+                                      "columnMatch": "RLC",
+                                      "formatter": 1
+                                    },
+                                    {
+                                      "columnMatch": "PDCP",
+                                      "formatter": 1
+                                    },
+                                    {
+                                      "columnMatch": "TrafficDL",
+                                      "formatter": 1
+                                    },
+                                    {
+                                      "columnMatch": "TrafficUL",
+                                      "formatter": 1
+                                    }
+                                  ]
+                                },
+                                "sortBy": [],
+                                "chartSettings": {
+                                  "seriesLabelSettings": [
+                                    {
+                                      "seriesName": "tx",
+                                      "label": "Tx"
+                                    },
+                                    {
+                                      "seriesName": "retx",
+                                      "label": "ReTx"
+                                    }
+                                  ],
+                                  "customThresholdLine": "{PhyUlSinrMediumThreshold}",
+                                  "customThresholdLineStyle": 5
+                                }
+                              },
+                              "customWidth": "50",
+                              "name": "query - 0 - Copy"
+                            },
+                            {
+                              "type": 3,
+                              "content": {
+                                "version": "KqlItem/1.0",
+                                "query": "let timeStart = todatetime({timeparameter:start});\r\nlet timeEnd = todatetime({timeparameter:end});\r\nlet duration = timeEnd - timeStart;\r\nlet maxPoints = 10000;  // Hard limit for visualization\r\nlet baseStep = case(\r\n    duration >= 7d, 15m,\r\n    duration >= 3d, 6m,     \r\n    duration >= 48h, 4m, \r\n    duration >= 24h, 2m,\r\n    duration >= 12h, 1m, \r\n    duration >= 4h, 30s,\r\n    duration >= 1h, 30s,\r\n    duration >= 15m, 20s,\r\n    20s  // Default step size\r\n);\r\nlet totalPoints = tolong(duration / baseStep);\r\nlet scaleFactor = ceiling(totalPoints * 1.0 / maxPoints);  // Ensure step scaling\r\nlet adjustedStep = baseStep * scaleFactor;\r\njrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"MAC_SCHED_CRC_STATS\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| extend imsi = supi\r\n| extend \r\n    avgRsrp = todouble(stats_d.avg_rsrp)\r\n| where imsi == \"{IMSI}\"\r\n| where not(isempty(imsi)) // Only include UEs connected for a longer time| \r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| summarize RSRP=avg(avgRsrp) by bin(timestamp, adjustedStep)\r\n| render timechart\r\n",
+                                "size": 1,
+                                "aggregation": 3,
+                                "title": "UL RSRP (dBm)",
+                                "timeContextFromParameter": "timeparameter",
+                                "queryType": 0,
+                                "resourceType": "microsoft.operationalinsights/workspaces",
+                                "visualization": "timechart",
+                                "gridSettings": {
+                                  "formatters": [
+                                    {
+                                      "columnMatch": "imsi",
+                                      "formatter": 0,
+                                      "formatOptions": {
+                                        "customColumnWidthSetting": "26%"
+                                      }
+                                    },
+                                    {
+                                      "columnMatch": "Status",
+                                      "formatter": 0,
+                                      "formatOptions": {
+                                        "customColumnWidthSetting": "26%"
+                                      }
+                                    },
+                                    {
+                                      "columnMatch": "PHY",
+                                      "formatter": 1
+                                    },
+                                    {
+                                      "columnMatch": "MAC",
+                                      "formatter": 1
+                                    },
+                                    {
+                                      "columnMatch": "RLC",
+                                      "formatter": 1
+                                    },
+                                    {
+                                      "columnMatch": "PDCP",
+                                      "formatter": 1
+                                    },
+                                    {
+                                      "columnMatch": "TrafficDL",
+                                      "formatter": 1
+                                    },
+                                    {
+                                      "columnMatch": "TrafficUL",
+                                      "formatter": 1
+                                    }
+                                  ]
+                                },
+                                "sortBy": [],
+                                "chartSettings": {
+                                  "seriesLabelSettings": [
+                                    {
+                                      "seriesName": "tx",
+                                      "label": "Tx"
+                                    },
+                                    {
+                                      "seriesName": "retx",
+                                      "label": "ReTx"
+                                    }
+                                  ],
+                                  "customThresholdLine": "{PhyUlRsrpMediumThreshold}",
+                                  "customThresholdLineStyle": 5
+                                }
+                              },
+                              "customWidth": "50",
+                              "name": "query - 0 - Copy - Copy"
+                            }
+                          ]
                         },
-                        {
-                          "columnMatch": "MAC",
-                          "formatter": 1
+                        "name": "perUEPHY"
+                      },
+                      {
+                        "type": 12,
+                        "content": {
+                          "version": "NotebookGroup/1.0",
+                          "groupType": "editable",
+                          "title": "MAC",
+                          "items": [
+                            {
+                              "type": 3,
+                              "content": {
+                                "version": "KqlItem/1.0",
+                                "query": "let timeStart = todatetime({timeparameter:start});\r\nlet timeEnd = todatetime({timeparameter:end});\r\nlet duration = timeEnd - timeStart;\r\nlet maxPoints = 10000;  // Hard limit for visualization\r\nlet baseStep = case(\r\n    duration >= 7d, 15m,\r\n    duration >= 3d, 6m,     \r\n    duration >= 48h, 4m, \r\n    duration >= 24h, 2m,\r\n    duration >= 12h, 1m, \r\n    duration >= 4h, 30s,\r\n    duration >= 1h, 30s,\r\n    duration >= 15m, 20s,\r\n    20s  // Default step size\r\n);\r\nlet totalPoints = tolong(duration / baseStep);\r\nlet scaleFactor = ceiling(totalPoints * 1.0 / maxPoints);  // Ensure step scaling\r\nlet adjustedStep = baseStep * scaleFactor;\r\njrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"MAC_SCHED_DL_HARQ\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| extend imsi = supi\r\n| extend txCount=toint(stats_d.perHarqTypeStats.MAC_HARQ_EVENT_TX.tbs.pkts), reTxCount=toint(stats_d.perHarqTypeStats.MAC_HARQ_EVENT_RETX.tbs.pkts)\r\n| extend failureRate = iif(txCount + reTxCount == 0, 0.0, reTxCount  * 100.0 / (txCount + reTxCount))\r\n| where imsi == \"{IMSI}\"\r\n| where not(isempty(imsi)) // Only include UEs connected for a longer time| \r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| summarize FailureRate=avg(failureRate) by bin(timestamp, adjustedStep)\r\n| render timechart\r\n",
+                                "size": 1,
+                                "aggregation": 3,
+                                "title": "DL HARQ Failure (%)",
+                                "timeContextFromParameter": "timeparameter",
+                                "queryType": 0,
+                                "resourceType": "microsoft.operationalinsights/workspaces",
+                                "visualization": "timechart",
+                                "gridSettings": {
+                                  "formatters": [
+                                    {
+                                      "columnMatch": "imsi",
+                                      "formatter": 0,
+                                      "formatOptions": {
+                                        "customColumnWidthSetting": "26%"
+                                      }
+                                    },
+                                    {
+                                      "columnMatch": "Status",
+                                      "formatter": 0,
+                                      "formatOptions": {
+                                        "customColumnWidthSetting": "26%"
+                                      }
+                                    },
+                                    {
+                                      "columnMatch": "PHY",
+                                      "formatter": 1
+                                    },
+                                    {
+                                      "columnMatch": "MAC",
+                                      "formatter": 1
+                                    },
+                                    {
+                                      "columnMatch": "RLC",
+                                      "formatter": 1
+                                    },
+                                    {
+                                      "columnMatch": "PDCP",
+                                      "formatter": 1
+                                    },
+                                    {
+                                      "columnMatch": "TrafficDL",
+                                      "formatter": 1
+                                    },
+                                    {
+                                      "columnMatch": "TrafficUL",
+                                      "formatter": 1
+                                    }
+                                  ]
+                                },
+                                "sortBy": [],
+                                "chartSettings": {
+                                  "seriesLabelSettings": [
+                                    {
+                                      "seriesName": "tx",
+                                      "label": "Tx"
+                                    },
+                                    {
+                                      "seriesName": "retx",
+                                      "label": "ReTx"
+                                    }
+                                  ],
+                                  "customThresholdLine": "{MacHarqBadThreshold}",
+                                  "customThresholdLineStyle": 5,
+                                  "ySettings": {
+                                    "min": 0,
+                                    "max": 100
+                                  }
+                                }
+                              },
+                              "customWidth": "50",
+                              "name": "query - 0 - Copy"
+                            },
+                            {
+                              "type": 3,
+                              "content": {
+                                "version": "KqlItem/1.0",
+                                "query": "let timeStart = todatetime({timeparameter:start});\r\nlet timeEnd = todatetime({timeparameter:end});\r\nlet duration = timeEnd - timeStart;\r\nlet maxPoints = 10000;  // Hard limit for visualization\r\nlet baseStep = case(\r\n    duration >= 7d, 15m,\r\n    duration >= 3d, 6m,     \r\n    duration >= 48h, 4m, \r\n    duration >= 24h, 2m,\r\n    duration >= 12h, 1m, \r\n    duration >= 4h, 30s,\r\n    duration >= 1h, 30s,\r\n    duration >= 15m, 20s,\r\n    20s  // Default step size\r\n);\r\nlet totalPoints = tolong(duration / baseStep);\r\nlet scaleFactor = ceiling(totalPoints * 1.0 / maxPoints);  // Ensure step scaling\r\nlet adjustedStep = baseStep * scaleFactor;\r\njrtc_dashboard_CL\r\n| where stream_id_s == \"dashboard\"\r\n| extend stream_payload_msg=todynamic(stream_payload_msg_s)  // Expand the array of stats_s into individual rows\r\n| extend stream_index_s = tostring(stream_payload_msg.stream_index)\r\n| where stream_index_s == \"MAC_SCHED_UL_HARQ\"\r\n| mv-expand stream_payload_msg.stats\r\n| extend stats_d = todynamic(stream_payload_msg_stats)\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| where not(isempty(supi)) // Only include UEs connected for a longer time\r\n| extend ueIndex = tostring(stats_d.ueid), timsi = tostring(stats_d.ue_ctx.tmsi), supi = tostring(stats_d.ue_ctx.core_amf_info.supi), timestamp = unixtime_nanoseconds_todatetime(tolong(stream_payload_msg.timestamp))\r\n| extend imsi = supi\r\n| extend txCount=toint(stats_d.perHarqTypeStats.MAC_HARQ_EVENT_TX.tbs.pkts), reTxCount=toint(stats_d.perHarqTypeStats.MAC_HARQ_EVENT_RETX.tbs.pkts)\r\n| extend failureRate = iif(txCount + reTxCount == 0, 0.0, reTxCount  * 100.0 / (txCount + reTxCount))\r\n| where imsi == \"{IMSI}\"\r\n| where not(isempty(imsi)) // Only include UEs connected for a longer time| \r\n| where timestamp >= timeStart and timestamp <= timeEnd\r\n| summarize FailureRate=avg(failureRate) by bin(timestamp, adjustedStep)\r\n| render timechart\r\n",
+                                "size": 1,
+                                "aggregation": 3,
+                                "title": "UL HARQ Failure (%)",
+                                "timeContextFromParameter": "timeparameter",
+                                "queryType": 0,
+                                "resourceType": "microsoft.operationalinsights/workspaces",
+                                "visualization": "timechart",
+                                "gridSettings": {
+                                  "formatters": [
+                                    {
+                                      "columnMatch": "imsi",
+                                      "formatter": 0,
+                                      "formatOptions": {
+                                        "customColumnWidthSetting": "26%"
+                                      }
+                                    },
+                                    {
+                                      "columnMatch": "Status",
+                                      "formatter": 0,
+                                      "formatOptions": {
+                                        "customColumnWidthSetting": "26%"
+                                      }
+                                    },
+                                    {
+                                      "columnMatch": "PHY",
+                                      "formatter": 1
+                                    },
+                                    {
+                                      "columnMatch": "MAC",
+                                      "formatter": 1
+                                    },
+                                    {
+                                      "columnMatch": "RLC",
+                                      "formatter": 1
+                                    },
+                                    {
+                                      "columnMatch": "PDCP",
+                                      "formatter": 1
+                                    },
+                                    {
+                                      "columnMatch": "TrafficDL",
+                                      "formatter": 1
+                                    },
+                                    {
+                                      "columnMatch": "TrafficUL",
+                                      "formatter": 1
+                                    }
+                                  ]
+                                },
+                                "sortBy": [],
+                                "chartSettings": {
+                                  "seriesLabelSettings": [
+                                    {
+                                      "seriesName": "tx",
+                                      "label": "Tx"
+                                    },
+                                    {
+                                      "seriesName": "retx",
+                                      "label": "ReTx"
+                                    }
+                                  ],
+                                  "customThresholdLine": "{MacHarqBadThreshold}",
+                                  "customThresholdLineStyle": 5,
+                                  "ySettings": {
+                                    "min": 0,
+                                    "max": 100
+                                  }
+                                }
+                              },
+                              "customWidth": "50",
+                              "name": "query - 0 - Copy - Copy"
+                            }
+                          ]
                         },
-                        {
-                          "columnMatch": "RLC",
-                          "formatter": 1
-                        },
-                        {
-                          "columnMatch": "PDCP",
-                          "formatter": 1
-                        },
-                        {
-                          "columnMatch": "TrafficDL",
-                          "formatter": 1
-                        },
-                        {
-                          "columnMatch": "TrafficUL",
-                          "formatter": 1
-                        }
-                      ]
-                    },
-                    "sortBy": []
+                        "name": "perUEMAC"
+                      }
+                    ]
                   },
-                  "customWidth": "100",
-                  "conditionalVisibilities": [
-                    {
-                      "parameterName": "selectedTab",
-                      "comparison": "isEqualTo",
-                      "value": "UEStatus"
-                    },
-                    {
-                      "parameterName": "selectedUEStatusTab",
-                      "comparison": "isEqualTo",
-                      "value": "perUE"
-                    }
-                  ],
-                  "name": "query - 0 - Copy"
+                  "conditionalVisibility": {
+                    "parameterName": "selectedUEStatusTab",
+                    "comparison": "isEqualTo",
+                    "value": "perUE"
+                  },
+                  "name": "perUeGroup"
                 }
               ]
             },
