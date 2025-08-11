@@ -264,7 +264,9 @@ class UeContext:
                 f"ran_unique_ue_id={self.ran_unique_ue_id}, nci={self.nci}, "
                 f"tac={self.tac}, tmsi={self.tmsi}, "
                 f"e1_bearers={self.e1_bearers}, "
-                f"ngap_ids={self.ngap_ids})")
+                f"ngap_ids={self.ngap_ids},"
+                f"core_amf_context_index={self.core_amf_context_index}, "
+                f"core_amf_info={self.core_amf_info})")
 
     def concise_dict(self) -> Dict:
 
@@ -320,10 +322,10 @@ class UeContextsMap:
         self.context_id += 1
 
     ###################################################################
-    def associate_ue_context_with_amf(self, ue_id: int) -> None:
+    def associate_ue_context_with_amf_ngap(self, ue_id: int) -> None:
 
         if self.dbg:
-            print(f"associate_ue_context_with_amf: ue_id={ue_id}")
+            print(f"associate_ue_context_with_amf_ngap: ue_id={ue_id}")
 
         if ue_id is None:
             return
@@ -339,6 +341,47 @@ class UeContextsMap:
         if amf_id is None:
             # no AMF context found
             return
+
+        # to ensure consistency, disassociate the currently linked UE.
+        ue2_id = self.amf_contexts[amf_id][0]
+        if (ue2_id is not None) and (ue_id != ue2_id):
+            ue2 = s.getue_by_id(ue2_id)
+            self.disassociate_amf_context_with_ue(ue2)
+
+        # point to AMF from UE
+        ue.core_amf_context_index = amf_id
+        ue.core_amf_info = self.amf_contexts[amf_id][1]  # the second element in the tuple is the CoreAMFInfo
+
+        # point to UE from AMF
+        new_t = (ue_id, self.amf_contexts[amf_id][1])
+        self.amf_contexts[amf_id] = new_t
+
+    ###################################################################
+    def associate_ue_context_with_amf_tmsi(self, ue_id: int) -> None:
+
+        if self.dbg:
+            print(f"associate_ue_context_with_amf_tmsi: ue_id={ue_id}")
+
+        if ue_id is None:
+            return
+
+        ue = self.getue_by_id(ue_id)
+
+        if ue.tmsi is None:
+            # cannot assocate as no TMSI
+            return
+
+        # get amf
+        amf_id = self.get_amfid_by_tmsi(ue.tmsi)
+        if amf_id is None:
+            # no AMF context found
+            return
+
+        # to ensure consistency, disassociate the currently linked UE.
+        ue2_id = self.amf_contexts[amf_id][0]
+        if (ue2_id is not None) and (ue_id != ue2_id):
+            ue2 = s.getue_by_id(ue2_id)
+            self.disassociate_amf_context_with_ue(ue2)
 
         # point to AMF from UE
         ue.core_amf_context_index = amf_id
@@ -365,7 +408,8 @@ class UeContextsMap:
             self.contexts.pop(ue_id, None)
 
             # remove associated AMF context if it exists
-            self.amf_context_delete_by_ueid(ue_id)
+            if ue.core_amf_context_index is not None:
+                self.disassociate_amf_context_with_ue(ue)
 
     ####################################################################
     def delete_unused_context(self, ue_id: int) -> None:
@@ -374,11 +418,12 @@ class UeContextsMap:
                 return
             if self.dbg:
                 print(f"delete_unused_context: ue_id={ue_id}")
+            ue = self.contexts[ue_id]
             self.contexts.pop(ue_id, None)
 
             # remove associated AMF context if it exists
-            self.amf_context_delete_by_ueid(ue_id)
-
+            if ue.core_amf_context_index is not None:
+                self.disassociate_amf_context_with_ue(ue)
 
     ####################################################################
     def amf_context_create_update(self, 
@@ -415,17 +460,24 @@ class UeContextsMap:
             amf_context_id = self.amf_context_id
             self.amf_context_id += 1
 
-            # tuple is ue_context_id, amf_info
-            self.amf_contexts[amf_context_id] = ( None, amf_info )
-
         else:
+
             # update the existing one
             t = self.amf_contexts[amf_context_id]
-            new_t = (t[0], amf_info)
-            self.amf_contexts[amf_context_id] = new_t
-            
-        # Associate AMF with UE context
-        self.associate_amf_context_with_ue(amf_context_id)
+
+            # to ensure consistency, disassociate the currently linked UE.
+            ue_id = t[0]
+            if ue_id is not None:
+                ue = s.getue_by_id(ue_id)
+                self.disassociate_amf_context_with_ue(ue)
+
+        # tuple is ue_context_id, amf_info
+        self.amf_contexts[amf_context_id] = ( None, amf_info )
+
+        # Associate AMF with UE context.
+        # Try NGAP-Ids, the TMSI
+        if self.associate_amf_context_with_ue_ngap(amf_context_id) is False:
+            self.associate_amf_context_with_ue_tmsi(amf_context_id)
 
     ####################################################################
     def amf_context_delete(self, amf_context_id = int) -> None:
@@ -446,25 +498,11 @@ class UeContextsMap:
 
         self.amf_contexts.pop(amf_context_id, None)
 
-    ####################################################################
-    def amf_context_delete_by_ueid(self, ueid = int) -> None:
-        if self.dbg:
-            print(f"amf_context_delete_by_ueid: ueid={ueid}")
-
-        if ueid is None:
-            return
-        
-        # delete the AMF context wrete t[0] matches ueid
-        for amf_context_id, t in self.amf_contexts.items():
-            if t[0] == ueid:
-                self.amf_contexts.pop(amf_context_id, None)
-                break
-
     ###################################################################
-    def associate_amf_context_with_ue(self, amf_context_id: int) -> None:
+    def associate_amf_context_with_ue_ngap(self, amf_context_id: int) -> bool:
 
         if self.dbg:
-            print(f"associate_amf_context_with_ue: amf_context_id={amf_context_id}")
+            print(f"associate_amf_context_with_ue_ngap: amf_context_id={amf_context_id}")
 
         t = self.amf_contexts[amf_context_id]
 
@@ -480,6 +518,57 @@ class UeContextsMap:
                 ue = self.contexts[ueid]
                 ue.core_amf_context_index = amf_context_id
                 ue.core_amf_info = t[1] 
+
+                return True
+
+        return False
+
+    ###################################################################
+    def associate_amf_context_with_ue_tmsi(self, amf_context_id: int) -> bool:
+
+        if self.dbg:
+            print(f"associate_amf_context_with_ue_tmsi: amf_context_id={amf_context_id}")
+
+        t = self.amf_contexts[amf_context_id]
+
+        if t[1] is None:
+            return False
+
+        # Try currrent_guti then next_guti
+        for guti in [t[1].current_guti, t[1].next_guti]:
+            if guti is not None:
+
+                # find ue
+                ueid = self.getid_by_tmsi(guti.mtmsi)
+
+                if ueid is not None:
+                    self.amf_contexts[amf_context_id] = (ueid, t[1])  # update the ue_context_id in the tuple
+
+                    # update UE with the AMF context ID
+                    ue = self.contexts[ueid]
+                    ue.core_amf_context_index = amf_context_id
+                    ue.core_amf_info = t[1] 
+
+                    return True
+
+        return False
+
+    ###################################################################
+    def disassociate_amf_context_with_ue(self, ue: UeContext) -> None:
+
+        if ue is None:
+            return
+
+        if self.dbg:
+            print(f"disassociate_amf_context_with_ue: amf_context_id={ue.core_amf_context_index}")
+
+        t = self.amf_contexts[ue.core_amf_context_index]
+
+        self.amf_contexts[ue.core_amf_context_index] = (None, t[1])  # update the ue_context_id in the tuple
+
+        # update UE to clear the AMF context ID
+        ue.core_amf_context_index = None
+        ue.core_amf_info = None
 
     ####################################################################
     def set_du_index(self, ue_id: int, du_index: UniqueIndex) -> None:
@@ -668,8 +757,10 @@ class UeContextsMap:
         return None 
 
     #####################################################################
-    def getue_by_id(self, ue_id: int) -> int:
-        return self.contexts.get(ue_id, None)
+    def getue_by_id(self, ue_id: int) -> UeContext:
+        x = self.contexts.get(ue_id, None)
+        return x
+        #return self.contexts.get(ue_id, None)
     
     #####################################################################
     def getuectx(self, ue_id: int) -> UeContext:
@@ -783,6 +874,23 @@ class UeContextsMap:
             return list(filtered_contexts.keys())[0]
 
     #####################################################################
+    def getid_by_tmsi(self, tmsi: int) -> int:
+
+        if tmsi is None:
+            return None
+        
+        # filter contexts by ngap_ids.amf_ue_ngap_id
+        filtered_contexts = {
+            k: v for k, v in self.contexts.items()
+            if v.tmsi == tmsi
+        }
+
+        if len(filtered_contexts) == 0:
+            return None
+        else:
+            return list(filtered_contexts.keys())[0]
+
+    #####################################################################
     def get_amfid_by_ngap_ids(self, ngap_ids: RanNgapUeIds = None) -> int:
 
         if ngap_ids is None:
@@ -798,7 +906,37 @@ class UeContextsMap:
             return amf_id
 
         return None
-    
+
+    #####################################################################
+    def get_amfid_by_tmsi(self, tmsi: int = None) -> int:
+
+        if tmsi is None:
+            return None
+
+        # filter contexts by current_guti.mtmsi
+        filtered_contexts = {
+            k: v for k, v in self.amf_contexts.items()
+            if v[1].current_guti is not None and v[1].current_guti.mtmsi == tmsi
+        }
+
+        if len(filtered_contexts) > 0:
+            amf_id = list(filtered_contexts.keys())[0]
+            return amf_id
+
+        # Try next GUTI
+
+        # filter contexts by next_guti.mtmsi
+        filtered_contexts = {
+            k: v for k, v in self.amf_contexts.items()
+            if v[1].next_guti is not None and v[1].next_guti.mtmsi == tmsi
+        }
+
+        if len(filtered_contexts) > 0:
+            amf_id = list(filtered_contexts.keys())[0]
+            return amf_id
+
+        return None
+
     #####################################################################
     def get_amfid_by_core_amf_info(self, suci: str = None, supi: str = None, 
                                current_guti_plmn: str = None, current_guti_amf_id: str = None, current_guti_m_tmsi: int = None,
@@ -1121,6 +1259,7 @@ class UeContextsMap:
                 print(f"UE context with cucp_src {cucp_src} cucp_index {cucp_index} not found. !!")
             return
         self.contexts[ue_id].tmsi = tmsi
+        self.associate_ue_context_with_amf_tmsi(ue_id)
 
     #####################################################################
     def hook_ngap_procedure_started(self, cucp_src: str, cucp_index: int, procedure: int, ngap_ran_ue_id, ngap_amf_ue_id: int = None) -> None:
@@ -1186,7 +1325,7 @@ class UeContextsMap:
 
             else:
                 self.contexts[ue_id].ngap_ids = RanNgapUeIds(ngap_ran_ue_id, ngap_amf_ue_id)
-                self.associate_ue_context_with_amf(ue_id)
+                self.associate_ue_context_with_amf_ngap(ue_id)
 
 
     #####################################################################
@@ -1259,14 +1398,14 @@ class UeContextsMap:
                 cgi_plmn, cgi_cellid)
 
     #####################################################################
-    def hook_core_amf_info_remove(self, suci: str = None, supi: str = None, home_plmn_id: str = None,
+    def hook_core_amf_info_remove_ran(self, suci: str = None, supi: str = None, home_plmn_id: str = None,
                               current_guti_plmn: str = None, current_guti_amf_id: str = None, current_guti_m_tmsi: int = None,
                               next_guti_plmn: str = None, next_guti_amf_id: str = None, next_guti_m_tmsi: int = None,
                               tai_plmn: str = None, tai_tac: str = None,
                               cgi_plmn: str = None, cgi_cellid: str = None) -> None:
 
         if self.dbg:
-            print(f"hook_core_amf_info_remove: suci={suci}, supi={supi}, home_plmn_id={home_plmn_id}, "
+            print(f"hook_core_amf_info_remove_ran: suci={suci}, supi={supi}, home_plmn_id={home_plmn_id}, "
                                 f"current_guti_plmn={current_guti_plmn}, current_guti_amf_id={current_guti_amf_id}, "
                                 f"current_guti_m_tmsi={current_guti_m_tmsi}, "
                                 f"next_guti_plmn={next_guti_plmn}, next_guti_amf_id={next_guti_amf_id}, "
@@ -1282,7 +1421,15 @@ class UeContextsMap:
         if amf_context_id is None:
             return
 
-        self.amf_context_delete(amf_context_id)
+        # get UE
+        ueid = self.getid_by_core_amf_info(suci, supi, 
+                               current_guti_plmn, current_guti_amf_id, current_guti_m_tmsi,
+                               next_guti_plmn, next_guti_amf_id, next_guti_m_tmsi)
+        ue = self.getue_by_id(ueid)
+        if ue is None:
+            return
+
+        self.disassociate_amf_context_with_ue(ue)
 
     ####################################################################
     def get_num_contexts(self) -> int:
@@ -2558,7 +2705,7 @@ if __name__ == "__main__":
     assert uectx is not None and asdict(uectx) == {'du_index': {'src': 'du1', 'idx': 100}, 'cucp_index': {'src': 'cucp1', 'idx': 200}, 'cuup_index': None, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20000}, 'nci': 201, 'tac': 12, 'e1_bearers': [], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 5000, 'amf_ue_ngap_id': 15000}, 'core_amf_context_index': 0, 'core_amf_info': {'suci': 'suci-0-001-01-0000-0-0-1230010004', 'supi': 'imsi-001011230010004', 'home_plmn_id': '001F01', 'current_guti': {'plmn_id': '999F99', 'amf_id': '20040', 'mtmsi': 3221226075}, 'next_guti': {'plmn_id': '999F99', 'amf_id': '20040', 'mtmsi': 3221225666}, 'tai': {'plmn_id': '00f110', 'tac': '1'}, 'cgi': {'plmn_id': '00f110', 'cell_id': '66c000'}, 'ngap_ids': {'ran_ue_ngap_id': 5000, 'amf_ue_ngap_id': 15000}}}
     assert len(s.amf_contexts) == 1
     
-    s.hook_core_amf_info_remove(
+    s.hook_core_amf_info_remove_ran(
         suci=a.get("suci", None),
         supi=a.get("supi", None),
         home_plmn_id=a.get("home_plmn_id", None),
@@ -2578,7 +2725,7 @@ if __name__ == "__main__":
                                                    'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20000}, 'nci': 201, 'tac': 12, 
                                                    'e1_bearers': [], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 5000, 'amf_ue_ngap_id': 15000},
                                                    'core_amf_context_index': None, 'core_amf_info': None}
-    assert len(s.amf_contexts) == 0
+    num_amf_contexts_associated_with_ue = sum(1 for v in s.amf_contexts.values() if v[0] is not None)
     
     ## Add it again
     a = examples_with_matching_ngap
@@ -2599,15 +2746,118 @@ if __name__ == "__main__":
         cgi_plmn=a.get("nr_cgi", {}).get("plmn_id", None),
         cgi_cellid=a.get("nr_cgi", {}).get("cell_id", None)
     )
-    uectx = s.getue_by_id(0)                                                
-    assert uectx is not None and asdict(uectx) == {'du_index': {'src': 'du1', 'idx': 100}, 'cucp_index': {'src': 'cucp1', 'idx': 200}, 'cuup_index': None, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20000}, 'nci': 201, 'tac': 12, 'e1_bearers': [], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 5000, 'amf_ue_ngap_id': 15000}, 'core_amf_context_index': 1, 'core_amf_info': {'suci': 'suci-0-001-01-0000-0-0-1230010004', 'supi': 'imsi-001011230010004', 'home_plmn_id': '001F01', 'current_guti': {'plmn_id': '999F99', 'amf_id': '20040', 'mtmsi': 3221226075}, 'next_guti': {'plmn_id': '999F99', 'amf_id': '20040', 'mtmsi': 3221225666}, 'tai': {'plmn_id': '00f110', 'tac': '1'}, 'cgi': {'plmn_id': '00f110', 'cell_id': '66c000'}, 'ngap_ids': {'ran_ue_ngap_id': 5000, 'amf_ue_ngap_id': 15000}}}
+    uectx = s.getue_by_id(0)  
+    assert uectx is not None and asdict(uectx) == {'du_index': {'src': 'du1', 'idx': 100}, 'cucp_index': {'src': 'cucp1', 'idx': 200}, 'cuup_index': None, 'ran_unique_ue_id': {'plmn': 101, 'pci': 400, 'crnti': 20000}, 'nci': 201, 'tac': 12, 'e1_bearers': [], 'tmsi': None, 'ngap_ids': {'ran_ue_ngap_id': 5000, 'amf_ue_ngap_id': 15000}, 'core_amf_context_index': 0, 'core_amf_info': {'suci': 'suci-0-001-01-0000-0-0-1230010004', 'supi': 'imsi-001011230010004', 'home_plmn_id': '001F01', 'current_guti': {'plmn_id': '999F99', 'amf_id': '20040', 'mtmsi': 3221226075}, 'next_guti': {'plmn_id': '999F99', 'amf_id': '20040', 'mtmsi': 3221225666}, 'tai': {'plmn_id': '00f110', 'tac': '1'}, 'cgi': {'plmn_id': '00f110', 'cell_id': '66c000'}, 'ngap_ids': {'ran_ue_ngap_id': 5000, 'amf_ue_ngap_id': 15000}}}
     assert len(s.amf_contexts) == 1
+    num_amf_contexts_associated_with_ue = sum(1 for v in s.amf_contexts.values() if v[0] is not None)
+    assert num_amf_contexts_associated_with_ue == 1
+
+    #delete the UE
+    ue_id = s.getid_by_du_index(du_src, du_index)
+    ue = s.getue_by_id(ue_id)
+    s.hook_du_ue_ctx_deletion(  du_src, du_index )
+    s.hook_cucp_uemgr_ue_remove(   cucp_src, cucp_index )
+
+    ctx = s.getue_by_id(ue_id)
+    assert ctx is None
+    assert s.get_num_contexts() == 0
+    assert len(s.amf_contexts) == 1
+    num_amf_contexts_associated_with_ue = sum(1 for v in s.amf_contexts.values() if v[0] is not None)
+    assert num_amf_contexts_associated_with_ue == 0
+
+
+    ## re-add UE
+    s.hook_du_ue_ctx_creation(  du_src, 
+                                du_index,
+                                plmn,
+                                pci,
+                                crnti,
+                                tac,
+                                nci)
+    s.hook_cucp_uemgr_ue_add(   cucp_src, 
+                                cucp_index,
+                                plmn,
+                                pci,
+                                crnti)
+
+    ue_id = s.getid_by_du_index(du_src, du_index)
+    ctx = s.getue_by_id(ue_id)
+    assert ctx is not None
+    assert s.get_num_contexts() == 1
+    assert len(s.amf_contexts) == 1
+    num_amf_contexts_associated_with_ue = sum(1 for v in s.amf_contexts.values() if v[0] is not None)
+    assert num_amf_contexts_associated_with_ue == 0
+
+    tmsi = 3221225666
+
+    s.add_tmsi(cucp_src, cucp_index, tmsi) 
+
+    # print("#############################################################################")
+    # print("# delete s and start fresh")
+    s = UeContextsMap(dbg=dbg)
+
+    ## re-add UE
+    s.hook_du_ue_ctx_creation(  du_src, 
+                                du_index,
+                                plmn,
+                                pci,
+                                crnti,
+                                tac,
+                                nci)
+    s.hook_cucp_uemgr_ue_add(   cucp_src, 
+                                cucp_index,
+                                plmn,
+                                pci,
+                                crnti)
+    s.add_tmsi(cucp_src, cucp_index, tmsi) 
+
+    core_info_example2 = {
+        "suci": "suci-0-001-01-0000-0-0-1230010004", "supi": "imsi-001011230010004", "home_plmn_id": "001F01", 
+        "current-guti": { "plmn_id": "999F99", "amf_id": "20040", "m_tmsi": 3221226075 }, 
+        "next-guti": { "plmn_id": "999F99", "amf_id": "20040", "m_tmsi": 3221225666 }, 
+        "nr_tai": { "plmn_id": "00f110", "tac": "1" }, 
+        "nr_cgi": { "plmn_id": "00f110", "cell_id": "66c000" }, 
+        "ran_ue": {"ran_ue_id": 36, "ran_ue_ngap_id": ngap_ran_ue_id, "amf_ue_ngap_id": ngap_amf_ue_id}}
+    a = core_info_example2
+    s.hook_core_amf_info(
+        ran_ue_ngap_id=a.get("ran_ue", {}).get("ran_ue_ngap_id", None),
+        amf_ue_ngap_id=a.get("ran_ue", {}).get("amf_ue_ngap_id", None),
+        suci=a.get("suci", None),
+        supi=a.get("supi", None),
+        home_plmn_id=a.get("home_plmn_id", None),
+        current_guti_plmn=a.get("current-guti", {}).get("plmn_id", None),
+        current_guti_amf_id=a.get("current-guti", {}).get("amf_id", None),
+        current_guti_m_tmsi=a.get("current-guti", {}).get("m_tmsi", None),
+        next_guti_plmn=a.get("next-guti", {}).get("plmn_id", None),
+        next_guti_amf_id=a.get("next-guti", {}).get("amf_id", None),
+        next_guti_m_tmsi=a.get("next-guti", {}).get("m_tmsi", None),
+        tai_plmn=a.get("nr_tai", {}).get("plmn_id", None),
+        tai_tac=a.get("nr_tai", {}).get("tac", None),
+        cgi_plmn=a.get("nr_cgi", {}).get("plmn_id", None),
+        cgi_cellid=a.get("nr_cgi", {}).get("cell_id", None)
+    )
+    ue_id = s.getid_by_du_index(du_src, du_index)
+    ctx = s.getue_by_id(ue_id)
+    assert ctx is not None
+    assert s.get_num_contexts() == 1
+    assert len(s.amf_contexts) == 1
+    num_amf_contexts_associated_with_ue = sum(1 for v in s.amf_contexts.values() if v[0] is not None)
+    assert num_amf_contexts_associated_with_ue == 1
+    assert ctx.tmsi==tmsi and ctx.core_amf_context_index==0 and ctx.core_amf_info.next_guti.mtmsi==tmsi
+    amf_id = s.get_amfid_by_tmsi(tmsi)
+    assert amf_id is not None
+    amf_info = s.amf_contexts[amf_id]
+    assert amf_info[0] == ue_id
 
 
 
 
     print("\n\n------ All tests passed ---------")
 
-
-
     sys.exit(0)
+
+
+#- add disassociation time for the AMF contexts
+#- clear disassociated AMF contexts once 15 minutes timeout finishes
+
+
