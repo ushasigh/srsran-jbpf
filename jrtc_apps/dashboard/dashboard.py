@@ -227,7 +227,7 @@ class JsonUDPServer:
 
                 if event == "ran-ue-remove":
 
-                    self.state.ue_map.hook_core_amf_info_remove(
+                    self.state.ue_map.hook_core_amf_info_remove_ran(
                         suci=j.get("context", {}).get("suci", None),
                         supi=j.get("context", {}).get("supi", None),
                         home_plmn_id=j.get("context", {}).get("home_plmn_id", None),
