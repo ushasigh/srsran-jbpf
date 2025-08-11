@@ -2931,8 +2931,3 @@ if __name__ == "__main__":
 
     sys.exit(0)
 
-
-#- add disassociation time for the AMF contexts
-#- clear disassociated AMF contexts once 15 minutes timeout finishes
-
-
