@@ -120,6 +120,7 @@ import sys
 from dataclasses import dataclass, asdict, replace
 from typing import List, Tuple, Dict
 from enum import IntEnum
+import datetime as dt
 
 
 ##########################################
@@ -303,6 +304,7 @@ class UeContextsMap:
         self.contexts_by_cuup_ue_e1ap_id = {}
         self.amf_context_id = 0 # will just increase by 1 for each new AMF context.  No need to handle wrap as we'll never reach that
         self.amf_contexts = {}
+        self.amf_tmsi_expiry_secs = dt.timedelta(seconds=21600)  # 6 hours
 
     ####################################################################
     def context_create(self, ran_unique_ue_id: RanUniqueUeId, du_index: UniqueIndex = None, cucp_index: UniqueIndex = None, cuup_index: UniqueIndex = None,
@@ -353,7 +355,7 @@ class UeContextsMap:
         ue.core_amf_info = self.amf_contexts[amf_id][1]  # the second element in the tuple is the CoreAMFInfo
 
         # point to UE from AMF
-        new_t = (ue_id, self.amf_contexts[amf_id][1])
+        new_t = (ue_id, self.amf_contexts[amf_id][1], None)
         self.amf_contexts[amf_id] = new_t
 
     ###################################################################
@@ -388,7 +390,7 @@ class UeContextsMap:
         ue.core_amf_info = self.amf_contexts[amf_id][1]  # the second element in the tuple is the CoreAMFInfo
 
         # point to UE from AMF
-        new_t = (ue_id, self.amf_contexts[amf_id][1])
+        new_t = (ue_id, self.amf_contexts[amf_id][1], None)
         self.amf_contexts[amf_id] = new_t
 
     ####################################################################
@@ -472,7 +474,7 @@ class UeContextsMap:
                 self.disassociate_amf_context_with_ue(ue)
 
         # tuple is ue_context_id, amf_info
-        self.amf_contexts[amf_context_id] = ( None, amf_info )
+        self.amf_contexts[amf_context_id] = (None, amf_info, None)
 
         # Associate AMF with UE context.
         # Try NGAP-Ids, the TMSI
@@ -512,7 +514,7 @@ class UeContextsMap:
             ueid = self.getid_by_ngap_ue_ids(t[1].ngap_ids.ran_ue_ngap_id, t[1].ngap_ids.amf_ue_ngap_id)
 
             if ueid is not None:
-                self.amf_contexts[amf_context_id] = (ueid, t[1])  # update the ue_context_id in the tuple
+                self.amf_contexts[amf_context_id] = (ueid, t[1], None)  # update the ue_context_id in the tuple
 
                 # update UE with the AMF context ID
                 ue = self.contexts[ueid]
@@ -542,7 +544,7 @@ class UeContextsMap:
                 ueid = self.getid_by_tmsi(guti.mtmsi)
 
                 if ueid is not None:
-                    self.amf_contexts[amf_context_id] = (ueid, t[1])  # update the ue_context_id in the tuple
+                    self.amf_contexts[amf_context_id] = (ueid, t[1], None)  # update the ue_context_id in the tuple
 
                     # update UE with the AMF context ID
                     ue = self.contexts[ueid]
@@ -564,7 +566,7 @@ class UeContextsMap:
 
         t = self.amf_contexts[ue.core_amf_context_index]
 
-        self.amf_contexts[ue.core_amf_context_index] = (None, t[1])  # update the ue_context_id in the tuple
+        self.amf_contexts[ue.core_amf_context_index] = (None, t[1], self.now)  # update the ue_context_id in the tuple
 
         # update UE to clear the AMF context ID
         ue.core_amf_context_index = None
@@ -913,6 +915,8 @@ class UeContextsMap:
         if tmsi is None:
             return None
 
+         # Try current GUTI
+
         # filter contexts by current_guti.mtmsi
         filtered_contexts = {
             k: v for k, v in self.amf_contexts.items()
@@ -1011,7 +1015,7 @@ class UeContextsMap:
         return ue_id, self.contexts[ue_id].get_bearer_NoSrcCheck(cucp_ue_e1ap_id)
 
     ####################################################################
-    def hook_du_ue_ctx_creation(self, du_src: str, du_index: int, plmn: int, pci: int, crnti: int, tac: int, nci: int) -> None:
+    def hook_du_ue_ctx_creation(self, du_src: str, du_index: int, plmn: int, pci: int, crnti: int, tac: int, nci: int,  now: dt.datetime = None) -> None:
         """
         Create a UE context in the DU subsystem.
 
@@ -1027,6 +1031,8 @@ class UeContextsMap:
             print("-------------------------------------------------")
             print(f"hook_du_ue_ctx_creation: du_src={du_src} du_index={du_index} plmn={plmn} pci {pci} tc_rnti {crnti} tac {tac} nci={nci} ] ")
         
+        self.now = now if now is not None else dt.datetime.now(dt.UTC)
+
         # Check if the UE context with the du index already exists
         # It should not exist, do if it does, delete it
         ue_id = self.getid_by_du_index(du_src, du_index)
@@ -1051,10 +1057,12 @@ class UeContextsMap:
         self.context_create(ran_unique_ue_id, du_index=du_index, nci=nci, tac=tac)
 
     ####################################################################
-    def hook_du_ue_ctx_update_crnti(self, du_src: str, du_index: int, crnti: int) -> None:
+    def hook_du_ue_ctx_update_crnti(self, du_src: str, du_index: int, crnti: int, now: dt.datetime = None) -> None:
         if self.dbg:
             print("-------------------------------------------------")
             print(f"hook_du_ue_ctx_update_crnti: du_src {du_src} du_index {du_index} crnti {crnti}")
+
+        self.now = now if now is not None else dt.datetime.now(dt.UTC)
 
         ue_id = self.getid_by_du_index(du_src, du_index)
         if ue_id is None:
@@ -1066,16 +1074,19 @@ class UeContextsMap:
             crnti=crnti)
 
     ####################################################################
-    def hook_du_ue_ctx_deletion(self, du_src: str, du_index: int) -> None:
+    def hook_du_ue_ctx_deletion(self, du_src: str, du_index: int, now: dt.datetime = None) -> None:
         if self.dbg:
             print("-------------------------------------------------")
             print(f"hook_du_ue_ctx_deletion: du_src {du_src} du_index {du_index}")
+
+        self.now = now if now is not None else dt.datetime.now(dt.UTC)
+
         ue_id = self.getid_by_du_index(du_src, du_index)
         if ue_id is not None:
             self.clear_du_index(ue_id)
 
     ####################################################################
-    def hook_cucp_uemgr_ue_add(self, cucp_src: str, cucp_index: str, plmn: int, pci: int, crnti: int) -> None:
+    def hook_cucp_uemgr_ue_add(self, cucp_src: str, cucp_index: str, plmn: int, pci: int, crnti: int, now: dt.datetime = None) -> None:
         """
         Create a UE context in the CU-CP subsystem.
 
@@ -1088,6 +1099,8 @@ class UeContextsMap:
         if self.dbg:
             print("-------------------------------------------------")
             print(f"hook_cucp_uemgr_ue_add: cucp_src={cucp_src} cucp_index {cucp_index} plmn {plmn} pci={pci} rnti={crnti}")
+
+        self.now = now if now is not None else dt.datetime.now(dt.UTC)
 
         # Check if a UE context with the cucp index already exists
         # It should not, so delete it if it does 
@@ -1127,16 +1140,19 @@ class UeContextsMap:
                     print(f"UE context updated: {self.contexts[ue_id]}")
 
     ####################################################################
-    def hook_cucp_uemgr_ue_remove(self, cucp_src: str, cucp_index: int) -> None:
+    def hook_cucp_uemgr_ue_remove(self, cucp_src: str, cucp_index: int, now: dt.datetime = None) -> None:
         if self.dbg:
             print("-------------------------------------------------")
             print(f"hook_cucp_uemgr_ue_remove: cucp_src {cucp_src} cucp_index {cucp_index}")
+
+        self.now = now if now is not None else dt.datetime.now(dt.UTC)
+
         ue_id = self.getid_by_cucp_index(cucp_src, cucp_index)
         if ue_id is not None:
             self.clear_cucp_index(ue_id)
 
     ####################################################################
-    def hook_e1_cucp_bearer_context_setup(self, cucp_src: str, cucp_index: int, gnb_cucp_ue_e1ap_id: int) -> None:
+    def hook_e1_cucp_bearer_context_setup(self, cucp_src: str, cucp_index: int, gnb_cucp_ue_e1ap_id: int, now: dt.datetime = None) -> None:
         """
         Handle the E1AP Bearer Context Setup for CU-CP.
 
@@ -1147,6 +1163,8 @@ class UeContextsMap:
         if self.dbg:
             print("-------------------------------------------------")
             print(f"hook_e1_cucp_bearer_context_setup, cucp_src={cucp_src} cucp_index={cucp_index} gnb_cucp_ue_e1ap_id={gnb_cucp_ue_e1ap_id}")
+
+        self.now = now if now is not None else dt.datetime.now(dt.UTC)
 
         gnb_cucp_ue_e1ap_id_tup = (cucp_src, gnb_cucp_ue_e1ap_id)
 
@@ -1170,7 +1188,7 @@ class UeContextsMap:
         self.set_cucp_ue_e1ap_id(ue_id, gnb_cucp_ue_e1ap_id_tup)
 
     ####################################################################
-    def hook_e1_cuup_bearer_context_setup(self, cuup_src: str, cuup_index: int, gnb_cucp_ue_e1ap_id: int, gnb_cuup_ue_e1ap_id: int, success: bool) -> None:
+    def hook_e1_cuup_bearer_context_setup(self, cuup_src: str, cuup_index: int, gnb_cucp_ue_e1ap_id: int, gnb_cuup_ue_e1ap_id: int, success: bool, now: dt.datetime = None) -> None:
         """
         Handle the E1AP Bearer Context Setup for CU-UP.
 
@@ -1182,6 +1200,8 @@ class UeContextsMap:
         if self.dbg:
             print("-------------------------------------------------")
             print(f"hook_e1_cuup_bearer_context_setup success={success}, cuup_src={cuup_src} cuup_index={cuup_index}  gnb_cu_cp_ue_e1ap_id={gnb_cucp_ue_e1ap_id} gnb_cu_up_ue_e1ap_id={gnb_cuup_ue_e1ap_id}")
+
+        self.now = now if now is not None else dt.datetime.now(dt.UTC)
 
         cuup_index = UniqueIndex(cuup_src, cuup_index)
         gnb_cuup_ue_e1ap_id_tup = (cuup_src, gnb_cuup_ue_e1ap_id)
@@ -1229,10 +1249,12 @@ class UeContextsMap:
         self.set_cuup_index(ue_id, cuup_index)
 
     #####################################################################
-    def hook_e1_cuup_bearer_context_release(self, cuup_src: str, cuup_index: int, cucp_ue_e1ap_id: int, cuup_ue_e1ap_id: int, success: bool) -> None:
+    def hook_e1_cuup_bearer_context_release(self, cuup_src: str, cuup_index: int, cucp_ue_e1ap_id: int, cuup_ue_e1ap_id: int, success: bool, now: dt.datetime = None) -> None:
         if self.dbg:
             print("-------------------------------------------------")
             print(f"hook_e1_cuup_bearer_context_release success {success} cuup_src {cuup_src} cuup_index {cuup_index} gnb_cucp_ue_e1ap_id={cucp_ue_e1ap_id} gnb_cuup_ue_e1ap_id={cuup_ue_e1ap_id}")
+
+        self.now = now if now is not None else dt.datetime.now(dt.UTC)
 
         cuup_index = UniqueIndex(cuup_src, cuup_index)
 
@@ -1249,10 +1271,13 @@ class UeContextsMap:
             self.clear_cuup_ue_e1ap_id(ue_id, cuup_ue_e1ap_id_tup)
 
     ####################################################################
-    def add_tmsi(self, cucp_src: str, cucp_index: int, tmsi: int) -> None:
+    def add_tmsi(self, cucp_src: str, cucp_index: int, tmsi: int, now: dt.datetime = None) -> None:
         if self.dbg:
             print("-------------------------------------------------")
             print(f"add_tmsi: cucp_src={cucp_src} cucp_index={cucp_index} tmsi={tmsi}")
+
+        self.now = now if now is not None else dt.datetime.now(dt.UTC)
+
         ue_id = self.getid_by_cucp_index(cucp_src, cucp_index)
         if ue_id is None:
             if self.dbg:
@@ -1262,10 +1287,12 @@ class UeContextsMap:
         self.associate_ue_context_with_amf_tmsi(ue_id)
 
     #####################################################################
-    def hook_ngap_procedure_started(self, cucp_src: str, cucp_index: int, procedure: int, ngap_ran_ue_id, ngap_amf_ue_id: int = None) -> None:
+    def hook_ngap_procedure_started(self, cucp_src: str, cucp_index: int, procedure: int, ngap_ran_ue_id, ngap_amf_ue_id: int = None, now: dt.datetime = None) -> None:
         if self.dbg:
             print("-------------------------------------------------")
             print(f"hook_ngap_procedure_started: cucp_src={cucp_src} cucp_index={cucp_index} ngap_ran_ue_id={ngap_ran_ue_id} ngap_amf_ue_id={ngap_amf_ue_id}")
+
+        self.now = now if now is not None else dt.datetime.now(dt.UTC)
 
         # get by ran_ue_id
         # if a UE has this already, and it is a different index, delete it from that UE
@@ -1288,10 +1315,12 @@ class UeContextsMap:
         self.contexts[ue_id].ngap_ids = RanNgapUeIds(ngap_ran_ue_id, ngap_amf_ue_id)
 
     #####################################################################
-    def hook_ngap_procedure_completed(self, cucp_src: str, cucp_index: int, procedure: int, success: bool, ngap_ran_ue_id: int, ngap_amf_ue_id: int) -> None:
+    def hook_ngap_procedure_completed(self, cucp_src: str, cucp_index: int, procedure: int, success: bool, ngap_ran_ue_id: int, ngap_amf_ue_id: int, now: dt.datetime = None) -> None:
         if self.dbg:
             print("-------------------------------------------------")
             print(f"hook_ngap_procedure_completed: cucp_src={cucp_src} cucp_index={cucp_index} success={success} ngap_ran_ue_id={ngap_ran_ue_id} ngap_amf_ue_id={ngap_amf_ue_id}")
+
+        self.now = now if now is not None else dt.datetime.now(dt.UTC)
 
         # get by ran_ue_id
         # if a UE has this already, and it is a different index, delete it from that UE
@@ -1329,10 +1358,12 @@ class UeContextsMap:
 
 
     #####################################################################
-    def hook_ngap_reset(self, cucp_src: str, ngap_ran_ue_id: int = None, ngap_amf_ue_id: int = None) -> None:
+    def hook_ngap_reset(self, cucp_src: str, ngap_ran_ue_id: int = None, ngap_amf_ue_id: int = None, now: dt.datetime = None) -> None:
         if self.dbg:
             print("-------------------------------------------------")
             print(f"hook_ngap_reset: cucp_src={cucp_src} cucp_index={cucp_index} ngap_ran_ue_id={ngap_ran_ue_id} ngap_amf_ue_id={ngap_amf_ue_id}")
+
+        self.now = now if now is not None else dt.datetime.now(dt.UTC)
 
         if ngap_ran_ue_id is None and ngap_amf_ue_id is None:
             # reset all contexts for this cucp
@@ -1369,7 +1400,8 @@ class UeContextsMap:
                               current_guti_plmn: str = None, current_guti_amf_id: str = None, current_guti_m_tmsi: int = None,
                               next_guti_plmn: str = None, next_guti_amf_id: str = None, next_guti_m_tmsi: int = None,
                               tai_plmn: str = None, tai_tac: str = None,
-                              cgi_plmn: str = None, cgi_cellid: str = None) -> None:
+                              cgi_plmn: str = None, cgi_cellid: str = None,
+                              now: dt.datetime = None) -> None:
 
         if self.dbg:
             print(f"hook_core_amf_info: ran_ue_ngap_id={ran_ue_ngap_id}, amf_ue_ngap_id={amf_ue_ngap_id}, "
@@ -1381,6 +1413,7 @@ class UeContextsMap:
                                 f"tai_plmn={tai_plmn}, tai_tac={tai_tac}, "
                                 f"cgi_plmn={cgi_plmn}, cgi_cellid={cgi_cellid}")
             
+        self.now = now if now is not None else dt.datetime.now(dt.UTC)
 
         if suci is None and supi is None and home_plmn_id is None and \
            current_guti_plmn is None and current_guti_amf_id is None and current_guti_m_tmsi is None and \
@@ -1402,7 +1435,8 @@ class UeContextsMap:
                               current_guti_plmn: str = None, current_guti_amf_id: str = None, current_guti_m_tmsi: int = None,
                               next_guti_plmn: str = None, next_guti_amf_id: str = None, next_guti_m_tmsi: int = None,
                               tai_plmn: str = None, tai_tac: str = None,
-                              cgi_plmn: str = None, cgi_cellid: str = None) -> None:
+                              cgi_plmn: str = None, cgi_cellid: str = None,
+                              now: dt.datetime = None) -> None:
 
         if self.dbg:
             print(f"hook_core_amf_info_remove_ran: suci={suci}, supi={supi}, home_plmn_id={home_plmn_id}, "
@@ -1413,6 +1447,8 @@ class UeContextsMap:
                                 f"tai_plmn={tai_plmn}, tai_tac={tai_tac}, "
                                 f"cgi_plmn={cgi_plmn}, cgi_cellid={cgi_cellid}")
             
+        self.now = now if now is not None else dt.datetime.now(dt.UTC)
+
         # get UE by any of the unique identifying parameters
         amf_context_id = self.get_amfid_by_core_amf_info(suci, supi, 
                                current_guti_plmn, current_guti_amf_id, current_guti_m_tmsi,
@@ -1430,6 +1466,21 @@ class UeContextsMap:
             return
 
         self.disassociate_amf_context_with_ue(ue)
+
+    #####################################################################
+    def process_timeout(self, now: dt.datetime = None) -> None:
+
+        self.now = now if now is not None else dt.datetime.now(dt.UTC)
+
+        # filter contexts by current_guti.mtmsi
+        filtered_contexts = {
+            k: v for k, v in self.amf_contexts.items()
+            if (v[2] is not None) and ((v[2]+self.amf_tmsi_expiry_secs) <= self.now)
+        }
+
+        if len(filtered_contexts) > 0:
+            for k in filtered_contexts.keys():
+                self.amf_context_delete(k)
 
     ####################################################################
     def get_num_contexts(self) -> int:
@@ -2752,7 +2803,7 @@ if __name__ == "__main__":
     num_amf_contexts_associated_with_ue = sum(1 for v in s.amf_contexts.values() if v[0] is not None)
     assert num_amf_contexts_associated_with_ue == 1
 
-    #delete the UE
+    # delete the UE
     ue_id = s.getid_by_du_index(du_src, du_index)
     ue = s.getue_by_id(ue_id)
     s.hook_du_ue_ctx_deletion(  du_src, du_index )
@@ -2796,6 +2847,8 @@ if __name__ == "__main__":
     # print("# delete s and start fresh")
     s = UeContextsMap(dbg=dbg)
 
+    tnow = dt.datetime.now(dt.UTC)
+
     ## re-add UE
     s.hook_du_ue_ctx_creation(  du_src, 
                                 du_index,
@@ -2803,13 +2856,15 @@ if __name__ == "__main__":
                                 pci,
                                 crnti,
                                 tac,
-                                nci)
+                                nci, 
+                                now=tnow)
     s.hook_cucp_uemgr_ue_add(   cucp_src, 
                                 cucp_index,
                                 plmn,
                                 pci,
-                                crnti)
-    s.add_tmsi(cucp_src, cucp_index, tmsi) 
+                                crnti, 
+                                now=tnow)
+    s.add_tmsi(cucp_src, cucp_index, tmsi, now=tnow) 
 
     core_info_example2 = {
         "suci": "suci-0-001-01-0000-0-0-1230010004", "supi": "imsi-001011230010004", "home_plmn_id": "001F01", 
@@ -2834,8 +2889,10 @@ if __name__ == "__main__":
         tai_plmn=a.get("nr_tai", {}).get("plmn_id", None),
         tai_tac=a.get("nr_tai", {}).get("tac", None),
         cgi_plmn=a.get("nr_cgi", {}).get("plmn_id", None),
-        cgi_cellid=a.get("nr_cgi", {}).get("cell_id", None)
+        cgi_cellid=a.get("nr_cgi", {}).get("cell_id", None),
+        now=tnow
     )
+
     ue_id = s.getid_by_du_index(du_src, du_index)
     ctx = s.getue_by_id(ue_id)
     assert ctx is not None
@@ -2849,8 +2906,26 @@ if __name__ == "__main__":
     amf_info = s.amf_contexts[amf_id]
     assert amf_info[0] == ue_id
 
+    ue_id = s.getid_by_du_index(du_src, du_index)
+    ue = s.getue_by_id(ue_id)
+    s.hook_du_ue_ctx_deletion(  du_src, du_index, now=tnow)
+    s.hook_cucp_uemgr_ue_remove(   cucp_src, cucp_index, now=tnow)
 
+    s.process_timeout(now=tnow+dt.timedelta(seconds=100))
+    num_amf_contexts_associated_with_ue = sum(1 for v in s.amf_contexts.values() if v[0] is not None)
+    assert num_amf_contexts_associated_with_ue == 0
+    num_amf_contexts_disassociated_with_ue = sum(1 for v in s.amf_contexts.values() if v[2] is not None)
+    assert len(s.amf_contexts) == 1
+    assert num_amf_contexts_disassociated_with_ue == 1
 
+    s.process_timeout(now=tnow+dt.timedelta(seconds=21599))
+    num_amf_contexts_disassociated_with_ue = sum(1 for v in s.amf_contexts.values() if v[2] is not None)
+    assert len(s.amf_contexts) == 1
+    assert num_amf_contexts_disassociated_with_ue == 1
+
+    s.process_timeout(now=tnow+dt.timedelta(seconds=21600))
+    num_amf_contexts_disassociated_with_ue = sum(1 for v in s.amf_contexts.values() if v[2] is not None)
+    assert len(s.amf_contexts) == 0
 
     print("\n\n------ All tests passed ---------")
 
