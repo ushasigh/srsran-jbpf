@@ -11,6 +11,7 @@ import threading
 from dataclasses import dataclass, asdict
 from typing import Dict
 from enum import Enum
+import traceback
 
 JRTC_APP_PATH = os.environ.get("JRTC_APP_PATH")
 if JRTC_APP_PATH is None:
@@ -180,6 +181,7 @@ class JsonUDPServer:
                         self.json_handler_func(data.decode())
                 except Exception as e:
                     print(f"JsonUDPServer: udp_server: error: {e}", flush=True)
+                    traceback.print_exc()
         finally:
             if self.sock:
                 self.sock.close()

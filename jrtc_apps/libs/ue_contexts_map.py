@@ -347,7 +347,7 @@ class UeContextsMap:
         # to ensure consistency, disassociate the currently linked UE.
         ue2_id = self.amf_contexts[amf_id][0]
         if (ue2_id is not None) and (ue_id != ue2_id):
-            ue2 = s.getue_by_id(ue2_id)
+            ue2 = self.getue_by_id(ue2_id)
             self.disassociate_amf_context_with_ue(ue2)
 
         # point to AMF from UE
@@ -382,7 +382,7 @@ class UeContextsMap:
         # to ensure consistency, disassociate the currently linked UE.
         ue2_id = self.amf_contexts[amf_id][0]
         if (ue2_id is not None) and (ue_id != ue2_id):
-            ue2 = s.getue_by_id(ue2_id)
+            ue2 = self.getue_by_id(ue2_id)
             self.disassociate_amf_context_with_ue(ue2)
 
         # point to AMF from UE
@@ -470,7 +470,7 @@ class UeContextsMap:
             # to ensure consistency, disassociate the currently linked UE.
             ue_id = t[0]
             if ue_id is not None:
-                ue = s.getue_by_id(ue_id)
+                ue = self.getue_by_id(ue_id)
                 self.disassociate_amf_context_with_ue(ue)
 
         # tuple is ue_context_id, amf_info
@@ -760,9 +760,7 @@ class UeContextsMap:
 
     #####################################################################
     def getue_by_id(self, ue_id: int) -> UeContext:
-        x = self.contexts.get(ue_id, None)
-        return x
-        #return self.contexts.get(ue_id, None)
+        return self.contexts.get(ue_id, None)
     
     #####################################################################
     def getuectx(self, ue_id: int) -> UeContext:
@@ -1240,7 +1238,7 @@ class UeContextsMap:
         # if this is a failure, clear the cucp_ue_e1ap_id
         if success is False:
             # remove the cucp_ue_e1ap_id from the context
-            s.clear_cucp_ue_e1ap_id(ue_id, bearer[0])
+            self.clear_cucp_ue_e1ap_id(ue_id, bearer[0])
             return
 
         # set the cuup_ue_e1ap_id
