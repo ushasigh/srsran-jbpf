@@ -17,9 +17,9 @@
 
 #include "../utils/misc_utils.h"
 #include "../utils/hashmap_utils.h"
+#include "mac_helpers.h"
 
 
-#define MAX_NUM_UE 32
 #define MAX_NUM_UE_CELL (128)
 
 

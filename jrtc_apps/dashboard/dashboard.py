@@ -25,6 +25,8 @@ import jrtc_app
 from jrtc_app import *
 
 
+import datetime as dt
+
 
 # always include the logger modules
 logger = sys.modules.get('logger')
@@ -275,6 +277,8 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
     try:
         with app_lock:
 
+            timestamp = dt.datetime.now(dt.timezone.utc).isoformat("T", "microseconds")
+
             ##########################################################################
             # main part of function
             if timeout:
@@ -283,10 +287,12 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                 state.logger.process_timeout()
 
             else:
-                
+
                 stream_id = data_entry.stream_id
                 deviceid = jrtc_router_stream_id_get_device_id(stream_id)
                 hostname = os.environ.get("HOSTNAME", "")
+
+                # print(f"{timestamp} :  got data, stream_idx: {stream_idx}, stream_id: {stream_id}, deviceid: {deviceid}")
 
                 output = {}
 
@@ -1358,13 +1364,6 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                                 "avg": stat.time_advance_offset.total / stat.time_advance_offset.count,
                                 "min": stat.time_advance_offset.min,
                                 "max": stat.time_advance_offset.max
-                            }
-
-                        if stat.harq.ack_count > 0 or stat.harq.nack_count > 0 or stat.harq.dtx_count > 0:
-                            s["harq"] = {
-                                "ack": stat.harq.ack_count,
-                                "nack": stat.harq.nack_count,
-                                "dtx": stat.harq.dtx_count
                             }
 
                         if stat.has_csi:

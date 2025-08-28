@@ -5,7 +5,6 @@
 
 #include "jbpf_srsran_contexts.h"
 #include "srsran/scheduler/scheduler_feedback_handler.h"
-#include "srsran/mac/phr_report.h"
 
 #include "mac_sched_phr_stats.pb.h"
 

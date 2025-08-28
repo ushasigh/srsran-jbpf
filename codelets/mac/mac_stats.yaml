@@ -59,8 +59,6 @@ codelet_descriptor:
             package_path: ${JBPF_CODELETS}/mac/mac_sched_harq_stats.pb
             msg_name: harq_stats
 
-
-
   - codelet_name: mac_sched_crc_stats
     codelet_path: ${JBPF_CODELETS}/mac/mac_sched_crc_stats.o
     hook_name: mac_sched_crc_indication
@@ -151,9 +149,6 @@ codelet_descriptor:
       - map_name: ul_harq_not_empty
         linked_codelet_name: mac_stats_collect_harq
         linked_map_name: ul_harq_not_empty
-
-
-
 
   - codelet_name: mac_sched_ue_deletion
     codelet_path: ${JBPF_CODELETS}/mac/mac_sched_ue_deletion.o
