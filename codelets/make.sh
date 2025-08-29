@@ -3,7 +3,7 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
 
-SDK_IMAGE_TAG=latest
+SDK_IMAGE_TAG=srsran25.04-latest
 CURRENT_DIR=$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )
 source $(dirname $CURRENT_DIR)/set_vars.sh
 
