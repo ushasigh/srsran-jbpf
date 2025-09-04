@@ -140,67 +140,6 @@ struct jbpf_load_map_def SEC("maps") uci_not_empty = {
 
 
 
-// //// DL HARQ
-
-// jbpf_ringbuf_map(output_map_dl_harq, harq_stats, 1000);
-
-// struct jbpf_load_map_def SEC("maps") last_time_dl_harq = {
-//     .type = JBPF_MAP_TYPE_ARRAY,
-//     .key_size = sizeof(int),
-//     .value_size = sizeof(uint64_t),
-//     .max_entries = 1,
-// };
-
-// // We store stats in this (single entry) map across runs
-// struct jbpf_load_map_def SEC("maps") stats_map_dl_harq = {
-//     .type = JBPF_MAP_TYPE_ARRAY,
-//     .key_size = sizeof(int),
-//     .value_size = sizeof(harq_stats),
-//     .max_entries = 1,
-// };
-
-// DEFINE_PROTOHASH_32(dl_harq_hash, MAX_NUM_UE);
-
-// struct jbpf_load_map_def SEC("maps") dl_harq_not_empty = {
-//     .type = JBPF_MAP_TYPE_ARRAY,
-//     .key_size = sizeof(int),
-//     .value_size = sizeof(uint32_t),
-//     .max_entries = 1,
-// };
-
-
-
-// //// UL HARQ
-
-// jbpf_ringbuf_map(output_map_ul_harq, harq_stats, 1000);
-
-// struct jbpf_load_map_def SEC("maps") last_time_ul_harq = {
-//     .type = JBPF_MAP_TYPE_ARRAY,
-//     .key_size = sizeof(int),
-//     .value_size = sizeof(uint64_t),
-//     .max_entries = 1,
-// };
-
-// // We store stats in this (single entry) map across runs
-// struct jbpf_load_map_def SEC("maps") stats_map_ul_harq = {
-//     .type = JBPF_MAP_TYPE_ARRAY,
-//     .key_size = sizeof(int),
-//     .value_size = sizeof(harq_stats),
-//     .max_entries = 1,
-// };
-
-// DEFINE_PROTOHASH_32(ul_harq_hash, MAX_NUM_UE);
-
-// struct jbpf_load_map_def SEC("maps") ul_harq_not_empty = {
-//     .type = JBPF_MAP_TYPE_ARRAY,
-//     .key_size = sizeof(int),
-//     .value_size = sizeof(uint32_t),
-//     .max_entries = 1,
-// };
-
-
-
-
 
 //#define DEBUG_PRINT 1
 
