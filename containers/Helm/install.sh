@@ -120,16 +120,11 @@ else
 fi
 
 
-
-echo "############################"
-echo "############################"
-echo SRSRAN_IMAGE_TAG $SRSRAN_IMAGE_TAG
 # IMAGES
 SRSRAN_IMAGES="\
 --set-string         image.srs_jbpf=ghcr.io/microsoft/jrtc-apps/srs-jbpf:$SRSRAN_IMAGE_TAG \
 --set-string         image.srs_jbpf_proxy=ghcr.io/microsoft/jrtc-apps/srs-jbpf-sdk:$SRSRAN_IMAGE_TAG \
 "
-echo SRSRAN_IMAGES = $SRSRAN_IMAGES
 
 
 kubectl create namespace ran || true
