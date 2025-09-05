@@ -58,7 +58,6 @@ uint64_t jbpf_main(void *state)
     uint64_t zero_index = 0;
     uint64_t timestamp;
 
-    jbpf_printf_debug("fapi dl conf START\n");
     ctx = (struct jbpf_stats_ctx *)state;
 
     // We don't want to send anything if no data is collected
