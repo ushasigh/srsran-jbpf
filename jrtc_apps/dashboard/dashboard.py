@@ -1312,7 +1312,7 @@ def app_handler(timeout: bool, stream_idx: int, data_entry: struct_jrtc_router_d
                             s = {
                                 "ueid": ueid,
                                 "ue_ctx": None if uectx is None else uectx.concise_dict(),
-                                "serv_cell_id": stat.serv_cell_id,
+                                "cell_id": stat.cell_id,
                                 "ph_min": stat.ph_min,
                                 "ph_max": stat.ph_max,
                                 "p_cmax_min": stat.p_cmax_min,
