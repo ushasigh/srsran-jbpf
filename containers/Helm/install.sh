@@ -2,7 +2,7 @@
 
 
 CURRENT_DIR=$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )
-source $(dirname $(dirname "$PWD"))/set_vars.sh
+source $(dirname $(dirname "$CURRENT_DIR"))/set_vars.sh
 
 # Helper function
 print_image_tag() {
