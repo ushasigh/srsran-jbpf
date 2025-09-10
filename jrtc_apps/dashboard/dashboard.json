@@ -60,8 +60,8 @@
             "id": "9f8e4b1e-4b32-4262-b177-34f40b628d63",
             "cellValue": "selectedTab",
             "linkTarget": "parameter",
-            "linkLabel": "Overview",
-            "subTarget": "Overview",
+            "linkLabel": "UE Status",
+            "subTarget": "UEStatus",
             "preText": "Traffic Info",
             "style": "link"
           },
@@ -2035,7 +2035,7 @@
       "conditionalVisibility": {
         "parameterName": "selectedTab",
         "comparison": "isEqualTo",
-        "value": "Overview"
+        "value": "UEStatus"
       },
       "customWidth": "100",
       "name": "UEStatusGroup"
