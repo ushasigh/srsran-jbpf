@@ -141,9 +141,6 @@ uint64_t jbpf_main(void* state)
     uci_out->stats[ind % MAX_NUM_UE].time_advance_offset.min = UINT32_MAX;
     uci_out->stats[ind % MAX_NUM_UE].time_advance_offset.max = 0;
     uci_out->stats[ind % MAX_NUM_UE].has_time_advance_offset = false;
-    uci_out->stats[ind % MAX_NUM_UE].harq.ack_count = 0;
-    uci_out->stats[ind % MAX_NUM_UE].harq.nack_count = 0;
-    uci_out->stats[ind % MAX_NUM_UE].harq.dtx_count = 0;
     uci_out->stats[ind % MAX_NUM_UE].csi.ri.count = 0;
     uci_out->stats[ind % MAX_NUM_UE].csi.ri.total = 0;
     uci_out->stats[ind % MAX_NUM_UE].csi.ri.min = UINT32_MAX;
