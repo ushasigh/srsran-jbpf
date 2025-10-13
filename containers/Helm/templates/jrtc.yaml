@@ -14,9 +14,6 @@ data:
       jbpf_path: {{ $.Values.jbpf.cfg.jbpf_run_path }}
     jrtc_router_config:
       ipc_name: {{ $.Values.jbpf.cfg.jbpf_ipc_mem_name }}
-    logging:
-      jrtc_level: {{ $.Values.jrtc_controller.logging.jrtc_level }}
-      jbpf_level: {{ $.Values.jrtc_controller.logging.jbpf_level }}
 
 ---
 # DNS name: jrtc-service.{{ .Release.Namespace }}.svc.cluster.local
@@ -63,22 +60,23 @@ spec:
 
 
 
-{{- if $.Values.udp_forwarder.enabled }}
+{{- if $.Values.jrtc_controller.app_json_input.enabled }}
 ---
-# DNS name: jrtc-udp-input.{{ .Release.Namespace }}.svc.cluster.local
+# DNS name: jrtc-json-input.{{ .Release.Namespace }}.svc.cluster.local
 apiVersion: v1
 kind: Service
 metadata:
-  name: jrtc-udp-input
+  name: jrtc-json-input
   namespace: {{ .Release.Namespace }}
   labels:
     app: jrtc
 spec:
-  type: ClusterIP
+  type: NodePort
   ports:
     - name: udp
-      port: {{ $.Values.udp_forwarder.port }}
-      targetPort: {{ $.Values.udp_forwarder.port }}
+      port: 20790
+      targetPort: 20790
+      nodePort: {{ .Values.jrtc_controller.app_json_input.port }}
       protocol: UDP
   selector:
     app: jrtc-service
@@ -112,9 +110,12 @@ spec:
       serviceAccountName: srs-service-account
       terminationGracePeriodSeconds: 0
       volumes:
+      # ushasi - Fixed shared memory for k3d environment
       - name: dshm
         hostPath:
-          path: /dev/shm
+          path: /tmp/shared-memory
+          type: DirectoryOrCreate
+      # ushasi - End of shared memory fix
       - name: hugepage
         hostPath:
           path: /dev/hugepages
@@ -179,8 +180,6 @@ spec:
         tty: true
         stdin: true
         env:
-          - name: HOSTNAME
-            value: "{{ $.Values.HOSTNAME }}"
           - name: JRTC_PATH
             value: "/jrtc"
           - name: JRTC_APP_PATH
@@ -193,17 +192,21 @@ spec:
           - name: LA_PRIMARY_KEY
             value: {{ $.Values.jrtc_controller.log_analytics.primary_key }}
         {{- end }}
-        {{- if $.Values.udp_forwarder.enabled }}
+        {{- if $.Values.jrtc_controller.app_json_input.enabled }}
           - name: JRTC_JSON_INPUT_PORT
-            value: "{{ $.Values.udp_forwarder.port }}"
+            value: "{{ .Values.jrtc_controller.app_json_input.port }}"
         {{- end }}
         resources:
           limits:
             memory: {{ $.Values.resources.jrtc.limits.memory }}
-            hugepages-1Gi: {{ $.Values.resources.jrtc.limits.hugepages2Gi }}
+            {{- if $.Values.resources.jrtc.limits.hugepages2Gi }}
+            hugepages-2Gi: {{ $.Values.resources.jrtc.limits.hugepages2Gi }}
+            {{- end }}
           requests:
             memory: {{ $.Values.resources.jrtc.limits.memory }}
-            hugepages-1Gi: {{ $.Values.resources.jrtc.limits.hugepages2Gi }}
+            {{- if $.Values.resources.jrtc.requests.hugepages2Gi }}
+            hugepages-2Gi: {{ $.Values.resources.jrtc.requests.hugepages2Gi }}
+            {{- end }}
 
 
 

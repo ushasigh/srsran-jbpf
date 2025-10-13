@@ -14,27 +14,34 @@ LABEL org.opencontainers.image.authors="Microsoft Corporation"
 LABEL org.opencontainers.image.licenses="MIT"
 LABEL org.opencontainers.image.description="SRSRAN with JBPF support"
 
-ADD srsRAN_Project /src 
+ADD containers/Docker/srsRAN_Project /src 
+######################### Ushasi: Add codelets, utils, .env, set_vars.sh
+ADD codelets /out/codelets
+ADD utils /out/utils
+ADD .env /out/.env
+ADD set_vars.sh /out/set_vars.sh
+#########################
 
 ENV PKG_CONFIG_PATH=/opt/dpdk-23.11/build/meson-private:/usr/lib/pkgconfig:/usr/local/lib/pkgconfig:/usr/local/lib64/pkgconfig:$PKG_CONFIG_PATH
 
 # extra modules required when ENABLE_JBPF=ON
 RUN tdnf -y install yaml-cpp-static boost-devel clang doxygen
 
+RUN tdnf update -y && tdnf install -y zeromq-devel
+
 WORKDIR /src
+RUN rm -rf build
 RUN mkdir build
 WORKDIR /src/build
 # Temporary fix for failing jbpf tests in RELEASE mode. To be removed when jbpf tests are fixed.
 #RUN cmake .. -DENABLE_DPDK=True -DENABLE_JBPF=ON -DINITIALIZE_SUBMODULES=OFF
 RUN cmake .. -DENABLE_DPDK=True -DENABLE_JBPF=ON -DINITIALIZE_SUBMODULES=OFF -DCMAKE_C_FLAGS="-Wno-error=unused-variable"
-RUN make -j VERBOSE=1
+RUN make -j
 RUN make install
 
-ADD Scripts /opt/Scripts
+ADD containers/Docker/Scripts /opt/Scripts
 WORKDIR /opt/Scripts
 RUN pip3 install -r requirements.txt
-
-ADD udp_forwarder /udp_forwarder 
 
 ENTRYPOINT [ "run.sh" ]
 

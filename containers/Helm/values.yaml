@@ -3,11 +3,13 @@
 # Declare variables to be passed into your templates.
 
 image:
-  srs_jbpf: ghcr.io/microsoft/jrtc-apps/srs-jbpf:srsran25.04-latest
-  srs_jbpf_proxy: ghcr.io/microsoft/jrtc-apps/srs-jbpf-sdk:srsran25.04-latest
+  # srs_jbpf: ghcr.io/microsoft/jrtc-apps/srs-jbpf:latest
+  # Ushasi - srs-jbpf-sdk:latest
+  srs_jbpf: ghcr.io/microsoft/jrtc-apps/srs-jbpf-sdk:latest
+  # Ushasi - srs-jbpf-sdk:latest
+  srs_jbpf_proxy: ghcr.io/microsoft/jrtc-apps/srs-jbpf-sdk:latest
   pullPolicy: Always
 
-HOSTNAME: ""
 
 resources:
   gnb:
@@ -53,7 +55,15 @@ resources:
       cpu: 1
       memory: 2Gi
       hugepages2Gi: 4Gi
-
+  # Ushasi - 5gc container resources
+  open5gs:
+    limits:
+      cpu: 1
+      memory: 1Gi
+    requests:
+      cpu: 500m
+      memory: 512Mi
+# Ushasi - End of 5gc container resources
 
 duConfigs:
   du1:
@@ -128,6 +138,8 @@ jbpf:
   # Currently, codelets can only be loaded from a local directory
   codelets_vol_mount: ""
   port: 30450
+  # Additional jBPF protobuf path
+  protobuf_path: ""   # defaults to /home/wcsng-23/gitrepos/srsran-jbpf/jbpf_protobuf
   cfg:  # the following is passed directly to srsRAN as it's Jbpf config
     jbpf_run_path: "/tmp"
     jbpf_namespace: "jbpf"
@@ -153,9 +165,6 @@ jrtc_controller:
   apps_vol_mount: ""
   image: ghcr.io/microsoft/jrt-controller/jrt-controller-azurelinux:latest
   port: 30500
-  logging:
-    jrtc_level: info
-    jbpf_level: info
   log_analytics:
     enabled: false
     workspace_id: "PUT_WORKSPACE_ID_HERE"
@@ -168,10 +177,9 @@ jrtc_controller:
     log_analytics:
       enabled: false
 
-udp_forwarder:
-  enabled: true
-  port: 30502
- 
+  app_json_input:
+    enabled: true
+    port: 30502
 
 
 # RANBooster configurations
@@ -257,3 +265,34 @@ log:
 
 # Also metrics, pcap
 
+
+# Ushasi - Additional volume mount configurations (from docker-compose)
+srsran:
+  # Source code path on host
+  source_path: "/home/wcsng-23/gitrepos/srsran-jbpf/containers/Docker/srsRAN_Project"
+
+jrtc:
+  # Utilities and scripts paths
+  utils_path: ""      # defaults to /home/wcsng-23/gitrepos/srsran-jbpf/utils
+  env_file_path: ""   # defaults to /home/wcsng-23/gitrepos/srsran-jbpf/.env
+  set_vars_path: ""   # defaults to /home/wcsng-23/gitrepos/srsran-jbpf/set_vars.sh
+
+# Extended jBPF configuration
+jbpf_extended:
+  # Additional jBPF protobuf path
+  protobuf_path: ""   # defaults to /home/wcsng-23/gitrepos/srsran-jbpf/jbpf_protobuf
+
+# Ushasi - 5gc (open5gs) configuration
+open5gs:
+  # Enable or disable Open5GS container in the pod
+  enabled: false       # Default: disabled
+  # Container image (built from open5gs context)
+  image: "open5gs/open5gs:v2.7.0"  # Can be overridden to use custom image
+  # Configuration directory path on host
+  config_path: ""  # defaults to /home/wcsng-23/gitrepos/srsran-jbpf/open5gs
+  # Environment file path (optional)
+  env_file: ""     # defaults to open5gs/open5gs.env
+  # Whether to expose NGAP and GTP-U ports (38412 SCTP, 2152 UDP)
+  expose_ngap: false
+
+# Ushasi - End of Additional volume mount configurations (from docker-compose)
