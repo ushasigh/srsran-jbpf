@@ -54,7 +54,7 @@ export KUBECONFIG=/home/wcsng-23/.config/k3d/kubeconfig-janus-cluster.yaml && he
 ### Terminal 2 - Core Network
 #### Open5gs deployment
 ```bash
-cd /home/wcsng-23/gitrepos/Janus-latest/Janus-v2/open5gs
+cd /home/wcsng-23/gitrepos/srsran-jbpf/open5gs
 export KUBECONFIG=/home/wcsng-23/.config/k3d/kubeconfig-janus-cluster.yaml && helm dependency list
 
 export KUBECONFIG=/home/wcsng-23/.config/k3d/kubeconfig-janus-cluster.yaml && kubectl create namespace open5gs
